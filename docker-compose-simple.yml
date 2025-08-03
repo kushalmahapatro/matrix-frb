@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database for Synapse
+  postgres:
+    image: postgres:15
+    container_name: matrix-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: matrix_password
+      POSTGRES_USER: matrix_user
+      POSTGRES_DB: synapse
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - matrix_network
+
+  # Synapse Matrix homeserver (simplified)
+  synapse:
+    image: matrixdotorg/synapse:latest
+    container_name: matrix-synapse
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    volumes:
+      - synapse_data:/data
+      - ./synapse/homeserver.yaml:/data/homeserver.yaml:ro
+    environment:
+      SYNAPSE_SERVER_NAME: localhost
+      SYNAPSE_REPORT_STATS: "no"
+      SYNAPSE_DB_HOST: postgres
+      SYNAPSE_DB_USER: matrix_user
+      SYNAPSE_DB_PASS: matrix_password
+      SYNAPSE_DB_NAME: synapse
+      SYNAPSE_ENABLE_REGISTRATION: "yes"
+      SYNAPSE_ENABLE_REGISTRATION_WITHOUT_VERIFICATION: "yes"
+    user: "991:991"
+    networks:
+      - matrix_network
+    ports:
+      - "8008:8008"  # HTTP API
+      - "8448:8448"  # HTTPS API
+
+  # Element Web client
+  element:
+    image: vectorim/element-web:latest
+    container_name: matrix-element
+    restart: unless-stopped
+    depends_on:
+      - synapse
+    environment:
+      ELEMENT_CONFIG: |
+        {
+          "default_server_config": {
+            "m.homeserver": {
+              "base_url": "http://synapse:8008"
+            },
+            "m.identity_server": {
+              "base_url": "https://vector.im"
+            }
+          },
+          "disable_guests": true,
+          "brand": "Local Matrix"
+        }
+    networks:
+      - matrix_network
+    ports:
+      - "8080:80"  # Element Web UI
+
+volumes:
+  postgres_data:
+  synapse_data:
+
+networks:
+  matrix_network:
+    driver: bridge 

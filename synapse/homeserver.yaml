@@ -1,0 +1,124 @@
+# Synapse homeserver configuration for local development
+# This file is used by the Docker container
+
+server_name: "localhost"
+pid_file: /data/homeserver.pid
+listeners:
+  - port: 8008
+    tls: false
+    type: http
+    x_forwarded: true
+    resources:
+      - names: [client, federation]
+        compress: false
+
+database:
+  name: psycopg2
+  args:
+    database: synapse
+    user: matrix_user
+    password: matrix_password
+    host: postgres
+    cp_min: 5
+    cp_max: 10
+
+# log_config: "/data/logging.yaml"
+media_store_path: "/data/media_store"
+registration_shared_secret: "your-registration-shared-secret-here"
+report_stats: false
+macaroon_secret_key: "your-macaroon-secret-key-here"
+form_secret: "your-form-secret-here"
+
+# Enable registration for development
+enable_registration: true
+enable_registration_without_verification: true
+
+# Disable rate limiting for development
+rc_message:
+  per_second: 0.2
+  burst_count: 10
+
+rc_registration:
+  per_second: 0.17
+  burst_count: 3
+
+rc_login:
+  address:
+    per_second: 0.17
+    burst_count: 3
+  account:
+    per_second: 0.17
+    burst_count: 3
+  failed_attempts:
+    per_second: 0.17
+    burst_count: 3
+
+# Federation settings (disabled for local development)
+federation_domain_whitelist: []
+
+# Trusted key servers
+trusted_key_servers:
+  - server_name: "matrix.org"
+
+# User directory search
+user_directory_search_all_users: true
+
+# Room directory
+room_directory_servers:
+  - "matrix.org"
+
+# Content repository
+max_upload_size: "50M"
+max_image_pixels: "32M"
+
+# Event cache
+event_cache_size: "10K"
+
+# Caches
+caches:
+  global_factor: 0.5
+  sync_response_cache_duration: 2m
+
+# Background tasks
+background_tasks:
+  enabled: true
+  use_threadpool: true
+
+# Experimental features
+experimental_features:
+  msc3266_enabled: true
+  msc2409_enabled: true
+  msc2716_enabled: true
+  msc3440_enabled: true
+  msc3706_enabled: true
+  msc3720_enabled: true
+  msc3869_enabled: true
+  msc3881_enabled: true
+  msc3882_enabled: true
+  msc3886_enabled: true
+  msc3916_enabled: true
+  msc3931_enabled: true
+  msc3952_enabled: true
+  msc3957_enabled: true
+  msc3958_enabled: true
+  msc3959_enabled: true
+  msc3966_enabled: true
+  msc3970_enabled: true
+  msc3981_enabled: true
+  msc3984_enabled: true
+  msc3985_enabled: true
+  msc3986_enabled: true
+  msc3987_enabled: true
+  msc3988_enabled: true
+  msc3989_enabled: true
+  msc3990_enabled: true
+  msc3991_enabled: true
+  msc3992_enabled: true
+  msc3993_enabled: true
+  msc3994_enabled: true
+  msc3995_enabled: true
+  msc3996_enabled: true
+  msc3997_enabled: true
+  msc3998_enabled: true
+  msc3999_enabled: true
+  msc4000_enabled: true 
