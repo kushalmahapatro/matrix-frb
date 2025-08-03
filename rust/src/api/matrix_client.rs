@@ -460,6 +460,13 @@ pub fn get_rooms() -> Result<Vec<MatrixRoomInfo>, String> {
                     let topic = room.topic().map(|t| t.to_string());
                     let member_count = room.joined_members_count();
                     let latest_event_item = room.latest_event_item().await;
+                    let mut matrix_message = MatrixMessage {
+                        event_id: "".to_string(),
+                        sender: "".to_string(),
+                        content: "".to_string(),
+                        timestamp: 0,
+                    };
+                    let mut timestamp = 0;
 
                     if latest_event_item.is_none() {
                         log_error("No latest event found".to_string());
@@ -479,7 +486,7 @@ pub fn get_rooms() -> Result<Vec<MatrixRoomInfo>, String> {
                         };
 
                         // Extract timestamp from the raw event
-                        let timestamp = event_item
+                        timestamp = event_item
                             .timestamp()
                             .to_system_time()
                             .unwrap()
@@ -493,7 +500,7 @@ pub fn get_rooms() -> Result<Vec<MatrixRoomInfo>, String> {
                         // Extract content from the raw event
                         let content = latest_event_content.unwrap_or("".to_string());
 
-                        let matrix_message = MatrixMessage {
+                        matrix_message = MatrixMessage {
                             event_id,
                             sender,
                             content,
@@ -502,16 +509,15 @@ pub fn get_rooms() -> Result<Vec<MatrixRoomInfo>, String> {
 
                         log_info(format!("Matrix message: {:?}", matrix_message));
                         log_info(format!("Timestamp: {:?}", timestamp));
-
-                        rooms.push(MatrixRoomInfo {
-                            room_id,
-                            name,
-                            topic,
-                            member_count,
-                            latest_event: Some(matrix_message),
-                            latest_event_timestamp: Some(timestamp),
-                        });
                     }
+                    rooms.push(MatrixRoomInfo {
+                        room_id,
+                        name,
+                        topic,
+                        member_count,
+                        latest_event: Some(matrix_message),
+                        latest_event_timestamp: Some(timestamp),
+                    });
                 }
 
                 // Sort rooms by latest event timestamp (most recent first)
