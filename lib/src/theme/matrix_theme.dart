@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:matrix/src/logging_service.dart';
 import 'package:matrix/src/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -436,7 +437,10 @@ class MatrixTheme {
           View.of(context).platformDispatcher.platformBrightness;
       // You can then update your app's theme based on this brightness
       // For example, using a state management solution or calling setState
-      print('Platform brightness changed to: $brightness');
+      LoggingService.info(
+        'MatrixTheme',
+        'Platform brightness changed to: $brightness',
+      );
       context.read<ThemeProvider>().setThemeMode(
         brightness == Brightness.dark
             ? MatrixThemeMode.dark

@@ -4,11 +4,11 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:graphx/graphx.dart';
 import 'package:matrix/src/extensions/context_extension.dart';
+import 'package:matrix/src/logging_service.dart';
+import 'package:matrix/src/matrix_sync_service.dart';
 import 'package:matrix/src/rust/api/matrix_client.dart';
 import 'package:matrix/src/login_screen.dart';
 import 'package:matrix/src/home_screen.dart';
-import 'package:matrix/src/rust/api/simple.dart';
-import 'package:matrix/src/rust/logging_service.dart';
 import 'package:matrix/src/theme/matrix_theme.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -45,10 +45,10 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _checkAuthentication() async {
     final String databasesPath = await getDatabasesPath();
-    print('Databases path: $databasesPath');
-
-    // Initialize Rust logging
-    await RustLoggingService.initializeLogging();
+    LoggingService.info(
+      runtimeType.toString(),
+      'Databases path: $databasesPath',
+    );
 
     final config = MatrixClientConfig(
       homeserverUrl: 'http://localhost:8008',
@@ -56,10 +56,13 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     // Test Rust logging
-    logMessage(level: "info", message: "Starting Matrix client initialization");
+    LoggingService.info(
+      runtimeType.toString(),
+      'Starting Matrix client initialization',
+    );
 
-    final initSuccess = await matrixInitClient(config: config);
-    print('Init result: $initSuccess');
+    final initSuccess = await initClient(config: config);
+    LoggingService.info(runtimeType.toString(), 'Init result: $initSuccess');
 
     if (!mounted) return;
 
@@ -70,6 +73,8 @@ class _SplashScreenState extends State<SplashScreen>
 
       // Navigate to appropriate screen
       if (userLoggedIn) {
+        MatrixSyncService().performInitialSync();
+
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
             pageBuilder:
@@ -126,8 +131,8 @@ class _SplashScreenState extends State<SplashScreen>
           () => SceneController(
             back: MatrixRainDrawingScene(
               getMatrixCharacters(),
-              backgroundColor: context.colors.surface,
-              textColor: context.colors.onSurface,
+              backgroundColor: context.colors.onSurface,
+              textColor: context.colors.surface,
             ),
           ),
       autoSize: true,

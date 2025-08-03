@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:matrix/src/extensions/context_extension.dart';
+import 'package:matrix/src/logging_service.dart';
 import 'package:matrix/src/splash_screen.dart';
 import 'package:matrix/src/rust/frb_generated.dart';
 import 'package:matrix/src/rust/logging_handler.dart';
-import 'package:matrix/src/rust/api/simple.dart';
 import 'package:matrix/src/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
 
 Future<void> main() async {
   // Initialize Flutter Rust Bridge with custom logging
   await RustLib.init(handler: CustomLoggingHandler());
+
+  // Initialize Rust logging
+  await LoggingService.initializeLogging();
 
   // Test Rust logging
   debugPrint('[FLUTTER] Initializing Matrix app with Rust logging...');
@@ -59,20 +62,6 @@ class _MatrixDemoPageState extends State<MatrixDemoPage> {
     setState(() {
       _statusMessage = 'Testing basic functionality...';
     });
-
-    try {
-      // Test the basic greet function
-      final result = await greet(name: "Matrix SDK");
-      setState(() {
-        _greetingResult = result;
-        _statusMessage =
-            'Basic functionality working! Matrix SDK integration ready.';
-      });
-    } catch (e) {
-      setState(() {
-        _statusMessage = 'Error: $e';
-      });
-    }
   }
 
   @override

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:matrix/src/rust/api/simple.dart';
+import 'package:matrix/src/rust/api/init.dart';
 import 'package:matrix/src/rust/api/matrix_client.dart';
 import 'package:matrix/src/extensions/context_extension.dart';
 
@@ -8,10 +8,6 @@ class EnhancedMatrixExample {
   /// Example: Complete Matrix client workflow with sync
   static Future<String> completeWorkflowExample() async {
     try {
-      // Test basic functionality first
-      final result = await greet(name: "Matrix SDK Enhanced");
-      print('Basic functionality test: $result');
-
       // Get Matrix SDK status
       final status = await checkMatrixSdkStatus();
       print('Matrix SDK Status: $status');
@@ -150,19 +146,19 @@ final eventId = await matrixSendMessage(
       print('🚀 Demonstrating Global Client Usage...');
 
       // Check if already logged in
-      final isLoggedIn = await matrixIsLoggedIn();
-      print('Current login status: $isLoggedIn');
+      final isLogged = await isLoggedIn();
+      print('Current login status: $isLogged');
 
-      if (!isLoggedIn) {
+      if (!isLogged) {
         // Login with global client
         final config = MatrixClientConfig(
           homeserverUrl: 'http://localhost:8008',
           storagePath: 'app/sandbox/storage/',
         );
-        final initSuccess = await matrixInitClient(config: config);
+        final initSuccess = await initClient(config: config);
         print('Init result: $initSuccess');
 
-        final loginSuccess = await matrixLogin(
+        final loginSuccess = await login(
           username: 'testuser',
           password: 'testpass',
         );
@@ -170,28 +166,30 @@ final eventId = await matrixSendMessage(
 
         if (loginSuccess) {
           // Perform initial sync
-          final syncSuccess = await matrixPerformInitialSync();
+          final syncSuccess = await performInitialSyncWithPolling(
+            startPolling: true,
+          );
           print('Initial sync result: $syncSuccess');
 
           // Get sync status
-          final syncStatus = await matrixGetSyncStatus();
+          final syncStatus = await getSyncStatus();
           print(
             'Sync status: ${syncStatus.isSyncing}, Rooms: ${syncStatus.roomsCount}',
           );
 
           // Get rooms
-          final rooms = await matrixGetRooms();
+          final rooms = await getRooms();
           print('Found ${rooms.length} rooms');
 
           // Create a test room
-          final roomId = await matrixCreateRoom(
+          final roomId = await createRoom(
             name: 'Test Room from Flutter',
             topic: 'Created via global client',
           );
           print('Created room: $roomId');
 
           // Send a test message
-          final eventId = await matrixSendMessage(
+          final eventId = await sendMessage(
             roomId: roomId,
             content: 'Hello from Flutter global client!',
           );
@@ -199,10 +197,10 @@ final eventId = await matrixSendMessage(
         }
       } else {
         // Already logged in, just get status
-        final syncStatus = await matrixGetSyncStatus();
+        final syncStatus = await getSyncStatus();
         print('Already logged in. Sync status: ${syncStatus.isSyncing}');
 
-        final rooms = await matrixGetRooms();
+        final rooms = await getRooms();
         print('Found ${rooms.length} rooms');
       }
 

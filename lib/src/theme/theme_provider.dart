@@ -35,8 +35,12 @@ class ThemeProvider extends ChangeNotifier {
 
   Future<void> _loadThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
-    final themeIndex = prefs.getInt(_themeKey) ?? 0;
-    _themeMode = MatrixThemeMode.values[themeIndex];
+    final themeIndex = prefs.getInt(_themeKey) ?? -1;
+    if (themeIndex == -1) {
+      _themeMode = MatrixThemeMode.system;
+    } else {
+      _themeMode = MatrixThemeMode.values[themeIndex];
+    }
     _updateDarkMode();
     notifyListeners();
   }
@@ -56,7 +60,9 @@ class ThemeProvider extends ChangeNotifier {
   void _updateDarkMode() {
     switch (_themeMode) {
       case MatrixThemeMode.system:
-        // This will be updated by the app when system theme changes
+        final Brightness brightness =
+            WidgetsBinding.instance.platformDispatcher.platformBrightness;
+        _isDarkMode = brightness == Brightness.dark;
         break;
       case MatrixThemeMode.light:
         _isDarkMode = false;

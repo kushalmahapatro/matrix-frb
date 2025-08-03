@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:matrix/src/matrix_sync_service.dart';
 import 'package:matrix/src/rust/api/matrix_client.dart';
 import 'package:matrix/src/login_screen.dart';
 import 'package:matrix/src/theme/matrix_theme.dart';
@@ -24,7 +25,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadRooms();
+    _loadRooms(initial: true);
+    MatrixSyncService().syncStream.listen((event) {
+      _updateSyncStatus();
+      _loadRooms();
+    });
     _startSyncTimer();
   }
 
@@ -40,10 +45,12 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _loadRooms() async {
+  Future<void> _loadRooms({bool initial = false}) async {
     setState(() {
-      _isLoading = true;
-      _statusMessage = 'LOADING MATRIX ROOMS...';
+      if (initial) {
+        _isLoading = true;
+        _statusMessage = 'LOADING...';
+      }
     });
 
     try {
@@ -55,16 +62,20 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _rooms = rooms;
         _syncStatus = syncStatus;
-        _isLoading = false;
-        _statusMessage = '';
+        if (initial) {
+          _isLoading = false;
+          _statusMessage = '';
+        }
       });
     } catch (e) {
       if (!mounted) return;
 
-      setState(() {
-        _isLoading = false;
-        _statusMessage = 'ERROR LOADING ROOMS: $e';
-      });
+      if (initial) {
+        setState(() {
+          _isLoading = false;
+          _statusMessage = 'ERROR LOADING ROOMS: $e';
+        });
+      }
     }
   }
 
@@ -113,17 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.green,
-        title: const Text(
-          'MATRIX TERMINAL',
-          style: TextStyle(
-            color: Colors.green,
-            fontFamily: 'monospace',
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2,
-          ),
-        ),
+        title: const Text('MATRIX TERMINAL', style: MatrixTheme.titleStyle),
         actions: [
           const ThemeSwitcher(),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadRooms),
@@ -186,7 +187,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   // Status Message
                   if (_statusMessage.isNotEmpty)
-                    Text(_statusMessage, style: MatrixTheme.warningStyle),
+                    Flexible(
+                      child: Text(
+                        _statusMessage,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: MatrixTheme.warningStyle,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -280,48 +288,20 @@ class _HomeScreenState extends State<HomeScreen> {
         context.read<ThemeProvider>().isDarkMode,
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        title: Text(
-          room.name ?? room.roomId,
-          style: MatrixTheme.bodyStyle.copyWith(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
           children: [
-            if (room.topic != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                room.topic!,
+            Expanded(
+              child: Text(
+                room.name ?? room.roomId,
                 style: MatrixTheme.bodyStyle.copyWith(
-                  color: MatrixTheme.primaryGreen.withOpacity(0.7),
+                  fontWeight: FontWeight.bold,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
-            ],
-            const SizedBox(height: 8),
+            ),
+
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  room.isEncrypted ? Icons.lock : Icons.lock_open,
-                  color:
-                      room.isEncrypted
-                          ? MatrixTheme.primaryGreen
-                          : MatrixTheme.warningOrange,
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  room.isEncrypted ? 'ENCRYPTED' : 'UNENCRYPTED',
-                  style: MatrixTheme.captionStyle.copyWith(
-                    color:
-                        room.isEncrypted
-                            ? MatrixTheme.primaryGreen
-                            : MatrixTheme.warningOrange,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(width: 16),
                 const Icon(
                   Icons.people,
                   color: MatrixTheme.primaryGreen,
@@ -334,6 +314,41 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
+          ],
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (room.topic != null) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      room.topic!,
+                      style: MatrixTheme.bodyStyle.copyWith(
+                        color: MatrixTheme.primaryGreen.withValues(alpha: 0.7),
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(room.roomId, style: MatrixTheme.captionStyle),
+              const SizedBox(height: 4),
+              Text(
+                room.latestEventTimestamp.toString(),
+                style: MatrixTheme.bodyStyle,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                room.latestEvent?.content.toString() ?? '',
+                style: MatrixTheme.bodyStyle,
+              ),
+            ],
+            const SizedBox(height: 8),
           ],
         ),
         trailing: const Icon(

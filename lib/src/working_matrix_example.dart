@@ -1,21 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:matrix/src/extensions/context_extension.dart';
-import 'package:matrix/src/rust/api/simple.dart';
-import 'package:matrix/src/rust/api/simple.dart';
 
 /// Working example of Matrix SDK integration with Flutter Rust Bridge
 class WorkingMatrixExample {
   /// Example: Basic functionality test
   static Future<String> testBasicFunctionality() async {
-    try {
-      // Test the basic greet function to ensure Rust bridge is working
-      final result = await greet(name: "Matrix SDK");
-      print('Basic functionality test: $result');
-      return result;
-    } catch (e) {
-      print('Error in basic functionality test: $e');
-      return 'Error: $e';
-    }
+    return '';
   }
 
   /// Example: How to use Matrix client (when properly implemented)

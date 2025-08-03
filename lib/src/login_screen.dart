@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:matrix/src/extensions/context_extension.dart';
+import 'package:matrix/src/matrix_sync_service.dart';
 import 'package:matrix/src/rust/api/matrix_client.dart';
 import 'package:matrix/src/home_screen.dart';
+import 'package:matrix/src/rust/api/matrix_client.dart';
 import 'package:matrix/src/theme/matrix_theme.dart';
 import 'package:matrix/src/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
@@ -63,6 +65,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       if (!mounted) return;
 
       if (success) {
+        MatrixSyncService().performInitialSync();
         setState(() {
           _statusMessage = 'AUTHENTICATION SUCCESSFUL. REDIRECTING...';
         });
@@ -113,145 +116,150 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           padding: const EdgeInsets.all(24.0),
           child: Form(
             key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 60),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 60),
 
-                // Matrix Logo
-                const Text(
-                  "MATRIX",
-                  textAlign: TextAlign.center,
-                  style: MatrixTheme.logoStyle,
-                ),
-
-                const SizedBox(height: 20),
-
-                // Subtitle
-                const Text(
-                  "ENTER THE MATRIX",
-                  textAlign: TextAlign.center,
-                  style: MatrixTheme.subtitleStyle,
-                ),
-
-                const SizedBox(height: 60),
-
-                // Login Form Container
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: MatrixTheme.containerDecoration,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Homeserver URL
-                      _buildMatrixTextField(
-                        controller: _homeserverController,
-                        label: 'HOMESERVER URL',
-                        hint: 'http://localhost:8008',
-                        icon: Icons.dns,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Homeserver URL is required';
-                          }
-                          final uri = Uri.tryParse(value);
-                          if (uri == null || !uri.hasScheme) {
-                            return 'Invalid URL format';
-                          }
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Username
-                      _buildMatrixTextField(
-                        controller: _usernameController,
-                        label: 'USERNAME',
-                        hint: 'Enter your Matrix username',
-                        icon: Icons.person,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Username is required';
-                          }
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Password
-                      _buildMatrixTextField(
-                        controller: _passwordController,
-                        label: 'PASSWORD',
-                        hint: 'Enter your password',
-                        icon: Icons.lock,
-                        isPassword: true,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Password is required';
-                          }
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 30),
-
-                      // Status Message
-                      if (_statusMessage.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          margin: const EdgeInsets.only(bottom: 20),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: MatrixTheme.getStatusColor(_statusMessage),
-                              width: 1,
-                            ),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            _statusMessage,
-                            style: MatrixTheme.getStatusStyle(_statusMessage),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-
-                      // Login Button
-                      SizedBox(
-                        height: 50,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _login,
-                          style: MatrixTheme.primaryButtonStyle,
-                          child:
-                              _isLoading
-                                  ? SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        context.colors.onSurface,
-                                      ),
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                  : const Text(
-                                    'LOGIN',
-                                    style: MatrixTheme.buttonStyle,
-                                  ),
-                        ),
-                      ),
-                    ],
+                  // Matrix Logo
+                  const Text(
+                    "MATRIX",
+                    textAlign: TextAlign.center,
+                    style: MatrixTheme.logoStyle,
                   ),
-                ),
 
-                const Spacer(),
+                  const SizedBox(height: 20),
 
-                // Footer
-                const Text(
-                  "CHOOSE YOUR REALITY",
-                  textAlign: TextAlign.center,
-                  style: MatrixTheme.captionStyle,
-                ),
-              ],
+                  // Subtitle
+                  const Text(
+                    "ENTER THE MATRIX",
+                    textAlign: TextAlign.center,
+                    style: MatrixTheme.subtitleStyle,
+                  ),
+
+                  const SizedBox(height: 60),
+
+                  // Login Form Container
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: MatrixTheme.containerDecoration,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Homeserver URL
+                        _buildMatrixTextField(
+                          controller: _homeserverController,
+                          label: 'HOMESERVER URL',
+                          hint: 'http://localhost:8008',
+                          icon: Icons.dns,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Homeserver URL is required';
+                            }
+                            final uri = Uri.tryParse(value);
+                            if (uri == null || !uri.hasScheme) {
+                              return 'Invalid URL format';
+                            }
+                            return null;
+                          },
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Username
+                        _buildMatrixTextField(
+                          controller: _usernameController,
+                          label: 'USERNAME',
+                          hint: 'Enter your Matrix username',
+                          icon: Icons.person,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Username is required';
+                            }
+                            return null;
+                          },
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Password
+                        _buildMatrixTextField(
+                          controller: _passwordController,
+                          label: 'PASSWORD',
+                          hint: 'Enter your password',
+                          icon: Icons.lock,
+                          isPassword: true,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Password is required';
+                            }
+                            return null;
+                          },
+                        ),
+
+                        const SizedBox(height: 30),
+
+                        // Status Message
+                        if (_statusMessage.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 20),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: MatrixTheme.getStatusColor(
+                                  _statusMessage,
+                                ),
+                                width: 1,
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              _statusMessage,
+                              style: MatrixTheme.getStatusStyle(_statusMessage),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+
+                        // Login Button
+                        SizedBox(
+                          height: 50,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _login,
+                            style: MatrixTheme.primaryButtonStyle,
+                            child:
+                                _isLoading
+                                    ? SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              context.colors.onSurface,
+                                            ),
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                    : const Text(
+                                      'LOGIN',
+                                      style: MatrixTheme.buttonStyle,
+                                    ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 100),
+
+                  // Footer
+                  const Text(
+                    "CHOOSE YOUR REALITY",
+                    textAlign: TextAlign.center,
+                    style: MatrixTheme.captionStyle,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

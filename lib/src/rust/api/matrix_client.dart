@@ -6,8 +6,11 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `get_global_client`, `get_global_config`, `get_global_sync_status`, `init_globals`, `set_global_client`, `set_global_config`, `set_global_sync_status`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`
+// These functions are ignored because they are not marked as `pub`: `clear_sync_events`, `create_sync_stream`, `get_global_client`, `get_global_config`, `get_global_sync_status`, `get_sync_events`, `get_sync_task`, `init_globals`, `perform_initial_sync_async`, `perform_sync_cycle`, `polling_sync_loop`, `set_global_client`, `set_global_config`, `set_global_sync_status`, `set_sync_task`, `stop_polling_sync_internal`, `store_sync_event`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+
+Stream<SyncEvent> initSyncStream() =>
+    RustLib.instance.api.crateApiMatrixClientInitSyncStream();
 
 Future<bool> initClient({required MatrixClientConfig config}) =>
     RustLib.instance.api.crateApiMatrixClientInitClient(config: config);
@@ -20,8 +23,10 @@ Future<bool> login({required String username, required String password}) =>
 
 Future<bool> logout() => RustLib.instance.api.crateApiMatrixClientLogout();
 
-Future<bool> performInitialSync() =>
-    RustLib.instance.api.crateApiMatrixClientPerformInitialSync();
+Future<bool> performInitialSyncWithPolling({required bool startPolling}) =>
+    RustLib.instance.api.crateApiMatrixClientPerformInitialSyncWithPolling(
+      startPolling: startPolling,
+    );
 
 Future<List<MatrixRoomInfo>> getRooms() =>
     RustLib.instance.api.crateApiMatrixClientGetRooms();
@@ -53,6 +58,30 @@ Future<SyncStatus> getSyncStatus() =>
 
 Future<bool> isLoggedIn() =>
     RustLib.instance.api.crateApiMatrixClientIsLoggedIn();
+
+Future<bool> startPollingSync() =>
+    RustLib.instance.api.crateApiMatrixClientStartPollingSync();
+
+Future<bool> stopPollingSync() =>
+    RustLib.instance.api.crateApiMatrixClientStopPollingSync();
+
+Future<List<SyncEvent>> getSyncEventsForFlutter() =>
+    RustLib.instance.api.crateApiMatrixClientGetSyncEventsForFlutter();
+
+Future<bool> clearSyncEventsForFlutter() =>
+    RustLib.instance.api.crateApiMatrixClientClearSyncEventsForFlutter();
+
+Future<bool> isSyncStreamInitialized() =>
+    RustLib.instance.api.crateApiMatrixClientIsSyncStreamInitialized();
+
+Future<bool> sendTestSyncEvent() =>
+    RustLib.instance.api.crateApiMatrixClientSendTestSyncEvent();
+
+Future<bool> isPollingSyncActive() =>
+    RustLib.instance.api.crateApiMatrixClientIsPollingSyncActive();
+
+Future<bool> isClientAuthenticated() =>
+    RustLib.instance.api.crateApiMatrixClientIsClientAuthenticated();
 
 class MatrixClientConfig {
   final String homeserverUrl;
@@ -111,14 +140,16 @@ class MatrixRoomInfo {
   final String? name;
   final String? topic;
   final BigInt memberCount;
-  final bool isEncrypted;
+  final MatrixMessage? latestEvent;
+  final BigInt? latestEventTimestamp;
 
   const MatrixRoomInfo({
     required this.roomId,
     this.name,
     this.topic,
     required this.memberCount,
-    required this.isEncrypted,
+    this.latestEvent,
+    this.latestEventTimestamp,
   });
 
   @override
@@ -127,7 +158,8 @@ class MatrixRoomInfo {
       name.hashCode ^
       topic.hashCode ^
       memberCount.hashCode ^
-      isEncrypted.hashCode;
+      latestEvent.hashCode ^
+      latestEventTimestamp.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -138,7 +170,51 @@ class MatrixRoomInfo {
           name == other.name &&
           topic == other.topic &&
           memberCount == other.memberCount &&
-          isEncrypted == other.isEncrypted;
+          latestEvent == other.latestEvent &&
+          latestEventTimestamp == other.latestEventTimestamp;
+}
+
+class SyncEvent {
+  final String eventType;
+  final String? roomId;
+  final String? eventId;
+  final String? sender;
+  final String? content;
+  final BigInt? timestamp;
+  final BigInt syncTime;
+
+  const SyncEvent({
+    required this.eventType,
+    this.roomId,
+    this.eventId,
+    this.sender,
+    this.content,
+    this.timestamp,
+    required this.syncTime,
+  });
+
+  @override
+  int get hashCode =>
+      eventType.hashCode ^
+      roomId.hashCode ^
+      eventId.hashCode ^
+      sender.hashCode ^
+      content.hashCode ^
+      timestamp.hashCode ^
+      syncTime.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SyncEvent &&
+          runtimeType == other.runtimeType &&
+          eventType == other.eventType &&
+          roomId == other.roomId &&
+          eventId == other.eventId &&
+          sender == other.sender &&
+          content == other.content &&
+          timestamp == other.timestamp &&
+          syncTime == other.syncTime;
 }
 
 class SyncStatus {
