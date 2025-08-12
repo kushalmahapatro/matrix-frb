@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.example.matrix"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -41,4 +41,36 @@ android {
 
 flutter {
     source = "../.."
+}
+
+val buildConfigs = listOf(
+    Pair("Debug", ""),
+    Pair("Profile", "--release"),
+    Pair("Release", "--release")
+)
+
+buildConfigs.forEach { (taskPostfix, profileMode) ->
+    tasks.whenTaskAdded(Action {
+        if (name == "javaPreCompile$taskPostfix") {
+            dependsOn("cargoBuild$taskPostfix")
+        }
+    })
+    tasks.register("cargoBuild$taskPostfix", Exec::class) {
+        // Until https://github.com/bbqsrc/cargo-ndk/pull/13 is merged,
+        // this workaround is necessary.
+
+        val ndkCommand = """cargo ndk \
+            -t armeabi-v7a -t arm64-v8a -t x86_64 -t x86 \
+            -o ../android/app/src/main/jniLibs build $profileMode"""
+
+        workingDir("../../rust")
+        val ndkPath = System.getenv("ANDROID_NDK_HOME") ?: System.getenv("ANDROID_NDK") ?: ""
+        environment("ANDROID_NDK_HOME", ndkPath)
+        environment("ANDROID_NDK", ndkPath)
+        if (System.getProperty("os.name").lowercase().contains("windows")) {
+            commandLine("cmd", "/C", ndkCommand)
+        } else {
+            commandLine("sh", "-c", ndkCommand)
+        }
+    }
 }

@@ -38,6 +38,7 @@ class ThemeProvider extends ChangeNotifier {
     final themeIndex = prefs.getInt(_themeKey) ?? -1;
     if (themeIndex == -1) {
       _themeMode = MatrixThemeMode.system;
+      setThemeMode(_themeMode);
     } else {
       _themeMode = MatrixThemeMode.values[themeIndex];
     }

@@ -165,12 +165,6 @@ final eventId = await matrixSendMessage(
         print('Login result: $loginSuccess');
 
         if (loginSuccess) {
-          // Perform initial sync
-          final syncSuccess = await performInitialSyncWithPolling(
-            startPolling: true,
-          );
-          print('Initial sync result: $syncSuccess');
-
           // Get sync status
           final syncStatus = await getSyncStatus();
           print(
@@ -238,7 +232,7 @@ class _EnhancedMatrixWidgetState extends State<EnhancedMatrixWidget> {
 
     try {
       // Test basic functionality
-      final result = await EnhancedMatrixExample.completeWorkflowExample();
+      final _ = await EnhancedMatrixExample.completeWorkflowExample();
 
       // Get Matrix SDK status
       final status = await checkMatrixSdkStatus();

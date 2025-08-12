@@ -1,14 +1,22 @@
 use crate::api::logger::{log_error, log_info};
 use crate::frb_generated::StreamSink;
+use futures::{pin_mut, StreamExt};
 use matrix_sdk::authentication::matrix::MatrixSession;
-use matrix_sdk::{config::SyncSettings, ruma::RoomId, Client, LoopCtrl};
-use matrix_sdk::{AuthSession, SqliteStoreConfig};
-use matrix_sdk_ui::timeline::RoomExt;
+use matrix_sdk::ruma::api::client::uiaa::{AuthData, Dummy};
+use matrix_sdk::ruma::{self, assign};
+use matrix_sdk::{config::SyncSettings, ruma::RoomId, Client};
+use matrix_sdk::{AuthSession, RoomDisplayName, SqliteStoreConfig};
+
+use ruma::api::client::account::register;
+
+use matrix_sdk_ui::timeline::{RoomExt, TimelineItemKind};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::UNIX_EPOCH;
+use std::time::{Duration, UNIX_EPOCH};
+
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
@@ -63,6 +71,50 @@ static SYNC_TASK: OnceCell<Arc<Mutex<Option<JoinHandle<()>>>>> = OnceCell::new()
 static SYNC_EVENTS: OnceCell<Arc<Mutex<Vec<SyncEvent>>>> = OnceCell::new();
 static SYNC_STREAM_SINK: OnceCell<StreamSink<SyncEvent>> = OnceCell::new();
 static GLOBAL_RUNTIME: OnceCell<tokio::runtime::Runtime> = OnceCell::new();
+// Global timeline stream map: room_id -> StreamSink<RoomTimeline>
+static GLOBAL_TIMELINE_STREAMS: OnceCell<Mutex<HashMap<String, StreamSink<RoomTimeline>>>> =
+    OnceCell::new();
+
+/// Initialize the global timeline streams map
+fn init_timeline_streams() {
+    GLOBAL_TIMELINE_STREAMS.get_or_init(|| Mutex::new(HashMap::new()));
+}
+
+/// Add or update a timeline stream for a room
+pub async fn set_timeline_stream(room_id: String, stream: StreamSink<RoomTimeline>) {
+    if let Some(map) = GLOBAL_TIMELINE_STREAMS.get() {
+        let mut guard = map.lock().await;
+        guard.insert(room_id, stream);
+    }
+}
+
+/// Send a timeline event to a room's stream
+pub async fn send_to_timeline_stream(
+    room_id: &str,
+    timeline_event: RoomTimeline,
+) -> Result<(), String> {
+    if let Some(map) = GLOBAL_TIMELINE_STREAMS.get() {
+        let guard = map.lock().await;
+        if let Some(stream) = guard.get(room_id) {
+            if let Err(e) = stream.add(timeline_event) {
+                return Err(format!("Failed to send timeline event to stream: {}", e));
+            }
+        } else {
+            return Err(format!("No timeline stream found for room: {}", room_id));
+        }
+    } else {
+        return Err("Timeline streams not initialized".to_string());
+    }
+    Ok(())
+}
+
+/// Remove a timeline stream for a room
+pub async fn remove_timeline_stream(room_id: &str) {
+    if let Some(map) = GLOBAL_TIMELINE_STREAMS.get() {
+        let mut guard = map.lock().await;
+        guard.remove(room_id);
+    }
+}
 
 static SESSION_JSON: &str = "session.json";
 
@@ -83,6 +135,7 @@ fn init_globals() {
     GLOBAL_RUNTIME
         .get_or_init(|| tokio::runtime::Runtime::new().expect("Failed to create global runtime"));
     log_info("Global variables initialized".to_string());
+    init_timeline_streams();
 }
 
 // Initialize sync event stream for Flutter
@@ -111,6 +164,7 @@ async fn get_global_client() -> Result<Option<Client>, String> {
         None => Err("Global client not initialized".to_string()),
     }
 }
+
 async fn set_global_client(client: Option<Client>) -> Result<(), String> {
     let mut client_guard = GLOBAL_CLIENT.get().unwrap().lock().await;
     *client_guard = client;
@@ -153,64 +207,9 @@ async fn set_global_config(config: Option<MatrixClientConfig>) -> Result<(), Str
     }
 }
 
-// Helper functions to manage the sync task
-async fn get_sync_task() -> Result<Arc<Mutex<Option<JoinHandle<()>>>>, String> {
-    match SYNC_TASK.get() {
-        Some(task) => {
-            let _ = task.lock().await;
-            Ok(task.clone())
-        }
-        None => Err("Sync task not initialized".to_string()),
-    }
-}
-
-async fn set_sync_task(task: Option<JoinHandle<()>>) -> Result<(), String> {
-    let mut task_guard = SYNC_TASK.get().unwrap().lock().await;
-    *task_guard = task;
-    Ok(())
-}
-
-// Helper functions to manage sync events
-async fn store_sync_event(event: SyncEvent) {
-    // Store in the events vector for batch retrieval
-    if let Some(events) = SYNC_EVENTS.get() {
-        let mut events_guard = events.lock().await;
-        events_guard.push(event.clone());
-        // Keep only the last 1000 events to prevent memory issues
-        if events_guard.len() > 1000 {
-            events_guard.remove(0);
-        }
-    }
-
-    // Send to stream sink for real-time Flutter updates
-    if let Some(sink) = SYNC_STREAM_SINK.get() {
-        if let Err(e) = sink.add(event) {
-            log_error(format!("Failed to send sync event to stream: {}", e));
-        }
-    }
-}
-
-async fn get_sync_events() -> Result<Vec<SyncEvent>, String> {
-    let events = SYNC_EVENTS.get().ok_or("Sync events not initialized")?;
-    let events_guard = events.lock().await;
-    Ok(events_guard.clone())
-}
-
-async fn clear_sync_events() -> Result<(), String> {
-    let events = SYNC_EVENTS.get().ok_or("Sync events not initialized")?;
-    let mut events_guard = events.lock().await;
-    events_guard.clear();
-    Ok(())
-}
-
 // Public API functions that work with the global client
 pub async fn init_client(config: MatrixClientConfig) -> Result<bool, String> {
-    if get_global_config().await.is_ok() {
-        log_info("Config already initialized".to_string());
-    } else {
-        log_info("Config not initialized".to_string());
-        let _ = set_global_config(Some(config.clone())).await;
-    }
+    let _ = set_global_config(Some(config.clone())).await;
 
     if get_global_client().await.is_ok() {
         log_info("Client already initialized".to_string());
@@ -235,6 +234,7 @@ pub async fn init_client(config: MatrixClientConfig) -> Result<bool, String> {
             Some(path.join("cache")),
         )
         .homeserver_url(&config.homeserver_url)
+        .sliding_sync_version_builder(matrix_sdk::sliding_sync::VersionBuilder::DiscoverNative)
         .build()
         .await
         .map_err(|e| {
@@ -250,6 +250,65 @@ pub async fn init_client(config: MatrixClientConfig) -> Result<bool, String> {
 
     log_info("Matrix client initialized and stored globally".to_string());
     Ok(true)
+}
+
+pub fn register(username: String, password: String) -> Result<bool, String> {
+    log_info(format!("Attempting to register user: {}", username));
+    tokio::task::block_in_place(|| {
+        let runtime = GLOBAL_RUNTIME
+            .get()
+            .expect("Global runtime not initialized");
+        runtime.block_on(async {
+            let global_client = get_global_client().await?;
+            if let Some(client) = global_client {
+                log_info("Attempting Matrix authentication...".to_string());
+
+                let req = assign!(register::v3::Request::new(), {
+                    username: Some(username.to_owned()),
+                    password: Some(password.to_owned()),
+                    auth: Some(AuthData::Dummy(Dummy::new())),
+                    refresh_token: true,
+                });
+
+                client.matrix_auth().register(req).await.map_err(|e| {
+                    log_error(format!("Login failed: {}", e));
+                    e.to_string()
+                })?;
+
+                log_info("Registration successful, retrieving session...".to_string());
+
+                let Some(session) = client.session() else {
+                    log_error("Session not found after login".to_string());
+                    return Err("Session not found".to_string());
+                };
+
+                let AuthSession::Matrix(session) = session else {
+                    log_error("Unexpected OAuth 2.0 session".to_string());
+                    panic!("Unexpected OAuth 2.0 session")
+                };
+
+                let global_config = get_global_config().await?;
+                let Some(config) = global_config else {
+                    log_error("Config not found during login".to_string());
+                    return Err("Config not found".to_string());
+                };
+
+                let path = Path::new(&config.storage_path);
+                let session_path = path.join(SESSION_JSON);
+                let serialized_session = serde_json::to_string(&session).unwrap();
+                let _ = std::fs::write(session_path, serialized_session);
+
+                log_info(format!(
+                    "Registration completed successfully for user: {}",
+                    username
+                ));
+                Ok(true)
+            } else {
+                log_error("Client not initialized for registration".to_string());
+                Err("Client not initialized".to_string())
+            }
+        })
+    })
 }
 
 pub fn login(username: String, password: String) -> Result<bool, String> {
@@ -324,8 +383,7 @@ pub fn logout() -> Result<bool, String> {
                     .await
                     .map_err(|e| e.to_string())?;
 
-                // Stop polling sync
-                stop_polling_sync_internal().await?;
+                // Stop sync
 
                 // Clear the global client
                 set_global_client(None).await?;
@@ -351,95 +409,39 @@ pub fn logout() -> Result<bool, String> {
     })
 }
 
-// Async version for internal use
-async fn perform_initial_sync_async() -> Result<bool, String> {
-    log_info("Performing initial sync".to_string());
+pub fn listen_room_updates(stream: StreamSink<MatrixRoomInfo>) {
+    tokio::task::block_in_place(|| {
+        let runtime = GLOBAL_RUNTIME
+            .get()
+            .expect("Global runtime not initialized");
+        runtime.block_on(async {
+            let global_client = get_global_client().await.unwrap();
 
-    // First check if user is logged in
-    let is_logged_in =
-        is_logged_in().map_err(|e| format!("Failed to check login status: {}", e))?;
-    if !is_logged_in {
-        log_error("Cannot perform sync: user not logged in".to_string());
-        return Err("User not logged in. Please login first.".to_string());
-    }
-
-    let global_client = get_global_client().await?;
-
-    if let Some(client) = global_client {
-        // Check if client has a valid session
-        if client.session().is_none() {
-            log_error("Client has no valid session".to_string());
-            return Err("No valid session found. Please login again.".to_string());
-        }
-
-        let sync_settings = SyncSettings::default()
-            .full_state(true)
-            .timeout(std::time::Duration::from_secs(30));
-        let _response = client.sync_once(sync_settings).await.map_err(|e| {
-            log_error(format!("Sync failed: {}", e));
-            if e.to_string().contains("no access token") {
-                "Authentication required. Please login first.".to_string()
-            } else {
-                format!("Sync failed: {}", e)
+            if let Some(client) = global_client {
+                let mut room_stream = client.subscribe_to_all_room_updates();
+                loop {
+                    match room_stream.recv().await {
+                        Ok(updates) => {
+                            log_info(format!("Received room update: {:?}", updates));
+                            match get_rooms() {
+                                Ok(rooms) => {
+                                    for room in rooms {
+                                        let _ = stream.add(room);
+                                    }
+                                }
+                                Err(e) => {
+                                    log_error(format!("Error getting rooms: {}", e));
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            log_error(format!("Error receiving room updates: {}", e));
+                        }
+                    }
+                }
             }
-        })?;
-
-        let rooms = client.rooms();
-        for room in rooms {
-            log_info(format!("Room: {:?}", room));
-            let timeline = room.timeline_builder().build().await.map_err(|e| {
-                log_error(format!("Failed to get timeline: {}", e));
-                e.to_string()
-            })?;
-            log_info(format!("Timeline: {:?}", timeline));
-            let _ = timeline.subscribe();
-        }
-
-        // Update sync status
-        let sync_status = get_global_sync_status().await?;
-        *sync_status.lock().await = SyncStatus {
-            is_syncing: false,
-            rooms_count: 0, // Will be updated when getting rooms
-            messages_count: 0,
-            last_sync_time: Some(
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs(),
-            ),
-        };
-
-        log_info("Initial sync completed successfully".to_string());
-        Ok(true)
-    } else {
-        log_error("Client not initialized".to_string());
-        Err("Client not initialized. Please initialize the client first.".to_string())
-    }
-}
-
-// Public sync function that uses block_in_place to avoid runtime conflicts
-// pub fn perform_initial_sync() -> Result<bool, String> {
-//     let _ = perform_initial_sync_async();
-//     Ok(true)
-// }
-
-// Perform initial sync and optionally start polling sync
-pub async fn perform_initial_sync_with_polling(start_polling: bool) -> Result<bool, String> {
-    log_info("Performing initial sync with polling option".to_string());
-
-    // First perform the initial sync
-    let initial_sync_result = perform_initial_sync_async().await;
-    if initial_sync_result.is_err() {
-        return initial_sync_result;
-    }
-
-    // If requested, start polling sync
-    if start_polling {
-        log_info("Starting polling sync after initial sync".to_string());
-        let _ = start_polling_sync().await;
-    }
-
-    Ok(true)
+        })
+    })
 }
 
 pub fn get_rooms() -> Result<Vec<MatrixRoomInfo>, String> {
@@ -456,7 +458,10 @@ pub fn get_rooms() -> Result<Vec<MatrixRoomInfo>, String> {
                 for room in client.rooms() {
                     log_info(format!("Room: {:?}", room));
                     let room_id = room.room_id().to_string();
-                    let name = room.name().map(|n| n.to_string());
+                    let display_name = room
+                        .cached_display_name()
+                        .unwrap_or_else(|| RoomDisplayName::Empty);
+                    let name = display_name.to_string();
                     let topic = room.topic().map(|t| t.to_string());
                     let member_count = room.joined_members_count();
                     let latest_event_item = room.latest_event_item().await;
@@ -467,6 +472,7 @@ pub fn get_rooms() -> Result<Vec<MatrixRoomInfo>, String> {
                         timestamp: 0,
                     };
                     let mut timestamp = 0;
+                    log_info(format!("latest event: {:?}", latest_event_item));
 
                     if latest_event_item.is_none() {
                         log_error("No latest event found".to_string());
@@ -512,9 +518,9 @@ pub fn get_rooms() -> Result<Vec<MatrixRoomInfo>, String> {
                     }
                     rooms.push(MatrixRoomInfo {
                         room_id,
-                        name,
                         topic,
                         member_count,
+                        name: Some(name),
                         latest_event: Some(matrix_message),
                         latest_event_timestamp: Some(timestamp),
                     });
@@ -536,6 +542,168 @@ pub fn get_rooms() -> Result<Vec<MatrixRoomInfo>, String> {
             } else {
                 Err("Client not logged in".to_string())
             }
+        })
+    })
+}
+
+#[derive(Debug, Clone)]
+pub struct RoomTimeline {
+    pub event_id: String,
+    pub sender: String,
+    pub content: String,
+    pub timestamp: u64,
+}
+
+async fn update_timeline(timeline: &matrix_sdk_ui::Timeline, room_id: &str) {
+    let events = timeline.items().await;
+
+    for event in events.iter() {
+        match event.kind() {
+            TimelineItemKind::Event(e) => {
+                let event_id = e
+                    .event_id()
+                    .map_or("unknown_event_id".to_string(), |id| id.to_string());
+                let sender = e.sender().as_str().to_string();
+                let content = e
+                    .content()
+                    .as_message()
+                    .map_or("No content".to_string(), |m| m.body().to_string());
+                let timestamp = e
+                    .timestamp()
+                    .to_system_time()
+                    .map_or(0, |f| f.duration_since(UNIX_EPOCH).unwrap().as_secs());
+
+                let timeline_event = RoomTimeline {
+                    event_id,
+                    sender,
+                    content,
+                    timestamp,
+                };
+
+                log_info(format!("Sending timeline event: {:?}", timeline_event));
+                let _ = send_to_timeline_stream(&room_id, timeline_event).await;
+            }
+            TimelineItemKind::Virtual(virtual_timeline_item) => {
+                // Handle virtual timeline items if needed
+                log_info(format!(
+                    "Virtual timeline item: {:?}",
+                    virtual_timeline_item
+                ));
+                // For now, we just log it, but you can handle it as needed
+            }
+        }
+    }
+}
+pub fn load_timeline(stream: StreamSink<RoomTimeline>, room_id: String) -> Result<bool, String> {
+    tokio::task::block_in_place(|| {
+        let runtime = GLOBAL_RUNTIME
+            .get()
+            .expect("Global runtime not initialized");
+        runtime.block_on(async {
+            let global_client = get_global_client().await?;
+
+            if let Some(client) = global_client {
+                let room_id_string = room_id.clone();
+                let room_id = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+                let room = client.get_room(&room_id).ok_or("Room not found")?;
+
+                // Load the timeline for the room
+                let timeline: matrix_sdk_ui::Timeline =
+                    room.timeline().await.map_err(|e| e.to_string())?;
+                let events = timeline.items().await;
+                log_info(format!(
+                    "Loaded {} events for room {}",
+                    events.len(),
+                    room_id
+                ));
+
+                set_timeline_stream(room_id_string.clone(), stream).await;
+
+                // Subscribe to the timeline to get the initial events and the stream of diffs
+                let (events, mut diff_stream) = timeline.subscribe().await;
+
+                update_timeline(&timeline, &room_id_string).await;
+
+                while let Some(diffs) = diff_stream.next().await {
+                    for diff in diffs {
+                        log_info(format!("Received timeline diff: {:?}", diff));
+                        // Each diff can be an addition, removal, update, etc.
+                        // We'll try to extract RoomTimeline from added/updated events.
+                        update_timeline(&timeline, &room_id_string).await;
+                        // match diff {
+                        //     matrix_sdk_ui::eyeball_im::VectorDiff::Append { values } => {
+                        //         update_timeline(&timeline, &room_id_string).await;
+                        //     }
+                        //     matrix_sdk_ui::eyeball_im::VectorDiff::Clear => todo!(),
+                        //     matrix_sdk_ui::eyeball_im::VectorDiff::PushFront { value } => todo!(),
+                        //     matrix_sdk_ui::eyeball_im::VectorDiff::PushBack { value } => {
+                        //         update_timeline(&timeline, &room_id_string).await;
+                        //     }
+                        //     matrix_sdk_ui::eyeball_im::VectorDiff::PopFront => todo!(),
+                        //     matrix_sdk_ui::eyeball_im::VectorDiff::PopBack => todo!(),
+                        //     matrix_sdk_ui::eyeball_im::VectorDiff::Insert { index, value } => {
+                        //         todo!()
+                        //     }
+                        //     matrix_sdk_ui::eyeball_im::VectorDiff::Set { index, value } => todo!(),
+                        //     matrix_sdk_ui::eyeball_im::VectorDiff::Remove { index } => todo!(),
+                        //     matrix_sdk_ui::eyeball_im::VectorDiff::Truncate { length } => todo!(),
+                        //     matrix_sdk_ui::eyeball_im::VectorDiff::Reset { values } => todo!(),
+                        // }
+                    }
+                }
+
+                Ok(true)
+            } else {
+                Err("Client not logged in".to_string())
+            }
+        })
+    })
+}
+
+pub fn timeline_paginate_forward(room_id: String) -> Result<(), String> {
+    tokio::task::block_in_place(|| {
+        let runtime = GLOBAL_RUNTIME
+            .get()
+            .expect("Global runtime not initialized");
+        runtime.block_on(async {
+            // For now, this function does nothing
+            // It can be implemented to fetch more messages from the timeline
+            log_info(format!("Paginating up for room: {}", room_id));
+            let client = get_global_client().await?;
+            if client.is_none() {
+                return Err("Client not logged in".to_string());
+            }
+            let room_id = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+            let room = client.unwrap().get_room(&room_id).ok_or("Room not found")?;
+
+            // Load the timeline for the room
+            let timeline = room.timeline().await.map_err(|e| e.to_string())?;
+            let _ = timeline.paginate_forwards(10);
+            Ok(())
+        })
+    })
+}
+
+pub fn timeline_paginate_backwards(room_id: String) -> Result<(), String> {
+    tokio::task::block_in_place(|| {
+        let runtime = GLOBAL_RUNTIME
+            .get()
+            .expect("Global runtime not initialized");
+        runtime.block_on(async {
+            // For now, this function does nothing
+            // It can be implemented to fetch more messages from the timeline
+            log_info(format!("Paginating down for room: {}", room_id));
+            let client = get_global_client().await?;
+            if client.is_none() {
+                return Err("Client not logged in".to_string());
+            }
+            let room_id = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+            let room = client.unwrap().get_room(&room_id).ok_or("Room not found")?;
+
+            // Load the timeline for the room
+            let timeline = room.timeline().await.map_err(|e| e.to_string())?;
+            let _ = timeline.paginate_backwards(10);
+            Ok(())
         })
     })
 }
@@ -674,159 +842,99 @@ pub fn is_logged_in() -> Result<bool, String> {
     })
 }
 
-// Start polling sync - continuously syncs with the server
-pub async fn start_polling_sync() -> Result<bool, String> {
-    log_info("Starting polling sync".to_string());
+pub fn sync_once() -> Result<(), String> {
+    tokio::task::block_in_place(|| {
+        let runtime = GLOBAL_RUNTIME
+            .get()
+            .expect("Global runtime not initialized");
+        runtime.block_on(async {
+            log_info("Syncing once".to_string());
+
+            let global_client = get_global_client().await.unwrap();
+            if let Some(client) = global_client {
+                // Check if client has a valid session
+                if client.session().is_none() {
+                    log_error("Client has no valid session".to_string());
+                    return Err("No valid session found. Please login again.".to_string());
+                }
+
+                let sync_settings = SyncSettings::default();
+                let sync_response = client
+                    .sync_once(sync_settings)
+                    .await
+                    .map_err(|e| e.to_string())?;
+
+                log_info(format!("Sync once response: {:?}", sync_response));
+
+                Ok(())
+            } else {
+                log_error("Client not initialized".to_string());
+                Err("Client not initialized. Please initialize the client first.".to_string())
+            }
+        })
+    })
+}
+
+pub async fn start_sliding_sync() -> Result<(), String> {
+    log_info("Starting sliding sync".to_string());
 
     // First check if user is logged in
     let is_logged_in =
         is_logged_in().map_err(|e| format!("Failed to check login status: {}", e))?;
     if !is_logged_in {
-        log_error("Cannot start polling sync: user not logged in".to_string());
+        log_error("Cannot start sliding sync: user not logged in".to_string());
         return Err("User not logged in. Please login first.".to_string());
     }
 
-    // Stop any existing sync task
-    stop_polling_sync_internal().await?;
+    let global_client = get_global_client().await?;
+    if let Some(client) = global_client {
+        // Check if client has a valid session
+        if client.session().is_none() {
+            log_error("Client has no valid session".to_string());
+            return Err("No valid session found. Please login again.".to_string());
+        }
 
-    let client = get_global_client().await?;
-    let Some(client) = client else {
-        return Err("Client not initialized".to_string());
-    };
+        // Start sliding sync
+        let builder = client.sliding_sync("main").map_err(|e| {
+            log_error(format!("Sliding sync failed: {}", e));
+            e.to_string()
+        })?;
 
-    // Check if client has a valid session
-    if client.session().is_none() {
-        log_error("Client has no valid session".to_string());
-        return Err("No valid session found. Please login again.".to_string());
+        let service = builder
+            .network_timeout(Duration::from_secs(5))
+            .poll_timeout(Duration::from_secs(5))
+            .share_pos()
+            .version(matrix_sdk::sliding_sync::Version::Native)
+            .with_all_extensions()
+            .build()
+            .await
+            .map_err(|e| {
+                log_error(format!("Failed to build sliding sync: {}", e));
+                e.to_string()
+            })?;
+
+        let sliding_sync_version = client.sliding_sync_version();
+        log_info(format!("Sliding sync version: {:?}", sliding_sync_version));
+
+        let sync_stream = service.sync();
+        pin_mut!(sync_stream);
+        while let Some(sync_response) = sync_stream.next().await {
+            log_info(format!("Sync response: {:?}", sync_response));
+        }
+
+        log_info("Sliding sync started successfully".to_string());
+
+        let mut sync_stream = Box::pin(client.sync_stream(SyncSettings::default()).await);
+
+        while let Some(Ok(response)) = sync_stream.next().await {
+            log_info(format!("Normal Sync response: {:?}", response));
+        }
+
+        Ok(())
+    } else {
+        log_error("Client not initialized".to_string());
+        Err("Client not initialized. Please initialize the client first.".to_string())
     }
-
-    // Update sync status
-    set_global_sync_status(SyncStatus {
-        is_syncing: true,
-        rooms_count: 0,
-        messages_count: 0,
-        last_sync_time: None,
-    })
-    .await?;
-
-    // Spawn the polling sync task
-    let handle = tokio::spawn(polling_sync_loop(client));
-    set_sync_task(Some(handle)).await?;
-
-    log_info("Polling sync started successfully".to_string());
-    Ok(true)
-}
-
-// Stop polling sync
-pub fn stop_polling_sync() -> Result<bool, String> {
-    log_info("Stopping polling sync".to_string());
-
-    tokio::task::block_in_place(|| {
-        let runtime = GLOBAL_RUNTIME
-            .get()
-            .expect("Global runtime not initialized");
-        runtime.block_on(async {
-            stop_polling_sync_internal().await?;
-            log_info("Polling sync stopped successfully".to_string());
-            Ok(true)
-        })
-    })
-}
-
-// Internal function to stop polling sync
-async fn stop_polling_sync_internal() -> Result<(), String> {
-    let sync_task = get_sync_task().await?;
-    let mut task_guard = sync_task.lock().await;
-
-    if let Some(handle) = task_guard.take() {
-        handle.abort();
-        // Wait for the task to finish
-        let _ = handle.await;
-    }
-
-    // Update sync status
-    set_global_sync_status(SyncStatus {
-        is_syncing: false,
-        rooms_count: 0,
-        messages_count: 0,
-        last_sync_time: None,
-    })
-    .await?;
-
-    Ok(())
-}
-
-// Get sync events for Flutter
-pub fn get_sync_events_for_flutter() -> Result<Vec<SyncEvent>, String> {
-    tokio::task::block_in_place(|| {
-        let runtime = GLOBAL_RUNTIME
-            .get()
-            .expect("Global runtime not initialized");
-        runtime.block_on(async { get_sync_events().await })
-    })
-}
-
-// Clear sync events
-pub fn clear_sync_events_for_flutter() -> Result<bool, String> {
-    tokio::task::block_in_place(|| {
-        let runtime = GLOBAL_RUNTIME
-            .get()
-            .expect("Global runtime not initialized");
-        runtime.block_on(async {
-            clear_sync_events().await?;
-            Ok(true)
-        })
-    })
-}
-
-// Check if sync stream is initialized
-pub fn is_sync_stream_initialized() -> bool {
-    SYNC_STREAM_SINK.get().is_some()
-}
-
-// Send a test sync event (for debugging)
-pub fn send_test_sync_event() -> Result<bool, String> {
-    tokio::task::block_in_place(|| {
-        let runtime = GLOBAL_RUNTIME
-            .get()
-            .expect("Global runtime not initialized");
-        runtime.block_on(async {
-            let test_event = SyncEvent {
-                event_type: "test_event".to_string(),
-                room_id: Some("!test:example.com".to_string()),
-                event_id: Some("$test123".to_string()),
-                sender: Some("@test:example.com".to_string()),
-                content: Some("This is a test sync event".to_string()),
-                timestamp: Some(
-                    std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs(),
-                ),
-                sync_time: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs(),
-            };
-
-            store_sync_event(test_event).await;
-            Ok(true)
-        })
-    })
-}
-
-// Check if polling sync is active
-pub fn is_polling_sync_active() -> Result<bool, String> {
-    tokio::task::block_in_place(|| {
-        let runtime = GLOBAL_RUNTIME
-            .get()
-            .expect("Global runtime not initialized");
-        runtime.block_on(async {
-            let sync_task = get_sync_task().await?;
-            let task_guard = sync_task.lock().await;
-            Ok(task_guard.is_some())
-        })
-    })
 }
 
 // Check if client is properly authenticated
@@ -845,134 +953,4 @@ pub fn is_client_authenticated() -> Result<bool, String> {
             }
         })
     })
-}
-
-// The main polling sync loop
-async fn polling_sync_loop(client: Client) {
-    log_info("Polling sync loop started".to_string());
-
-    let mut interval = tokio::time::interval(std::time::Duration::from_secs(30)); // Sync every 30 seconds
-
-    loop {
-        interval.tick().await;
-
-        match perform_sync_cycle(&client).await {
-            Ok(_) => {
-                log_info("Sync cycle completed successfully".to_string());
-            }
-            Err(e) => {
-                log_error(format!("Sync cycle failed: {}", e));
-                // Continue the loop even if sync fails
-            }
-        }
-    }
-}
-
-// Perform a single sync cycle
-async fn perform_sync_cycle(client: &Client) -> Result<(), String> {
-    // Check if client has a valid session before attempting sync
-    if client.session().is_none() {
-        log_error("Cannot perform sync cycle: no valid session".to_string());
-        return Err("No valid session found. Please login again.".to_string());
-    }
-
-    let sync_settings = SyncSettings::default().timeout(std::time::Duration::from_secs(30));
-
-    let current_time = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-
-    client
-        .sync_with_result_callback(sync_settings, |sync_result| async move {
-            match sync_result {
-                Ok(response) => {
-                    log_info(format!("Processing sync response {:?}", response));
-
-                    // Process joined rooms
-                    for (room_id, room) in response.rooms.joined {
-                        log_info(format!("Processing room: {}", room_id));
-
-                        // Process timeline events
-                        for event in room.timeline.events {
-                            let sync_event = SyncEvent {
-                                event_type: "timeline_event".to_string(),
-                                room_id: Some(room_id.to_string()),
-                                event_id: None, // Will be extracted if needed
-                                sender: None,   // Will be extracted if needed
-                                content: Some(format!("{:?}", event)),
-                                timestamp: None, // Will be extracted if needed
-                                sync_time: current_time,
-                            };
-
-                            // Store the event for Flutter to retrieve
-                            store_sync_event(sync_event).await;
-                        }
-                    }
-
-                    // Process left rooms
-                    for (room_id, _room) in response.rooms.left {
-                        let sync_event = SyncEvent {
-                            event_type: "room_left".to_string(),
-                            room_id: Some(room_id.to_string()),
-                            event_id: None,
-                            sender: None,
-                            content: None,
-                            timestamp: None,
-                            sync_time: current_time,
-                        };
-
-                        log_info(format!("Left room event: {:?}", sync_event));
-                    }
-
-                    // Process invited rooms
-                    for (room_id, _room) in response.rooms.invited {
-                        let sync_event = SyncEvent {
-                            event_type: "room_invited".to_string(),
-                            room_id: Some(room_id.to_string()),
-                            event_id: None,
-                            sender: None,
-                            content: None,
-                            timestamp: None,
-                            sync_time: current_time,
-                        };
-
-                        log_info(format!("Invited room event: {:?}", sync_event));
-                    }
-                }
-                Err(e) => {
-                    log_error(format!("Sync response error: {}", e));
-                }
-            }
-
-            Ok(LoopCtrl::Continue)
-        })
-        .await
-        .map_err(|e| {
-            log_error(format!("Sync cycle failed: {}", e));
-            if e.to_string().contains("no access token") {
-                "Authentication required. Please login first.".to_string()
-            } else {
-                format!("Sync failed: {}", e)
-            }
-        })?;
-
-    // Update sync status with current time
-    let rooms_count = client.rooms().len() as u64;
-    let messages_count = 0; // This would need to be calculated from actual messages
-
-    set_global_sync_status(SyncStatus {
-        is_syncing: true,
-        rooms_count,
-        messages_count,
-        last_sync_time: Some(current_time),
-    })
-    .await?;
-
-    log_info(format!(
-        "Sync completed - Rooms: {}, Messages: {}, Time: {}",
-        rooms_count, messages_count, current_time
-    ));
-
-    Ok(())
 }

@@ -6,6 +6,7 @@ import 'package:matrix/src/login_screen.dart';
 import 'package:matrix/src/theme/matrix_theme.dart';
 import 'package:matrix/src/theme/theme_switcher.dart';
 import 'package:matrix/src/theme/theme_provider.dart';
+import 'package:matrix/src/timeline_screen.dart';
 import 'package:provider/provider.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -29,6 +30,26 @@ class _HomeScreenState extends State<HomeScreen> {
     MatrixSyncService().syncStream.listen((event) {
       _updateSyncStatus();
       _loadRooms();
+    });
+
+    listenRoomUpdates().listen((update) {
+      if (mounted) {
+        final index = _rooms.indexWhere((r) => r.roomId == update.roomId);
+
+        if (index == -1) {
+          _rooms.add(update);
+        } else {
+          // Update existing room if it already exists
+
+          if (_rooms[index].latestEventTimestamp != null &&
+              _rooms[index].latestEventTimestamp !=
+                  update.latestEventTimestamp) {
+            _rooms.removeAt(index);
+            _rooms.add(update);
+          }
+        }
+        setState(() {});
+      }
     });
     _startSyncTimer();
   }
@@ -357,11 +378,22 @@ class _HomeScreenState extends State<HomeScreen> {
           size: 16,
         ),
         onTap: () {
-          // TODO: Navigate to room chat
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('ENTERING ROOM: ${room.name ?? room.roomId}'),
-              backgroundColor: Colors.green,
+          Navigator.of(context).push(
+            PageRouteBuilder(
+              pageBuilder:
+                  (context, animation, secondaryAnimation) => TimelineScreen(
+                    roomId: room.roomId,
+                    roomName: room.name ?? room.roomId,
+                  ),
+              transitionDuration: const Duration(milliseconds: 800),
+              transitionsBuilder: (
+                context,
+                animation,
+                secondaryAnimation,
+                child,
+              ) {
+                return FadeTransition(opacity: animation, child: child);
+              },
             ),
           );
         },

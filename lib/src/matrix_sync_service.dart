@@ -13,6 +13,7 @@ class MatrixSyncService {
 
   Future<void> performInitialSync() async {
     _syncStream = initSyncStream();
-    await performInitialSyncWithPolling(startPolling: true);
+    await syncOnce();
+    await startSlidingSync();
   }
 }

@@ -1,18 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:matrix/src/extensions/context_extension.dart';
 import 'package:matrix/src/logging_service.dart';
+import 'package:matrix/src/rust/api/platform.dart';
+import 'package:matrix/src/rust/api/tracing.dart';
 import 'package:matrix/src/splash_screen.dart';
 import 'package:matrix/src/rust/frb_generated.dart';
 import 'package:matrix/src/rust/logging_handler.dart';
 import 'package:matrix/src/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart' as path;
 
+// const String homeserverUrl = 'http://localhost:8008';
+const String homeserverUrl = 'https://server.serverplatform.ae';
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   // Initialize Flutter Rust Bridge with custom logging
   await RustLib.init(handler: CustomLoggingHandler());
 
   // Initialize Rust logging
   await LoggingService.initializeLogging();
+  final String databasesPath = await getDatabasesPath();
+
+  await initPlatform(
+    config: TracingConfiguration(
+      logLevel: LogLevel.trace,
+      traceLogPacks: TraceLogPacks.values,
+      extraTargets: [],
+      writeToStdoutOrSystem: true,
+      writeToFiles: TracingFileConfiguration(
+        path: '$databasesPath${path.separator}logs',
+        filePrefix: 'matrix',
+        fileSuffix: '.log',
+      ),
+    ),
+    useLightweightTokioRuntime: false,
+  );
 
   // Test Rust logging
   debugPrint('[FLUTTER] Initializing Matrix app with Rust logging...');
@@ -50,7 +73,6 @@ class MatrixDemoPage extends StatefulWidget {
 
 class _MatrixDemoPageState extends State<MatrixDemoPage> {
   String _statusMessage = 'Ready to test Matrix SDK integration';
-  String _greetingResult = '';
 
   @override
   void initState() {
@@ -125,18 +147,6 @@ class _MatrixDemoPageState extends State<MatrixDemoPage> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade100,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        _greetingResult,
-                        style: const TextStyle(fontSize: 16),
                       ),
                     ),
                   ],

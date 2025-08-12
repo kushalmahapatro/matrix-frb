@@ -11,6 +11,8 @@ import 'api/logger.dart';
 import 'api/matrix_client.dart';
 import 'api/matrix_message.dart';
 import 'api/matrix_room.dart';
+import 'api/platform.dart';
+import 'api/tracing.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
@@ -24,11 +26,37 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     required super.portManager,
   });
 
+  CrossPlatformFinalizerArg
+  get rust_arc_decrement_strong_count_FieldsFormatterForFilesPtr =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerFieldsFormatterForFiles;
+
   @protected
   AnyhowException dco_decode_AnyhowException(dynamic raw);
 
   @protected
+  FieldsFormatterForFiles
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerFieldsFormatterForFiles(
+    dynamic raw,
+  );
+
+  @protected
+  FieldsFormatterForFiles
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerFieldsFormatterForFiles(
+    dynamic raw,
+  );
+
+  @protected
   RustStreamSink<LogEntry> dco_decode_StreamSink_log_entry_Sse(dynamic raw);
+
+  @protected
+  RustStreamSink<MatrixRoomInfo> dco_decode_StreamSink_matrix_room_info_Sse(
+    dynamic raw,
+  );
+
+  @protected
+  RustStreamSink<RoomTimeline> dco_decode_StreamSink_room_timeline_Sse(
+    dynamic raw,
+  );
 
   @protected
   RustStreamSink<SyncEvent> dco_decode_StreamSink_sync_event_Sse(dynamic raw);
@@ -46,7 +74,29 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MatrixMessage dco_decode_box_autoadd_matrix_message(dynamic raw);
 
   @protected
+  RoomTimeline dco_decode_box_autoadd_room_timeline(dynamic raw);
+
+  @protected
+  TracingConfiguration dco_decode_box_autoadd_tracing_configuration(
+    dynamic raw,
+  );
+
+  @protected
+  TracingFileConfiguration dco_decode_box_autoadd_tracing_file_configuration(
+    dynamic raw,
+  );
+
+  @protected
+  int dco_decode_box_autoadd_u_32(dynamic raw);
+
+  @protected
   BigInt dco_decode_box_autoadd_u_64(dynamic raw);
+
+  @protected
+  ClientError dco_decode_client_error(dynamic raw);
+
+  @protected
+  int dco_decode_i_32(dynamic raw);
 
   @protected
   PlatformInt64 dco_decode_i_64(dynamic raw);
@@ -64,10 +114,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
-  List<SyncEvent> dco_decode_list_sync_event(dynamic raw);
+  List<TraceLogPacks> dco_decode_list_trace_log_packs(dynamic raw);
 
   @protected
   LogEntry dco_decode_log_entry(dynamic raw);
+
+  @protected
+  LogLevel dco_decode_log_level(dynamic raw);
 
   @protected
   MatrixClientConfig dco_decode_matrix_client_config(dynamic raw);
@@ -85,13 +138,32 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MatrixMessage? dco_decode_opt_box_autoadd_matrix_message(dynamic raw);
 
   @protected
+  TracingFileConfiguration?
+  dco_decode_opt_box_autoadd_tracing_file_configuration(dynamic raw);
+
+  @protected
+  int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
+
+  @protected
   BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw);
+
+  @protected
+  RoomTimeline dco_decode_room_timeline(dynamic raw);
 
   @protected
   SyncEvent dco_decode_sync_event(dynamic raw);
 
   @protected
   SyncStatus dco_decode_sync_status(dynamic raw);
+
+  @protected
+  TraceLogPacks dco_decode_trace_log_packs(dynamic raw);
+
+  @protected
+  TracingConfiguration dco_decode_tracing_configuration(dynamic raw);
+
+  @protected
+  TracingFileConfiguration dco_decode_tracing_file_configuration(dynamic raw);
 
   @protected
   int dco_decode_u_32(dynamic raw);
@@ -106,10 +178,35 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void dco_decode_unit(dynamic raw);
 
   @protected
+  BigInt dco_decode_usize(dynamic raw);
+
+  @protected
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
 
   @protected
+  FieldsFormatterForFiles
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerFieldsFormatterForFiles(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  FieldsFormatterForFiles
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerFieldsFormatterForFiles(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RustStreamSink<LogEntry> sse_decode_StreamSink_log_entry_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<MatrixRoomInfo> sse_decode_StreamSink_matrix_room_info_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<RoomTimeline> sse_decode_StreamSink_room_timeline_Sse(
     SseDeserializer deserializer,
   );
 
@@ -135,7 +232,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RoomTimeline sse_decode_box_autoadd_room_timeline(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TracingConfiguration sse_decode_box_autoadd_tracing_configuration(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TracingFileConfiguration sse_decode_box_autoadd_tracing_file_configuration(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
+
+  @protected
   BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
+
+  @protected
+  ClientError sse_decode_client_error(SseDeserializer deserializer);
+
+  @protected
+  int sse_decode_i_32(SseDeserializer deserializer);
 
   @protected
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
@@ -157,10 +278,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
-  List<SyncEvent> sse_decode_list_sync_event(SseDeserializer deserializer);
+  List<TraceLogPacks> sse_decode_list_trace_log_packs(
+    SseDeserializer deserializer,
+  );
 
   @protected
   LogEntry sse_decode_log_entry(SseDeserializer deserializer);
+
+  @protected
+  LogLevel sse_decode_log_level(SseDeserializer deserializer);
 
   @protected
   MatrixClientConfig sse_decode_matrix_client_config(
@@ -182,13 +308,38 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  TracingFileConfiguration?
+  sse_decode_opt_box_autoadd_tracing_file_configuration(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
+
+  @protected
   BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer);
+
+  @protected
+  RoomTimeline sse_decode_room_timeline(SseDeserializer deserializer);
 
   @protected
   SyncEvent sse_decode_sync_event(SseDeserializer deserializer);
 
   @protected
   SyncStatus sse_decode_sync_status(SseDeserializer deserializer);
+
+  @protected
+  TraceLogPacks sse_decode_trace_log_packs(SseDeserializer deserializer);
+
+  @protected
+  TracingConfiguration sse_decode_tracing_configuration(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TracingFileConfiguration sse_decode_tracing_file_configuration(
+    SseDeserializer deserializer,
+  );
 
   @protected
   int sse_decode_u_32(SseDeserializer deserializer);
@@ -203,7 +354,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_decode_unit(SseDeserializer deserializer);
 
   @protected
-  int sse_decode_i_32(SseDeserializer deserializer);
+  BigInt sse_decode_usize(SseDeserializer deserializer);
 
   @protected
   void sse_encode_AnyhowException(
@@ -212,8 +363,34 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerFieldsFormatterForFiles(
+    FieldsFormatterForFiles self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerFieldsFormatterForFiles(
+    FieldsFormatterForFiles self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_StreamSink_log_entry_Sse(
     RustStreamSink<LogEntry> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_matrix_room_info_Sse(
+    RustStreamSink<MatrixRoomInfo> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_room_timeline_Sse(
+    RustStreamSink<RoomTimeline> self,
     SseSerializer serializer,
   );
 
@@ -242,7 +419,34 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_room_timeline(
+    RoomTimeline self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_tracing_configuration(
+    TracingConfiguration self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_tracing_file_configuration(
+    TracingFileConfiguration self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
+
+  @protected
   void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_client_error(ClientError self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_i_32(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
@@ -269,13 +473,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_list_sync_event(
-    List<SyncEvent> self,
+  void sse_encode_list_trace_log_packs(
+    List<TraceLogPacks> self,
     SseSerializer serializer,
   );
 
   @protected
   void sse_encode_log_entry(LogEntry self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_log_level(LogLevel self, SseSerializer serializer);
 
   @protected
   void sse_encode_matrix_client_config(
@@ -302,13 +509,40 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_tracing_file_configuration(
+    TracingFileConfiguration? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
+
+  @protected
   void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_room_timeline(RoomTimeline self, SseSerializer serializer);
 
   @protected
   void sse_encode_sync_event(SyncEvent self, SseSerializer serializer);
 
   @protected
   void sse_encode_sync_status(SyncStatus self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_trace_log_packs(TraceLogPacks self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_tracing_configuration(
+    TracingConfiguration self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_tracing_file_configuration(
+    TracingFileConfiguration self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_u_32(int self, SseSerializer serializer);
@@ -323,13 +557,29 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_unit(void self, SseSerializer serializer);
 
   @protected
-  void sse_encode_i_32(int self, SseSerializer serializer);
+  void sse_encode_usize(BigInt self, SseSerializer serializer);
 }
 
 // Section: wire_class
 
 class RustLibWire implements BaseWire {
   RustLibWire.fromExternalLibrary(ExternalLibrary lib);
+
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerFieldsFormatterForFiles(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerFieldsFormatterForFiles(
+        ptr,
+      );
+
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerFieldsFormatterForFiles(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerFieldsFormatterForFiles(
+        ptr,
+      );
 }
 
 @JS('wasm_bindgen')
@@ -337,4 +587,14 @@ external RustLibWasmModule get wasmModule;
 
 @JS()
 @anonymous
-extension type RustLibWasmModule._(JSObject _) implements JSObject {}
+extension type RustLibWasmModule._(JSObject _) implements JSObject {
+  external void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerFieldsFormatterForFiles(
+    int ptr,
+  );
+
+  external void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerFieldsFormatterForFiles(
+    int ptr,
+  );
+}

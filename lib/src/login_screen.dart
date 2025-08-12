@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:matrix/main.dart';
 import 'package:matrix/src/extensions/context_extension.dart';
 import 'package:matrix/src/matrix_sync_service.dart';
 import 'package:matrix/src/rust/api/matrix_client.dart';
 import 'package:matrix/src/home_screen.dart';
-import 'package:matrix/src/rust/api/matrix_client.dart';
 import 'package:matrix/src/theme/matrix_theme.dart';
 import 'package:matrix/src/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
@@ -17,14 +17,13 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
-  final _homeserverController = TextEditingController(
-    text: 'http://localhost:8008',
-  );
+  final _homeserverController = TextEditingController(text: homeserverUrl);
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   String _statusMessage = '';
   bool _showPassword = false;
+  bool _isRegistration = false;
 
   @override
   void initState() {
@@ -58,6 +57,65 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
     try {
       final success = await login(
+        username: _usernameController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        MatrixSyncService().performInitialSync();
+        setState(() {
+          _statusMessage = 'AUTHENTICATION SUCCESSFUL. REDIRECTING...';
+        });
+
+        // Wait a moment for user to see success message
+        await Future.delayed(const Duration(seconds: 1));
+
+        if (!mounted) return;
+
+        // Navigate to home screen
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            pageBuilder:
+                (context, animation, secondaryAnimation) => const HomeScreen(),
+            transitionDuration: const Duration(milliseconds: 800),
+            transitionsBuilder: (
+              context,
+              animation,
+              secondaryAnimation,
+              child,
+            ) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+          ),
+        );
+      } else {
+        setState(() {
+          _statusMessage = 'AUTHENTICATION FAILED. CHECK CREDENTIALS.';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _statusMessage = 'ERROR: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _register() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+      _statusMessage = 'CONNECTING TO MATRIX...';
+    });
+
+    try {
+      final success = await register(
         username: _usernameController.text.trim(),
         password: _passwordController.text,
       );
@@ -151,7 +209,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                         _buildMatrixTextField(
                           controller: _homeserverController,
                           label: 'HOMESERVER URL',
-                          hint: 'http://localhost:8008',
+                          hint: 'https://matrix.org',
                           icon: Icons.dns,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -221,33 +279,85 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                             ),
                           ),
 
-                        // Login Button
-                        SizedBox(
-                          height: 50,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _login,
-                            style: MatrixTheme.primaryButtonStyle,
-                            child:
-                                _isLoading
-                                    ? SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                              context.colors.onSurface,
-                                            ),
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                    : const Text(
-                                      'LOGIN',
-                                      style: MatrixTheme.buttonStyle,
+                        // Login or Register Button Button
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          child:
+                              !_isRegistration
+                                  ? SizedBox(
+                                    key: ValueKey('LoginButton'),
+                                    height: 50,
+                                    child: ElevatedButton(
+                                      onPressed: _isLoading ? null : _login,
+                                      style: MatrixTheme.primaryButtonStyle,
+                                      child:
+                                          _isLoading
+                                              ? SizedBox(
+                                                width: 20,
+                                                height: 20,
+                                                child: CircularProgressIndicator(
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation<
+                                                        Color
+                                                      >(
+                                                        context
+                                                            .colors
+                                                            .onSurface,
+                                                      ),
+                                                  strokeWidth: 2,
+                                                ),
+                                              )
+                                              : const Text(
+                                                'LOGIN',
+                                                style: MatrixTheme.buttonStyle,
+                                              ),
                                     ),
-                          ),
+                                  )
+                                  : SizedBox(
+                                    key: ValueKey('RegistrationButton'),
+                                    height: 50,
+                                    child: ElevatedButton(
+                                      onPressed: _isLoading ? null : _register,
+                                      style: MatrixTheme.primaryButtonStyle,
+                                      child:
+                                          _isLoading
+                                              ? SizedBox(
+                                                width: 20,
+                                                height: 20,
+                                                child: CircularProgressIndicator(
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation<
+                                                        Color
+                                                      >(
+                                                        context
+                                                            .colors
+                                                            .onSurface,
+                                                      ),
+                                                  strokeWidth: 2,
+                                                ),
+                                              )
+                                              : const Text(
+                                                'REGISTER',
+                                                style: MatrixTheme.buttonStyle,
+                                              ),
+                                    ),
+                                  ),
                         ),
                       ],
                     ),
+                  ),
+
+                  // Switch between Login and Register
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _isRegistration = !_isRegistration;
+                      });
+                    },
+                    child:
+                        _isRegistration
+                            ? Text('Already have an account?')
+                            : Text('Don\'t have an account?'),
                   ),
 
                   const SizedBox(height: 100),

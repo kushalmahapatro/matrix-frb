@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:graphx/graphx.dart';
+import 'package:matrix/main.dart';
 import 'package:matrix/src/extensions/context_extension.dart';
 import 'package:matrix/src/logging_service.dart';
 import 'package:matrix/src/matrix_sync_service.dart';
@@ -51,7 +52,7 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     final config = MatrixClientConfig(
-      homeserverUrl: 'http://localhost:8008',
+      homeserverUrl: homeserverUrl,
       storagePath: databasesPath,
     );
 
@@ -63,6 +64,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     final initSuccess = await initClient(config: config);
     LoggingService.info(runtimeType.toString(), 'Init result: $initSuccess');
+    await Future.delayed(const Duration(seconds: 1));
 
     if (!mounted) return;
 

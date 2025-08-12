@@ -6,14 +6,39 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `clear_sync_events`, `create_sync_stream`, `get_global_client`, `get_global_config`, `get_global_sync_status`, `get_sync_events`, `get_sync_task`, `init_globals`, `perform_initial_sync_async`, `perform_sync_cycle`, `polling_sync_loop`, `set_global_client`, `set_global_config`, `set_global_sync_status`, `set_sync_task`, `stop_polling_sync_internal`, `store_sync_event`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+// These functions are ignored because they are not marked as `pub`: `create_sync_stream`, `get_global_client`, `get_global_config`, `get_global_sync_status`, `init_globals`, `init_timeline_streams`, `set_global_client`, `set_global_config`, `set_global_sync_status`, `update_timeline`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+
+/// Add or update a timeline stream for a room
+Stream<RoomTimeline> setTimelineStream({required String roomId}) =>
+    RustLib.instance.api.crateApiMatrixClientSetTimelineStream(roomId: roomId);
+
+/// Send a timeline event to a room's stream
+Future<void> sendToTimelineStream({
+  required String roomId,
+  required RoomTimeline timelineEvent,
+}) => RustLib.instance.api.crateApiMatrixClientSendToTimelineStream(
+  roomId: roomId,
+  timelineEvent: timelineEvent,
+);
+
+/// Remove a timeline stream for a room
+Future<void> removeTimelineStream({required String roomId}) => RustLib
+    .instance
+    .api
+    .crateApiMatrixClientRemoveTimelineStream(roomId: roomId);
 
 Stream<SyncEvent> initSyncStream() =>
     RustLib.instance.api.crateApiMatrixClientInitSyncStream();
 
 Future<bool> initClient({required MatrixClientConfig config}) =>
     RustLib.instance.api.crateApiMatrixClientInitClient(config: config);
+
+Future<bool> register({required String username, required String password}) =>
+    RustLib.instance.api.crateApiMatrixClientRegister(
+      username: username,
+      password: password,
+    );
 
 Future<bool> login({required String username, required String password}) =>
     RustLib.instance.api.crateApiMatrixClientLogin(
@@ -23,13 +48,24 @@ Future<bool> login({required String username, required String password}) =>
 
 Future<bool> logout() => RustLib.instance.api.crateApiMatrixClientLogout();
 
-Future<bool> performInitialSyncWithPolling({required bool startPolling}) =>
-    RustLib.instance.api.crateApiMatrixClientPerformInitialSyncWithPolling(
-      startPolling: startPolling,
-    );
+Stream<MatrixRoomInfo> listenRoomUpdates() =>
+    RustLib.instance.api.crateApiMatrixClientListenRoomUpdates();
 
 Future<List<MatrixRoomInfo>> getRooms() =>
     RustLib.instance.api.crateApiMatrixClientGetRooms();
+
+Stream<RoomTimeline> loadTimeline({required String roomId}) =>
+    RustLib.instance.api.crateApiMatrixClientLoadTimeline(roomId: roomId);
+
+Future<void> timelinePaginateForward({required String roomId}) => RustLib
+    .instance
+    .api
+    .crateApiMatrixClientTimelinePaginateForward(roomId: roomId);
+
+Future<void> timelinePaginateBackwards({required String roomId}) => RustLib
+    .instance
+    .api
+    .crateApiMatrixClientTimelinePaginateBackwards(roomId: roomId);
 
 Future<String> createRoom({required String name, String? topic}) => RustLib
     .instance
@@ -59,26 +95,10 @@ Future<SyncStatus> getSyncStatus() =>
 Future<bool> isLoggedIn() =>
     RustLib.instance.api.crateApiMatrixClientIsLoggedIn();
 
-Future<bool> startPollingSync() =>
-    RustLib.instance.api.crateApiMatrixClientStartPollingSync();
+Future<void> syncOnce() => RustLib.instance.api.crateApiMatrixClientSyncOnce();
 
-Future<bool> stopPollingSync() =>
-    RustLib.instance.api.crateApiMatrixClientStopPollingSync();
-
-Future<List<SyncEvent>> getSyncEventsForFlutter() =>
-    RustLib.instance.api.crateApiMatrixClientGetSyncEventsForFlutter();
-
-Future<bool> clearSyncEventsForFlutter() =>
-    RustLib.instance.api.crateApiMatrixClientClearSyncEventsForFlutter();
-
-Future<bool> isSyncStreamInitialized() =>
-    RustLib.instance.api.crateApiMatrixClientIsSyncStreamInitialized();
-
-Future<bool> sendTestSyncEvent() =>
-    RustLib.instance.api.crateApiMatrixClientSendTestSyncEvent();
-
-Future<bool> isPollingSyncActive() =>
-    RustLib.instance.api.crateApiMatrixClientIsPollingSyncActive();
+Future<void> startSlidingSync() =>
+    RustLib.instance.api.crateApiMatrixClientStartSlidingSync();
 
 Future<bool> isClientAuthenticated() =>
     RustLib.instance.api.crateApiMatrixClientIsClientAuthenticated();
@@ -172,6 +192,37 @@ class MatrixRoomInfo {
           memberCount == other.memberCount &&
           latestEvent == other.latestEvent &&
           latestEventTimestamp == other.latestEventTimestamp;
+}
+
+class RoomTimeline {
+  final String eventId;
+  final String sender;
+  final String content;
+  final BigInt timestamp;
+
+  const RoomTimeline({
+    required this.eventId,
+    required this.sender,
+    required this.content,
+    required this.timestamp,
+  });
+
+  @override
+  int get hashCode =>
+      eventId.hashCode ^
+      sender.hashCode ^
+      content.hashCode ^
+      timestamp.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RoomTimeline &&
+          runtimeType == other.runtimeType &&
+          eventId == other.eventId &&
+          sender == other.sender &&
+          content == other.content &&
+          timestamp == other.timestamp;
 }
 
 class SyncEvent {
