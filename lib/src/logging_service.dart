@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:matrix/src/rust/api/logger.dart';
 import 'package:logger/logger.dart';
+import 'package:matrix/src/rust/api/tracing.dart';
 
 /// Logging service to handle Rust logs in Flutter
 class LoggingService {

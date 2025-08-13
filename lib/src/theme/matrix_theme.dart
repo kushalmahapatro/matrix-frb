@@ -275,7 +275,7 @@ class MatrixTheme {
       iconTheme: IconThemeData(color: getTextColor(isDarkMode)),
 
       // Card theme
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: getContainerColor(isDarkMode),
         elevation: 0,
         shape: RoundedRectangleBorder(

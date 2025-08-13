@@ -1,0 +1,5 @@
+{
+    "kiroAgent.configureMCP": "Enabled",
+    "dart.flutterSdkPath": "/Users/km/.puro/envs/stable/flutter",
+    "dart.sdkPath": "/Users/km/.puro/envs/stable/flutter/bin/cache/dart-sdk"
+}

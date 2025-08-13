@@ -2,6 +2,7 @@ use std::sync::OnceLock;
 #[cfg(feature = "sentry")]
 use std::sync::{atomic::AtomicBool, Arc};
 
+use flutter_rust_bridge::frb;
 use once_cell::sync::OnceCell;
 #[cfg(feature = "sentry")]
 use tracing::warn;
@@ -38,6 +39,9 @@ fn set_global_init_state(init_state: bool) -> Result<(), String> {
         .set(init_state)
         .map_err(|_| "Global init state has already been set".to_string())
 }
+
+#[frb(ignore)]
+pub static GLOBAL_RUNTIME: OnceCell<tokio::runtime::Runtime> = OnceCell::new();
 
 // Adjusted version of tracing_subscriber::fmt::Format
 struct EventFormatter {
@@ -686,10 +690,12 @@ pub fn reload_tracing_file_writer(
 
 #[cfg(not(target_family = "wasm"))]
 fn setup_multithreaded_tokio_runtime() {
-    tokio::runtime::Builder::new_multi_thread()
+    let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
-        .unwrap();
+        .expect("Failed to create multi threaded global runtime");
+
+    GLOBAL_RUNTIME.get_or_init(|| runtime);
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -716,7 +722,11 @@ fn setup_lightweight_tokio_runtime() {
         .thread_stack_size(max_memory_bytes)
         .max_blocking_threads(num_blocking_threads);
 
-    builder.build().unwrap();
+    let runtime = builder
+        .build()
+        .expect("Failed to create lightweight global runtime");
+
+    GLOBAL_RUNTIME.get_or_init(|| runtime);
 }
 
 #[cfg(test)]

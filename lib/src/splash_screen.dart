@@ -10,6 +10,7 @@ import 'package:matrix/src/matrix_sync_service.dart';
 import 'package:matrix/src/rust/api/matrix_client.dart';
 import 'package:matrix/src/login_screen.dart';
 import 'package:matrix/src/home_screen.dart';
+import 'package:matrix/src/rust/api/tracing.dart';
 import 'package:matrix/src/theme/matrix_theme.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -64,7 +65,6 @@ class _SplashScreenState extends State<SplashScreen>
 
     final initSuccess = await initClient(config: config);
     LoggingService.info(runtimeType.toString(), 'Init result: $initSuccess');
-    await Future.delayed(const Duration(seconds: 1));
 
     if (!mounted) return;
 

@@ -3163,6 +3163,7 @@ dependencies = [
  "paranoid-android",
  "proc-macro2",
  "quote",
+ "reqwest",
  "sentry",
  "sentry-tracing",
  "serde",
