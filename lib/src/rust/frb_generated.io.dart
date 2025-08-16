@@ -5,9 +5,6 @@
 
 import 'api/init.dart';
 import 'api/logger.dart';
-import 'api/matrix_client.dart';
-import 'api/matrix_message.dart';
-import 'api/matrix_room.dart';
 import 'api/platform.dart';
 import 'api/tracing.dart';
 import 'dart:async';
@@ -16,6 +13,9 @@ import 'dart:ffi' as ffi;
 import 'frb_generated.dart';
 import 'matrix/authentication.dart';
 import 'matrix/client.dart';
+import 'matrix/rooms.dart';
+import 'matrix/sync_service.dart';
+import 'matrix/timelines.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart';
 import 'third_party/reqwest/tls.dart';
 
@@ -66,17 +66,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RustStreamSink<LogEntry> dco_decode_StreamSink_log_entry_Sse(dynamic raw);
 
   @protected
-  RustStreamSink<MatrixRoomInfo> dco_decode_StreamSink_matrix_room_info_Sse(
+  RustStreamSink<MessageUpdate> dco_decode_StreamSink_message_update_Sse(
     dynamic raw,
   );
 
   @protected
-  RustStreamSink<RoomTimeline> dco_decode_StreamSink_room_timeline_Sse(
-    dynamic raw,
-  );
-
-  @protected
-  RustStreamSink<SyncEvent> dco_decode_StreamSink_sync_event_Sse(dynamic raw);
+  RustStreamSink<RoomUpdate> dco_decode_StreamSink_room_update_Sse(dynamic raw);
 
   @protected
   String dco_decode_String(dynamic raw);
@@ -85,16 +80,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool dco_decode_bool(dynamic raw);
 
   @protected
+  bool dco_decode_box_autoadd_bool(dynamic raw);
+
+  @protected
   ClientConfig dco_decode_box_autoadd_client_config(dynamic raw);
 
   @protected
-  MatrixClientConfig dco_decode_box_autoadd_matrix_client_config(dynamic raw);
-
-  @protected
-  MatrixMessage dco_decode_box_autoadd_matrix_message(dynamic raw);
-
-  @protected
-  RoomTimeline dco_decode_box_autoadd_room_timeline(dynamic raw);
+  Message dco_decode_box_autoadd_message(dynamic raw);
 
   @protected
   TracingConfiguration dco_decode_box_autoadd_tracing_configuration(
@@ -111,6 +103,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt dco_decode_box_autoadd_u_64(dynamic raw);
+
+  @protected
+  BigInt dco_decode_box_autoadd_usize(dynamic raw);
 
   @protected
   ClientConfig dco_decode_client_config(dynamic raw);
@@ -134,13 +129,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<String> dco_decode_list_String(dynamic raw);
 
   @protected
-  List<MatrixMessage> dco_decode_list_matrix_message(dynamic raw);
-
-  @protected
-  List<MatrixRoomInfo> dco_decode_list_matrix_room_info(dynamic raw);
+  List<Message> dco_decode_list_message(dynamic raw);
 
   @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  List<RoomUpdate> dco_decode_list_room_update(dynamic raw);
 
   @protected
   List<TraceLogPacks> dco_decode_list_trace_log_packs(dynamic raw);
@@ -152,19 +147,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   LogLevel dco_decode_log_level(dynamic raw);
 
   @protected
-  MatrixClientConfig dco_decode_matrix_client_config(dynamic raw);
+  Message dco_decode_message(dynamic raw);
 
   @protected
-  MatrixMessage dco_decode_matrix_message(dynamic raw);
+  MessageType dco_decode_message_type(dynamic raw);
 
   @protected
-  MatrixRoomInfo dco_decode_matrix_room_info(dynamic raw);
+  MessageUpdate dco_decode_message_update(dynamic raw);
+
+  @protected
+  MessageUpdateType dco_decode_message_update_type(dynamic raw);
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
-  MatrixMessage? dco_decode_opt_box_autoadd_matrix_message(dynamic raw);
+  bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
+
+  @protected
+  Message? dco_decode_opt_box_autoadd_message(dynamic raw);
 
   @protected
   TracingFileConfiguration?
@@ -177,19 +178,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw);
 
   @protected
+  BigInt? dco_decode_opt_box_autoadd_usize(dynamic raw);
+
+  @protected
   List<Certificate>?
   dco_decode_opt_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCertificate(
     dynamic raw,
   );
 
   @protected
-  RoomTimeline dco_decode_room_timeline(dynamic raw);
+  List<Message>? dco_decode_opt_list_message(dynamic raw);
 
   @protected
-  SyncEvent dco_decode_sync_event(dynamic raw);
-
-  @protected
-  SyncStatus dco_decode_sync_status(dynamic raw);
+  RoomUpdate dco_decode_room_update(dynamic raw);
 
   @protected
   TraceLogPacks dco_decode_trace_log_packs(dynamic raw);
@@ -211,6 +212,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void dco_decode_unit(dynamic raw);
+
+  @protected
+  UpdateType dco_decode_update_type(dynamic raw);
 
   @protected
   BigInt dco_decode_usize(dynamic raw);
@@ -248,17 +252,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  RustStreamSink<MatrixRoomInfo> sse_decode_StreamSink_matrix_room_info_Sse(
+  RustStreamSink<MessageUpdate> sse_decode_StreamSink_message_update_Sse(
     SseDeserializer deserializer,
   );
 
   @protected
-  RustStreamSink<RoomTimeline> sse_decode_StreamSink_room_timeline_Sse(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  RustStreamSink<SyncEvent> sse_decode_StreamSink_sync_event_Sse(
+  RustStreamSink<RoomUpdate> sse_decode_StreamSink_room_update_Sse(
     SseDeserializer deserializer,
   );
 
@@ -269,24 +268,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
+  bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
   ClientConfig sse_decode_box_autoadd_client_config(
     SseDeserializer deserializer,
   );
 
   @protected
-  MatrixClientConfig sse_decode_box_autoadd_matrix_client_config(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  MatrixMessage sse_decode_box_autoadd_matrix_message(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  RoomTimeline sse_decode_box_autoadd_room_timeline(
-    SseDeserializer deserializer,
-  );
+  Message sse_decode_box_autoadd_message(SseDeserializer deserializer);
 
   @protected
   TracingConfiguration sse_decode_box_autoadd_tracing_configuration(
@@ -303,6 +293,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
+
+  @protected
+  BigInt sse_decode_box_autoadd_usize(SseDeserializer deserializer);
 
   @protected
   ClientConfig sse_decode_client_config(SseDeserializer deserializer);
@@ -326,17 +319,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<String> sse_decode_list_String(SseDeserializer deserializer);
 
   @protected
-  List<MatrixMessage> sse_decode_list_matrix_message(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  List<MatrixRoomInfo> sse_decode_list_matrix_room_info(
-    SseDeserializer deserializer,
-  );
+  List<Message> sse_decode_list_message(SseDeserializer deserializer);
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  List<RoomUpdate> sse_decode_list_room_update(SseDeserializer deserializer);
 
   @protected
   List<TraceLogPacks> sse_decode_list_trace_log_packs(
@@ -350,23 +339,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   LogLevel sse_decode_log_level(SseDeserializer deserializer);
 
   @protected
-  MatrixClientConfig sse_decode_matrix_client_config(
+  Message sse_decode_message(SseDeserializer deserializer);
+
+  @protected
+  MessageType sse_decode_message_type(SseDeserializer deserializer);
+
+  @protected
+  MessageUpdate sse_decode_message_update(SseDeserializer deserializer);
+
+  @protected
+  MessageUpdateType sse_decode_message_update_type(
     SseDeserializer deserializer,
   );
-
-  @protected
-  MatrixMessage sse_decode_matrix_message(SseDeserializer deserializer);
-
-  @protected
-  MatrixRoomInfo sse_decode_matrix_room_info(SseDeserializer deserializer);
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
-  MatrixMessage? sse_decode_opt_box_autoadd_matrix_message(
-    SseDeserializer deserializer,
-  );
+  bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
+  Message? sse_decode_opt_box_autoadd_message(SseDeserializer deserializer);
 
   @protected
   TracingFileConfiguration?
@@ -381,19 +374,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer);
 
   @protected
+  BigInt? sse_decode_opt_box_autoadd_usize(SseDeserializer deserializer);
+
+  @protected
   List<Certificate>?
   sse_decode_opt_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCertificate(
     SseDeserializer deserializer,
   );
 
   @protected
-  RoomTimeline sse_decode_room_timeline(SseDeserializer deserializer);
+  List<Message>? sse_decode_opt_list_message(SseDeserializer deserializer);
 
   @protected
-  SyncEvent sse_decode_sync_event(SseDeserializer deserializer);
-
-  @protected
-  SyncStatus sse_decode_sync_status(SseDeserializer deserializer);
+  RoomUpdate sse_decode_room_update(SseDeserializer deserializer);
 
   @protected
   TraceLogPacks sse_decode_trace_log_packs(SseDeserializer deserializer);
@@ -419,6 +412,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_decode_unit(SseDeserializer deserializer);
+
+  @protected
+  UpdateType sse_decode_update_type(SseDeserializer deserializer);
 
   @protected
   BigInt sse_decode_usize(SseDeserializer deserializer);
@@ -464,20 +460,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_StreamSink_matrix_room_info_Sse(
-    RustStreamSink<MatrixRoomInfo> self,
+  void sse_encode_StreamSink_message_update_Sse(
+    RustStreamSink<MessageUpdate> self,
     SseSerializer serializer,
   );
 
   @protected
-  void sse_encode_StreamSink_room_timeline_Sse(
-    RustStreamSink<RoomTimeline> self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_StreamSink_sync_event_Sse(
-    RustStreamSink<SyncEvent> self,
+  void sse_encode_StreamSink_room_update_Sse(
+    RustStreamSink<RoomUpdate> self,
     SseSerializer serializer,
   );
 
@@ -488,28 +478,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
+
+  @protected
   void sse_encode_box_autoadd_client_config(
     ClientConfig self,
     SseSerializer serializer,
   );
 
   @protected
-  void sse_encode_box_autoadd_matrix_client_config(
-    MatrixClientConfig self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_box_autoadd_matrix_message(
-    MatrixMessage self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_box_autoadd_room_timeline(
-    RoomTimeline self,
-    SseSerializer serializer,
-  );
+  void sse_encode_box_autoadd_message(Message self, SseSerializer serializer);
 
   @protected
   void sse_encode_box_autoadd_tracing_configuration(
@@ -528,6 +506,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_usize(BigInt self, SseSerializer serializer);
 
   @protected
   void sse_encode_client_config(ClientConfig self, SseSerializer serializer);
@@ -552,20 +533,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
 
   @protected
-  void sse_encode_list_matrix_message(
-    List<MatrixMessage> self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_list_matrix_room_info(
-    List<MatrixRoomInfo> self,
-    SseSerializer serializer,
-  );
+  void sse_encode_list_message(List<Message> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_prim_u_8_strict(
     Uint8List self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_room_update(
+    List<RoomUpdate> self,
     SseSerializer serializer,
   );
 
@@ -582,17 +560,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_log_level(LogLevel self, SseSerializer serializer);
 
   @protected
-  void sse_encode_matrix_client_config(
-    MatrixClientConfig self,
-    SseSerializer serializer,
-  );
+  void sse_encode_message(Message self, SseSerializer serializer);
 
   @protected
-  void sse_encode_matrix_message(MatrixMessage self, SseSerializer serializer);
+  void sse_encode_message_type(MessageType self, SseSerializer serializer);
 
   @protected
-  void sse_encode_matrix_room_info(
-    MatrixRoomInfo self,
+  void sse_encode_message_update(MessageUpdate self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_message_update_type(
+    MessageUpdateType self,
     SseSerializer serializer,
   );
 
@@ -600,8 +578,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
-  void sse_encode_opt_box_autoadd_matrix_message(
-    MatrixMessage? self,
+  void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_message(
+    Message? self,
     SseSerializer serializer,
   );
 
@@ -618,6 +599,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_usize(BigInt? self, SseSerializer serializer);
+
+  @protected
   void
   sse_encode_opt_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCertificate(
     List<Certificate>? self,
@@ -625,13 +609,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_room_timeline(RoomTimeline self, SseSerializer serializer);
+  void sse_encode_opt_list_message(
+    List<Message>? self,
+    SseSerializer serializer,
+  );
 
   @protected
-  void sse_encode_sync_event(SyncEvent self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_sync_status(SyncStatus self, SseSerializer serializer);
+  void sse_encode_room_update(RoomUpdate self, SseSerializer serializer);
 
   @protected
   void sse_encode_trace_log_packs(TraceLogPacks self, SseSerializer serializer);
@@ -659,6 +643,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_unit(void self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_update_type(UpdateType self, SseSerializer serializer);
 
   @protected
   void sse_encode_usize(BigInt self, SseSerializer serializer);

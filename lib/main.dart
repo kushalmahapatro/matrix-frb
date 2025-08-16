@@ -5,37 +5,40 @@ import 'package:matrix/src/rust/api/platform.dart';
 import 'package:matrix/src/rust/api/tracing.dart';
 import 'package:matrix/src/splash_screen.dart';
 import 'package:matrix/src/rust/frb_generated.dart';
-import 'package:matrix/src/rust/logging_handler.dart';
 import 'package:matrix/src/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as path;
 
-// const String homeserverUrl = 'http://localhost:8008';
-const String homeserverUrl = 'https://server.serverplatform.ae';
+Uri homeserverUrl = Uri.parse('http://localhost:8008');
+// const String homeserverUrl = 'https://server.serverplatform.ae';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Initialize Flutter Rust Bridge with custom logging
-  await RustLib.init(handler: CustomLoggingHandler());
+  await RustLib.init();
 
   // Initialize Rust logging
   await LoggingService.initializeLogging();
   final String databasesPath = await getDatabasesPath();
 
-  await initPlatform(
-    config: TracingConfiguration(
-      logLevel: LogLevel.trace,
-      traceLogPacks: TraceLogPacks.values,
-      extraTargets: [],
-      writeToStdoutOrSystem: true,
-      writeToFiles: TracingFileConfiguration(
-        path: '$databasesPath${path.separator}logs',
-        filePrefix: 'matrix',
-        fileSuffix: '.log',
+  try {
+    await initPlatform(
+      config: TracingConfiguration(
+        logLevel: LogLevel.trace,
+        traceLogPacks: TraceLogPacks.values,
+        extraTargets: [],
+        writeToStdoutOrSystem: true,
+        writeToFiles: TracingFileConfiguration(
+          path: '$databasesPath${path.separator}logs',
+          filePrefix: 'matrix',
+          fileSuffix: '.log',
+        ),
       ),
-    ),
-    useLightweightTokioRuntime: false,
-  );
+      useLightweightTokioRuntime: false,
+    );
+  } catch (e) {
+    debugPrint(e.toString());
+  }
 
   // Test Rust logging
   debugPrint('[FLUTTER] Initializing Matrix app with Rust logging...');

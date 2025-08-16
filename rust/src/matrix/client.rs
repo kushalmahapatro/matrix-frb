@@ -1,5 +1,4 @@
-use std::{path::Path, sync::Arc};
-
+use crate::api::logger::log_info;
 use flutter_rust_bridge::frb;
 use matrix_sdk::{
     authentication::matrix::MatrixSession,
@@ -9,10 +8,9 @@ use matrix_sdk::{
     Client, SqliteCryptoStore, SqliteEventCacheStore, SqliteStateStore,
 };
 use once_cell::sync::OnceCell;
-
+use std::{path::Path, sync::Arc};
 use tokio::sync::Mutex;
 
-use crate::api::logger::{log_debug, log_info};
 #[frb(ignore)]
 static GLOBAL_CLIENT: OnceCell<Arc<Mutex<Option<Client>>>> = OnceCell::new();
 #[frb(ignore)]
@@ -62,27 +60,25 @@ pub async fn configure_client(config: ClientConfig) -> Result<bool, String> {
         proxy,
     } = config;
 
-    log_debug(format!("Storage path: {}", session_path));
+    log_info(format!("Storage path: {}", session_path));
     let path = Path::new(&session_path);
+
+    let crypto_store = SqliteCryptoStore::open(path.join("crypto"), None)
+        .await
+        .map_err(|e| format!("Error creating crypto_store: {}", e))?;
+    let state_store = SqliteStateStore::open(path.join("state"), None)
+        .await
+        .map_err(|e| format!("Error creating state_store: {}", e))?;
+    let event_cache_store = SqliteEventCacheStore::open(path.join("cache"), None)
+        .await
+        .map_err(|e| format!("Error creating event_cache_store: {}", e))?;
 
     let mut client_builder = Client::builder()
         .store_config(
             StoreConfig::new("matrix".to_owned())
-                .crypto_store(
-                    SqliteCryptoStore::open(path.join("crypto"), None)
-                        .await
-                        .map_err(|e| e.to_string())?,
-                )
-                .state_store(
-                    SqliteStateStore::open(path.join("state"), None)
-                        .await
-                        .map_err(|e| e.to_string())?,
-                )
-                .event_cache_store(
-                    SqliteEventCacheStore::open(path.join("cache"), None)
-                        .await
-                        .map_err(|e| e.to_string())?,
-                ),
+                .crypto_store(crypto_store)
+                .state_store(state_store)
+                .event_cache_store(event_cache_store),
         )
         .homeserver_url(&homeserver_url)
         .with_encryption_settings(EncryptionSettings {

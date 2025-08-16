@@ -1,5 +1,10 @@
-use std::path::Path;
-
+use crate::{
+    api::{
+        logger::{log_error, log_info},
+        platform::GLOBAL_RUNTIME,
+    },
+    matrix::client::{get_global_client, set_global_client, GLOBAL_CONFIG},
+};
 use matrix_sdk::{
     ruma::{
         api::client::{
@@ -10,24 +15,19 @@ use matrix_sdk::{
     },
     AuthSession,
 };
-
-use crate::{
-    api::{
-        logger::{log_error, log_info},
-        platform::GLOBAL_RUNTIME,
-    },
-    matrix::client::{get_global_client, set_global_client, GLOBAL_CONFIG},
-};
+use std::path::Path;
 
 static SESSION_JSON: &str = "session.json";
 
 // Check if client is properly authenticated
 pub fn is_client_authenticated() -> Result<bool, String> {
     tokio::task::block_in_place(|| {
-        let runtime = GLOBAL_RUNTIME
-            .get()
-            .expect("Global runtime not initialized");
-        runtime.block_on(async {
+        let runtime = GLOBAL_RUNTIME.get();
+        if runtime.is_none() {
+            return Err("Global runtime not initialized".to_string());
+        }
+
+        runtime.unwrap().block_on(async {
             let global_client = get_global_client().await?;
             if let Some(client) = global_client {
                 // Check if client has a valid session

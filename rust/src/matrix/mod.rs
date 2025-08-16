@@ -1,2 +1,10 @@
+pub mod authentication;
 pub mod client;
-pub mod  authentication;
+pub mod rooms;
+pub mod status;
+pub mod sync_service;
+pub mod timelines;
+
+// Re-export types that the generated code needs
+pub use std::collections::HashMap;
+pub use std::sync::Mutex;

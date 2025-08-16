@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:matrix/src/matrix_sync_service.dart';
-import 'package:matrix/src/rust/api/matrix_client.dart';
 import 'package:matrix/src/login_screen.dart';
+import 'package:matrix/src/rust/matrix/authentication.dart';
+import 'package:matrix/src/rust/matrix/rooms.dart';
 import 'package:matrix/src/theme/matrix_theme.dart';
 import 'package:matrix/src/theme/theme_switcher.dart';
 import 'package:matrix/src/theme/theme_provider.dart';
@@ -17,99 +17,73 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List<MatrixRoomInfo> _rooms = [];
-  bool _isLoading = true;
-  String _statusMessage = '';
-  SyncStatus? _syncStatus;
-  Timer? _syncTimer;
+  List<RoomUpdate> _rooms = [];
+  bool _loading = false;
 
   @override
   void initState() {
     super.initState();
+    _loading = true;
     _loadRooms(initial: true);
-    MatrixSyncService().syncStream.listen((event) {
-      _updateSyncStatus();
-      _loadRooms();
-    });
+    subscribeToAllRoomUpdates().listen((event) {
+      if (!mounted) return;
 
-    listenRoomUpdates().listen((update) {
-      if (mounted) {
-        final index = _rooms.indexWhere((r) => r.roomId == update.roomId);
+      switch (event.updateType) {
+        case UpdateType.joined:
+          final int index = _rooms.indexWhere(
+            (element) => element.roomId == event.roomId,
+          );
+          _rooms[index] = event;
 
-        if (index == -1) {
-          _rooms.add(update);
-        } else {
-          // Update existing room if it already exists
+          break;
+        case UpdateType.left:
+          final int index = _rooms.indexWhere(
+            (element) => element.roomId == event.roomId,
+          );
+          _rooms.removeAt(index);
 
-          if (_rooms[index].latestEventTimestamp != null &&
-              _rooms[index].latestEventTimestamp !=
-                  update.latestEventTimestamp) {
-            _rooms.removeAt(index);
-            _rooms.add(update);
-          }
-        }
-        setState(() {});
+          break;
+        case UpdateType.invited:
+          _rooms.add(event);
+
+          break;
+        case UpdateType.knocked:
+          break;
       }
+
+      _rooms.sort((a, b) {
+        final aTimestamp = (a.message?.timestamp ?? BigInt.from(0)).toInt();
+        final bTimestamp = (b.message?.timestamp ?? BigInt.from(0)).toInt();
+        return bTimestamp.compareTo(aTimestamp);
+      });
+
+      setState(() {});
     });
-    _startSyncTimer();
   }
 
   @override
   void dispose() {
-    _syncTimer?.cancel();
     super.dispose();
   }
 
-  void _startSyncTimer() {
-    _syncTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      _updateSyncStatus();
-    });
-  }
-
   Future<void> _loadRooms({bool initial = false}) async {
-    setState(() {
-      if (initial) {
-        _isLoading = true;
-        _statusMessage = 'LOADING...';
-      }
-    });
-
     try {
-      final rooms = await getRooms();
-      final syncStatus = await getSyncStatus();
+      // final rooms = await getRooms();
+      final rooms = await getAllRooms();
 
       if (!mounted) return;
 
-      setState(() {
-        _rooms = rooms;
-        _syncStatus = syncStatus;
-        if (initial) {
-          _isLoading = false;
-          _statusMessage = '';
-        }
+      _rooms = rooms;
+      _rooms.sort((a, b) {
+        final aTimestamp = (a.message?.timestamp ?? BigInt.from(0)).toInt();
+        final bTimestamp = (b.message?.timestamp ?? BigInt.from(0)).toInt();
+        return bTimestamp.compareTo(aTimestamp);
       });
+      _loading = false;
+
+      setState(() {});
     } catch (e) {
       if (!mounted) return;
-
-      if (initial) {
-        setState(() {
-          _isLoading = false;
-          _statusMessage = 'ERROR LOADING ROOMS: $e';
-        });
-      }
-    }
-  }
-
-  Future<void> _updateSyncStatus() async {
-    try {
-      final syncStatus = await getSyncStatus();
-      if (mounted) {
-        setState(() {
-          _syncStatus = syncStatus;
-        });
-      }
-    } catch (e) {
-      // Silently handle sync status errors
     }
   }
 
@@ -170,52 +144,28 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Row(
                 children: [
                   // Sync Status
-                  if (_syncStatus != null) ...[
-                    Icon(
-                      _syncStatus!.isSyncing ? Icons.sync : Icons.sync_disabled,
-                      color:
-                          _syncStatus!.isSyncing
-                              ? MatrixTheme.primaryGreen
-                              : MatrixTheme.warningOrange,
-                      size: 16,
+                  Icon(Icons.sync, color: MatrixTheme.primaryGreen, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    'SYNCING',
+                    style: TextStyle(
+                      color: MatrixTheme.primaryGreen,
+                      fontSize: 12,
+                      fontFamily: MatrixTheme.fontFamily,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _syncStatus!.isSyncing ? 'SYNCING' : 'IDLE',
-                      style: TextStyle(
-                        color:
-                            _syncStatus!.isSyncing
-                                ? MatrixTheme.primaryGreen
-                                : MatrixTheme.warningOrange,
-                        fontSize: 12,
-                        fontFamily: MatrixTheme.fontFamily,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Text(
-                      'ROOMS: ${_syncStatus!.roomsCount}',
-                      style: MatrixTheme.captionStyle,
-                    ),
-                    const SizedBox(width: 16),
-                    Text(
-                      'MESSAGES: ${_syncStatus!.messagesCount}',
-                      style: MatrixTheme.captionStyle,
-                    ),
-                  ],
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    'ROOMS: ${_rooms.length}',
+                    style: MatrixTheme.captionStyle,
+                  ),
+                  const SizedBox(width: 16),
 
-                  const Spacer(),
-
-                  // Status Message
-                  if (_statusMessage.isNotEmpty)
-                    Flexible(
-                      child: Text(
-                        _statusMessage,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: MatrixTheme.warningStyle,
-                      ),
-                    ),
+                  // Text(
+                  //   'MESSAGES: ${_syncStatus!.messagesCount}',
+                  //   style: MatrixTheme.captionStyle,
+                  // ),
                 ],
               ),
             ),
@@ -223,25 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
             // Rooms List
             Expanded(
               child:
-                  _isLoading
-                      ? const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                MatrixTheme.primaryGreen,
-                              ),
-                            ),
-                            SizedBox(height: 16),
-                            Text(
-                              'LOADING MATRIX...',
-                              style: MatrixTheme.subtitleStyle,
-                            ),
-                          ],
-                        ),
-                      )
-                      : _rooms.isEmpty
+                  _loading && _rooms.isEmpty
                       ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -302,88 +234,66 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildRoomCard(MatrixRoomInfo room) {
+  Widget _buildRoomCard(RoomUpdate room) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: MatrixTheme.getCardDecoration(
-        context.read<ThemeProvider>().isDarkMode,
-      ),
-      child: ListTile(
-        title: Row(
+
+      child: InkWell(
+        child: Row(
           children: [
             Expanded(
-              child: Text(
-                room.name ?? room.roomId,
-                style: MatrixTheme.bodyStyle.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    room.displayName ?? room.roomId,
+                    style: MatrixTheme.bodyStyle.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  if (room.message != null)
+                    Text(
+                      room.message!.content,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: MatrixTheme.labelStyle.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                ],
               ),
             ),
 
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.people,
+            if ((room.unreadMessages ?? BigInt.from(0)) > BigInt.from(0))
+              Container(
+                height: 16,
+                width: 16,
+                decoration: BoxDecoration(
                   color: MatrixTheme.primaryGreen,
-                  size: 16,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  '${room.memberCount} MEMBERS',
-                  style: MatrixTheme.captionStyle,
-                ),
-              ],
-            ),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (room.topic != null) ...[
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      room.topic!,
-                      style: MatrixTheme.bodyStyle.copyWith(
-                        color: MatrixTheme.primaryGreen.withValues(alpha: 0.7),
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                child: Center(
+                  child: Text(
+                    room.unreadMessages.toString(),
+                    style: MatrixTheme.bodyStyle.copyWith(
+                      color: MatrixTheme.darkBackground,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ],
+                ),
               ),
-              const SizedBox(height: 4),
-              Text(room.roomId, style: MatrixTheme.captionStyle),
-              const SizedBox(height: 4),
-              Text(
-                room.latestEventTimestamp.toString(),
-                style: MatrixTheme.bodyStyle,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                room.latestEvent?.content.toString() ?? '',
-                style: MatrixTheme.bodyStyle,
-              ),
-            ],
-            const SizedBox(height: 8),
           ],
         ),
-        trailing: const Icon(
-          Icons.arrow_forward_ios,
-          color: MatrixTheme.primaryGreen,
-          size: 16,
-        ),
+
         onTap: () {
           Navigator.of(context).push(
             PageRouteBuilder(
               pageBuilder:
                   (context, animation, secondaryAnimation) => TimelineScreen(
                     roomId: room.roomId,
-                    roomName: room.name ?? room.roomId,
+                    roomName: room.displayName ?? room.roomId,
                   ),
               transitionDuration: const Duration(milliseconds: 800),
               transitionsBuilder: (

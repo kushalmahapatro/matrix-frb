@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 792272768;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1682812420;
 
 // Section: executor
 
@@ -225,7 +225,7 @@ fn wire__crate__api__logger__create_log_stream_impl(
         },
     )
 }
-fn wire__crate__api__matrix_client__create_room_impl(
+fn wire__crate__matrix__rooms__get_all_rooms_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -233,7 +233,7 @@ fn wire__crate__api__matrix_client__create_room_impl(
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "create_room",
+            debug_name: "get_all_rooms",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -247,12 +247,10 @@ fn wire__crate__api__matrix_client__create_room_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_name = <String>::sse_decode(&mut deserializer);
-            let api__topic = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::matrix_client::create_room(api_name, api__topic)?;
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Result::<_, ()>::Ok(crate::matrix::rooms::get_all_rooms())?;
                     Ok(output_ok)
                 })())
             }
@@ -285,106 +283,6 @@ fn wire__crate__api__init__get_matrix_config_impl(
             move |context| {
                 transform_result_sse::<_, ()>((move || {
                     let output_ok = Result::<_, ()>::Ok(crate::api::init::get_matrix_config())?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_client__get_messages_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "get_messages",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api__room_id = <String>::sse_decode(&mut deserializer);
-            let api__limit = <u32>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok =
-                        crate::api::matrix_client::get_messages(api__room_id, api__limit)?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_room__get_room_members_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "get_room_members",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api__room_id = <String>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::matrix_room::get_room_members(api__room_id)?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_client__get_rooms_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "get_rooms",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::matrix_client::get_rooms()?;
                     Ok(output_ok)
                 })())
             }
@@ -424,7 +322,7 @@ fn wire__crate__api__init__get_sync_operations_status_impl(
         },
     )
 }
-fn wire__crate__api__matrix_client__get_sync_status_impl(
+fn wire__crate__matrix__timelines__get_timeline_items_by_room_id_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -432,7 +330,7 @@ fn wire__crate__api__matrix_client__get_sync_status_impl(
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "get_sync_status",
+            debug_name: "get_timeline_items_by_room_id",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -446,10 +344,13 @@ fn wire__crate__api__matrix_client__get_sync_status_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_room_id = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::matrix_client::get_sync_status()?;
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Result::<_, ()>::Ok(
+                        crate::matrix::timelines::get_timeline_items_by_room_id(api_room_id),
+                    )?;
                     Ok(output_ok)
                 })())
             }
@@ -486,43 +387,6 @@ fn wire__crate__api__init__init_app_impl(
                     })?;
                     Ok(output_ok)
                 })())
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_client__init_client_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "init_client",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_config =
-                <crate::api::matrix_client::MatrixClientConfig>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| async move {
-                transform_result_sse::<_, String>(
-                    (move || async move {
-                        let output_ok = crate::api::matrix_client::init_client(api_config).await?;
-                        Ok(output_ok)
-                    })()
-                    .await,
-                )
             }
         },
     )
@@ -603,111 +467,6 @@ fn wire__crate__api__platform__init_platform_impl(
         },
     )
 }
-fn wire__crate__api__matrix_client__init_sync_stream_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "init_sync_stream",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_sync_stream = <StreamSink<
-                crate::api::matrix_client::SyncEvent,
-                flutter_rust_bridge::for_generated::SseCodec,
-            >>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, ()>((move || {
-                    let output_ok = Result::<_, ()>::Ok({
-                        crate::api::matrix_client::init_sync_stream(api_sync_stream);
-                    })?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_room__invite_user_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "invite_user",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api__room_id = <String>::sse_decode(&mut deserializer);
-            let api__user_id = <String>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok =
-                        crate::api::matrix_room::invite_user(api__room_id, api__user_id)?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_client__is_client_authenticated_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "is_client_authenticated",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::matrix_client::is_client_authenticated()?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
 fn wire__crate__matrix__authentication__is_client_authenticated_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -734,213 +493,6 @@ fn wire__crate__matrix__authentication__is_client_authenticated_impl(
             move |context| {
                 transform_result_sse::<_, String>((move || {
                     let output_ok = crate::matrix::authentication::is_client_authenticated()?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_client__is_logged_in_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "is_logged_in",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::matrix_client::is_logged_in()?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_client__join_room_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "join_room",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_room_id = <String>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::matrix_client::join_room(api_room_id)?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_room__join_room_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "join_room",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api__room_id = <String>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::matrix_room::join_room(api__room_id)?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_room__leave_room_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "leave_room",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api__room_id = <String>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::matrix_room::leave_room(api__room_id)?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_client__listen_room_updates_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "listen_room_updates",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_stream = <StreamSink<
-                crate::api::matrix_client::MatrixRoomInfo,
-                flutter_rust_bridge::for_generated::SseCodec,
-            >>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, ()>((move || {
-                    let output_ok = Result::<_, ()>::Ok({
-                        crate::api::matrix_client::listen_room_updates(api_stream);
-                    })?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_client__load_timeline_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "load_timeline",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_stream = <StreamSink<
-                crate::api::matrix_client::RoomTimeline,
-                flutter_rust_bridge::for_generated::SseCodec,
-            >>::sse_decode(&mut deserializer);
-            let api_room_id = <String>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok =
-                        crate::api::matrix_client::load_timeline(api_stream, api_room_id)?;
                     Ok(output_ok)
                 })())
             }
@@ -1132,40 +684,6 @@ fn wire__crate__api__logger__log_warn_impl(
         },
     )
 }
-fn wire__crate__api__matrix_client__login_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "login",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_username = <String>::sse_decode(&mut deserializer);
-            let api_password = <String>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::matrix_client::login(api_username, api_password)?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
 fn wire__crate__matrix__authentication__login_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1201,38 +719,6 @@ fn wire__crate__matrix__authentication__login_impl(
         },
     )
 }
-fn wire__crate__api__matrix_client__logout_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "logout",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::matrix_client::logout()?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
 fn wire__crate__matrix__authentication__logout_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1259,80 +745,6 @@ fn wire__crate__matrix__authentication__logout_impl(
             move |context| {
                 transform_result_sse::<_, String>((move || {
                     let output_ok = crate::matrix::authentication::logout()?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_message__redact_message_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "redact_message",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api__room_id = <String>::sse_decode(&mut deserializer);
-            let api__event_id = <String>::sse_decode(&mut deserializer);
-            let api__reason = <Option<String>>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::matrix_message::redact_message(
-                        api__room_id,
-                        api__event_id,
-                        api__reason,
-                    )?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_client__register_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "register",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_username = <String>::sse_decode(&mut deserializer);
-            let api_password = <String>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok =
-                        crate::api::matrix_client::register(api_username, api_password)?;
                     Ok(output_ok)
                 })())
             }
@@ -1409,84 +821,7 @@ fn wire__crate__api__platform__reload_tracing_file_writer_impl(
         },
     )
 }
-fn wire__crate__api__matrix_client__remove_timeline_stream_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "remove_timeline_stream",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_room_id = <String>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| async move {
-                transform_result_sse::<_, ()>(
-                    (move || async move {
-                        let output_ok = Result::<_, ()>::Ok({
-                            crate::api::matrix_client::remove_timeline_stream(&api_room_id).await;
-                        })?;
-                        Ok(output_ok)
-                    })()
-                    .await,
-                )
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_message__send_formatted_message_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "send_formatted_message",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api__room_id = <String>::sse_decode(&mut deserializer);
-            let api__content = <String>::sse_decode(&mut deserializer);
-            let api__formatted_content = <String>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::matrix_message::send_formatted_message(
-                        api__room_id,
-                        api__content,
-                        api__formatted_content,
-                    )?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_client__send_message_impl(
+fn wire__crate__matrix__rooms__send_message_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -1513,15 +848,14 @@ fn wire__crate__api__matrix_client__send_message_impl(
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, String>((move || {
-                    let output_ok =
-                        crate::api::matrix_client::send_message(api_room_id, api_content)?;
+                    let output_ok = crate::matrix::rooms::send_message(api_room_id, api_content)?;
                     Ok(output_ok)
                 })())
             }
         },
     )
 }
-fn wire__crate__api__matrix_message__send_reaction_impl(
+fn wire__crate__matrix__sync_service__start_sync_service_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -1529,7 +863,7 @@ fn wire__crate__api__matrix_message__send_reaction_impl(
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "send_reaction",
+            debug_name: "start_sync_service",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -1543,24 +877,17 @@ fn wire__crate__api__matrix_message__send_reaction_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api__room_id = <String>::sse_decode(&mut deserializer);
-            let api__event_id = <String>::sse_decode(&mut deserializer);
-            let api__reaction = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::matrix_message::send_reaction(
-                        api__room_id,
-                        api__event_id,
-                        api__reaction,
-                    )?;
+                    let output_ok = crate::matrix::sync_service::start_sync_service()?;
                     Ok(output_ok)
                 })())
             }
         },
     )
 }
-fn wire__crate__api__matrix_message__send_text_message_impl(
+fn wire__crate__matrix__rooms__subscribe_to_all_room_updates_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -1568,7 +895,7 @@ fn wire__crate__api__matrix_message__send_text_message_impl(
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "send_text_message",
+            debug_name: "subscribe_to_all_room_updates",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -1582,140 +909,23 @@ fn wire__crate__api__matrix_message__send_text_message_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api__room_id = <String>::sse_decode(&mut deserializer);
-            let api__content = <String>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok =
-                        crate::api::matrix_message::send_text_message(api__room_id, api__content)?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_client__send_to_timeline_stream_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "send_to_timeline_stream",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_room_id = <String>::sse_decode(&mut deserializer);
-            let api_timeline_event =
-                <crate::api::matrix_client::RoomTimeline>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| async move {
-                transform_result_sse::<_, String>(
-                    (move || async move {
-                        let output_ok = crate::api::matrix_client::send_to_timeline_stream(
-                            &api_room_id,
-                            api_timeline_event,
-                        )
-                        .await?;
-                        Ok(output_ok)
-                    })()
-                    .await,
-                )
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_client__set_timeline_stream_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "set_timeline_stream",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_room_id = <String>::sse_decode(&mut deserializer);
             let api_stream = <StreamSink<
-                crate::api::matrix_client::RoomTimeline,
+                crate::matrix::rooms::RoomUpdate,
                 flutter_rust_bridge::for_generated::SseCodec,
             >>::sse_decode(&mut deserializer);
             deserializer.end();
-            move |context| async move {
-                transform_result_sse::<_, ()>(
-                    (move || async move {
-                        let output_ok = Result::<_, ()>::Ok({
-                            crate::api::matrix_client::set_timeline_stream(api_room_id, api_stream)
-                                .await;
-                        })?;
-                        Ok(output_ok)
-                    })()
-                    .await,
-                )
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Result::<_, ()>::Ok({
+                        crate::matrix::rooms::subscribe_to_all_room_updates(api_stream);
+                    })?;
+                    Ok(output_ok)
+                })())
             }
         },
     )
 }
-fn wire__crate__api__matrix_client__start_sliding_sync_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "start_sliding_sync",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            deserializer.end();
-            move |context| async move {
-                transform_result_sse::<_, String>(
-                    (move || async move {
-                        let output_ok = crate::api::matrix_client::start_sliding_sync().await?;
-                        Ok(output_ok)
-                    })()
-                    .await,
-                )
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_client__sync_once_impl(
+fn wire__crate__matrix__timelines__subscribe_to_timeline_updates_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -1723,7 +933,7 @@ fn wire__crate__api__matrix_client__sync_once_impl(
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "sync_once",
+            debug_name: "subscribe_to_timeline_updates",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -1737,10 +947,20 @@ fn wire__crate__api__matrix_client__sync_once_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_stream = <StreamSink<
+                crate::matrix::timelines::MessageUpdate,
+                flutter_rust_bridge::for_generated::SseCodec,
+            >>::sse_decode(&mut deserializer);
+            let api_room_id = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok = crate::api::matrix_client::sync_once()?;
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Result::<_, ()>::Ok({
+                        crate::matrix::timelines::subscribe_to_timeline_updates(
+                            api_stream,
+                            api_room_id,
+                        );
+                    })?;
                     Ok(output_ok)
                 })())
             }
@@ -1774,74 +994,6 @@ fn wire__crate__api__init__test_server_connectivity_impl(
                 transform_result_sse::<_, ()>((move || {
                     let output_ok =
                         Result::<_, ()>::Ok(crate::api::init::test_server_connectivity())?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_client__timeline_paginate_backwards_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "timeline_paginate_backwards",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_room_id = <String>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok =
-                        crate::api::matrix_client::timeline_paginate_backwards(api_room_id)?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__api__matrix_client__timeline_paginate_forward_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "timeline_paginate_forward",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_room_id = <String>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, String>((move || {
-                    let output_ok =
-                        crate::api::matrix_client::timeline_paginate_forward(api_room_id)?;
                     Ok(output_ok)
                 })())
             }
@@ -1922,7 +1074,7 @@ impl SseDecode
 
 impl SseDecode
     for StreamSink<
-        crate::api::matrix_client::MatrixRoomInfo,
+        crate::matrix::timelines::MessageUpdate,
         flutter_rust_bridge::for_generated::SseCodec,
     >
 {
@@ -1934,23 +1086,7 @@ impl SseDecode
 }
 
 impl SseDecode
-    for StreamSink<
-        crate::api::matrix_client::RoomTimeline,
-        flutter_rust_bridge::for_generated::SseCodec,
-    >
-{
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <String>::sse_decode(deserializer);
-        return StreamSink::deserialize(inner);
-    }
-}
-
-impl SseDecode
-    for StreamSink<
-        crate::api::matrix_client::SyncEvent,
-        flutter_rust_bridge::for_generated::SseCodec,
-    >
+    for StreamSink<crate::matrix::rooms::RoomUpdate, flutter_rust_bridge::for_generated::SseCodec>
 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2048,27 +1184,13 @@ impl SseDecode for Vec<String> {
     }
 }
 
-impl SseDecode for Vec<crate::api::matrix_client::MatrixMessage> {
+impl SseDecode for Vec<crate::matrix::timelines::Message> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut len_ = <i32>::sse_decode(deserializer);
         let mut ans_ = vec![];
         for idx_ in 0..len_ {
-            ans_.push(<crate::api::matrix_client::MatrixMessage>::sse_decode(
-                deserializer,
-            ));
-        }
-        return ans_;
-    }
-}
-
-impl SseDecode for Vec<crate::api::matrix_client::MatrixRoomInfo> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut len_ = <i32>::sse_decode(deserializer);
-        let mut ans_ = vec![];
-        for idx_ in 0..len_ {
-            ans_.push(<crate::api::matrix_client::MatrixRoomInfo>::sse_decode(
+            ans_.push(<crate::matrix::timelines::Message>::sse_decode(
                 deserializer,
             ));
         }
@@ -2083,6 +1205,18 @@ impl SseDecode for Vec<u8> {
         let mut ans_ = vec![];
         for idx_ in 0..len_ {
             ans_.push(<u8>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::matrix::rooms::RoomUpdate> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = vec![];
+        for idx_ in 0..len_ {
+            ans_.push(<crate::matrix::rooms::RoomUpdate>::sse_decode(deserializer));
         }
         return ans_;
     }
@@ -2133,51 +1267,73 @@ impl SseDecode for crate::api::tracing::LogLevel {
     }
 }
 
-impl SseDecode for crate::api::matrix_client::MatrixClientConfig {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_homeserverUrl = <String>::sse_decode(deserializer);
-        let mut var_storagePath = <String>::sse_decode(deserializer);
-        return crate::api::matrix_client::MatrixClientConfig {
-            homeserver_url: var_homeserverUrl,
-            storage_path: var_storagePath,
-        };
-    }
-}
-
-impl SseDecode for crate::api::matrix_client::MatrixMessage {
+impl SseDecode for crate::matrix::timelines::Message {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_eventId = <String>::sse_decode(deserializer);
         let mut var_sender = <String>::sse_decode(deserializer);
         let mut var_content = <String>::sse_decode(deserializer);
         let mut var_timestamp = <u64>::sse_decode(deserializer);
-        return crate::api::matrix_client::MatrixMessage {
+        let mut var_messageType = <crate::matrix::timelines::MessageType>::sse_decode(deserializer);
+        return crate::matrix::timelines::Message {
             event_id: var_eventId,
             sender: var_sender,
             content: var_content,
             timestamp: var_timestamp,
+            message_type: var_messageType,
         };
     }
 }
 
-impl SseDecode for crate::api::matrix_client::MatrixRoomInfo {
+impl SseDecode for crate::matrix::timelines::MessageType {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_roomId = <String>::sse_decode(deserializer);
-        let mut var_name = <Option<String>>::sse_decode(deserializer);
-        let mut var_topic = <Option<String>>::sse_decode(deserializer);
-        let mut var_memberCount = <u64>::sse_decode(deserializer);
-        let mut var_latestEvent =
-            <Option<crate::api::matrix_client::MatrixMessage>>::sse_decode(deserializer);
-        let mut var_latestEventTimestamp = <Option<u64>>::sse_decode(deserializer);
-        return crate::api::matrix_client::MatrixRoomInfo {
-            room_id: var_roomId,
-            name: var_name,
-            topic: var_topic,
-            member_count: var_memberCount,
-            latest_event: var_latestEvent,
-            latest_event_timestamp: var_latestEventTimestamp,
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::matrix::timelines::MessageType::Message,
+            1 => crate::matrix::timelines::MessageType::DateDivider,
+            2 => crate::matrix::timelines::MessageType::ReadMarker,
+            3 => crate::matrix::timelines::MessageType::TimelineStart,
+            _ => unreachable!("Invalid variant for MessageType: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::matrix::timelines::MessageUpdate {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_messageUpdateType =
+            <crate::matrix::timelines::MessageUpdateType>::sse_decode(deserializer);
+        let mut var_messages =
+            <Option<Vec<crate::matrix::timelines::Message>>>::sse_decode(deserializer);
+        let mut var_index = <Option<usize>>::sse_decode(deserializer);
+        let mut var_length = <Option<usize>>::sse_decode(deserializer);
+        return crate::matrix::timelines::MessageUpdate {
+            message_update_type: var_messageUpdateType,
+            messages: var_messages,
+            index: var_index,
+            length: var_length,
+        };
+    }
+}
+
+impl SseDecode for crate::matrix::timelines::MessageUpdateType {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::matrix::timelines::MessageUpdateType::Reset,
+            1 => crate::matrix::timelines::MessageUpdateType::Truncate,
+            2 => crate::matrix::timelines::MessageUpdateType::Remove,
+            3 => crate::matrix::timelines::MessageUpdateType::Set,
+            4 => crate::matrix::timelines::MessageUpdateType::Insert,
+            5 => crate::matrix::timelines::MessageUpdateType::PopBack,
+            6 => crate::matrix::timelines::MessageUpdateType::PopFront,
+            7 => crate::matrix::timelines::MessageUpdateType::PushBack,
+            8 => crate::matrix::timelines::MessageUpdateType::PushFront,
+            9 => crate::matrix::timelines::MessageUpdateType::Clear,
+            10 => crate::matrix::timelines::MessageUpdateType::Append,
+            _ => unreachable!("Invalid variant for MessageUpdateType: {}", inner),
         };
     }
 }
@@ -2193,11 +1349,22 @@ impl SseDecode for Option<String> {
     }
 }
 
-impl SseDecode for Option<crate::api::matrix_client::MatrixMessage> {
+impl SseDecode for Option<bool> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
-            return Some(<crate::api::matrix_client::MatrixMessage>::sse_decode(
+            return Some(<bool>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::matrix::timelines::Message> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::matrix::timelines::Message>::sse_decode(
                 deserializer,
             ));
         } else {
@@ -2241,6 +1408,17 @@ impl SseDecode for Option<u64> {
     }
 }
 
+impl SseDecode for Option<usize> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<usize>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for Option<Vec<Certificate>> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2252,56 +1430,43 @@ impl SseDecode for Option<Vec<Certificate>> {
     }
 }
 
-impl SseDecode for crate::api::matrix_client::RoomTimeline {
+impl SseDecode for Option<Vec<crate::matrix::timelines::Message>> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_eventId = <String>::sse_decode(deserializer);
-        let mut var_sender = <String>::sse_decode(deserializer);
-        let mut var_content = <String>::sse_decode(deserializer);
-        let mut var_timestamp = <u64>::sse_decode(deserializer);
-        return crate::api::matrix_client::RoomTimeline {
-            event_id: var_eventId,
-            sender: var_sender,
-            content: var_content,
-            timestamp: var_timestamp,
-        };
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<Vec<crate::matrix::timelines::Message>>::sse_decode(
+                deserializer,
+            ));
+        } else {
+            return None;
+        }
     }
 }
 
-impl SseDecode for crate::api::matrix_client::SyncEvent {
+impl SseDecode for crate::matrix::rooms::RoomUpdate {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_eventType = <String>::sse_decode(deserializer);
-        let mut var_roomId = <Option<String>>::sse_decode(deserializer);
-        let mut var_eventId = <Option<String>>::sse_decode(deserializer);
-        let mut var_sender = <Option<String>>::sse_decode(deserializer);
-        let mut var_content = <Option<String>>::sse_decode(deserializer);
-        let mut var_timestamp = <Option<u64>>::sse_decode(deserializer);
-        let mut var_syncTime = <u64>::sse_decode(deserializer);
-        return crate::api::matrix_client::SyncEvent {
-            event_type: var_eventType,
+        let mut var_roomId = <String>::sse_decode(deserializer);
+        let mut var_rawName = <Option<String>>::sse_decode(deserializer);
+        let mut var_displayName = <Option<String>>::sse_decode(deserializer);
+        let mut var_isDm = <Option<bool>>::sse_decode(deserializer);
+        let mut var_updateType = <crate::matrix::rooms::UpdateType>::sse_decode(deserializer);
+        let mut var_unreadNotifications = <Option<u64>>::sse_decode(deserializer);
+        let mut var_unreadHighlight = <Option<u64>>::sse_decode(deserializer);
+        let mut var_unreadMentions = <Option<u64>>::sse_decode(deserializer);
+        let mut var_unreadMessages = <Option<u64>>::sse_decode(deserializer);
+        let mut var_message = <Option<crate::matrix::timelines::Message>>::sse_decode(deserializer);
+        return crate::matrix::rooms::RoomUpdate {
             room_id: var_roomId,
-            event_id: var_eventId,
-            sender: var_sender,
-            content: var_content,
-            timestamp: var_timestamp,
-            sync_time: var_syncTime,
-        };
-    }
-}
-
-impl SseDecode for crate::api::matrix_client::SyncStatus {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_isSyncing = <bool>::sse_decode(deserializer);
-        let mut var_roomsCount = <u64>::sse_decode(deserializer);
-        let mut var_messagesCount = <u64>::sse_decode(deserializer);
-        let mut var_lastSyncTime = <Option<u64>>::sse_decode(deserializer);
-        return crate::api::matrix_client::SyncStatus {
-            is_syncing: var_isSyncing,
-            rooms_count: var_roomsCount,
-            messages_count: var_messagesCount,
-            last_sync_time: var_lastSyncTime,
+            raw_name: var_rawName,
+            display_name: var_displayName,
+            is_dm: var_isDm,
+            update_type: var_updateType,
+            unread_notifications: var_unreadNotifications,
+            unread_highlight: var_unreadHighlight,
+            unread_mentions: var_unreadMentions,
+            unread_messages: var_unreadMessages,
+            message: var_message,
         };
     }
 }
@@ -2382,6 +1547,20 @@ impl SseDecode for () {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {}
 }
 
+impl SseDecode for crate::matrix::rooms::UpdateType {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::matrix::rooms::UpdateType::Joined,
+            1 => crate::matrix::rooms::UpdateType::Left,
+            2 => crate::matrix::rooms::UpdateType::Invited,
+            3 => crate::matrix::rooms::UpdateType::Knocked,
+            _ => unreachable!("Invalid variant for UpdateType: {}", inner),
+        };
+    }
+}
+
 impl SseDecode for usize {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2410,134 +1589,65 @@ fn pde_ffi_dispatcher_primary_impl(
         }
         4 => wire__crate__matrix__client__configure_client_impl(port, ptr, rust_vec_len, data_len),
         5 => wire__crate__api__logger__create_log_stream_impl(port, ptr, rust_vec_len, data_len),
-        6 => wire__crate__api__matrix_client__create_room_impl(port, ptr, rust_vec_len, data_len),
+        6 => wire__crate__matrix__rooms__get_all_rooms_impl(port, ptr, rust_vec_len, data_len),
         7 => wire__crate__api__init__get_matrix_config_impl(port, ptr, rust_vec_len, data_len),
-        8 => wire__crate__api__matrix_client__get_messages_impl(port, ptr, rust_vec_len, data_len),
-        9 => {
-            wire__crate__api__matrix_room__get_room_members_impl(port, ptr, rust_vec_len, data_len)
-        }
-        10 => wire__crate__api__matrix_client__get_rooms_impl(port, ptr, rust_vec_len, data_len),
-        11 => wire__crate__api__init__get_sync_operations_status_impl(
+        8 => wire__crate__api__init__get_sync_operations_status_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        12 => {
-            wire__crate__api__matrix_client__get_sync_status_impl(port, ptr, rust_vec_len, data_len)
-        }
-        13 => wire__crate__api__init__init_app_impl(port, ptr, rust_vec_len, data_len),
-        14 => wire__crate__api__matrix_client__init_client_impl(port, ptr, rust_vec_len, data_len),
-        15 => wire__crate__api__logger__init_logger_impl(port, ptr, rust_vec_len, data_len),
-        16 => wire__crate__api__platform__init_platform_impl(port, ptr, rust_vec_len, data_len),
-        17 => wire__crate__api__matrix_client__init_sync_stream_impl(
+        9 => wire__crate__matrix__timelines__get_timeline_items_by_room_id_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        18 => wire__crate__api__matrix_room__invite_user_impl(port, ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__matrix_client__is_client_authenticated_impl(
+        10 => wire__crate__api__init__init_app_impl(port, ptr, rust_vec_len, data_len),
+        11 => wire__crate__api__logger__init_logger_impl(port, ptr, rust_vec_len, data_len),
+        12 => wire__crate__api__platform__init_platform_impl(port, ptr, rust_vec_len, data_len),
+        13 => wire__crate__matrix__authentication__is_client_authenticated_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        20 => wire__crate__matrix__authentication__is_client_authenticated_impl(
+        14 => wire__crate__api__logger__log_debug_impl(port, ptr, rust_vec_len, data_len),
+        15 => wire__crate__api__logger__log_error_impl(port, ptr, rust_vec_len, data_len),
+        16 => wire__crate__api__tracing__log_event_impl(port, ptr, rust_vec_len, data_len),
+        17 => wire__crate__api__logger__log_info_impl(port, ptr, rust_vec_len, data_len),
+        18 => wire__crate__api__logger__log_warn_impl(port, ptr, rust_vec_len, data_len),
+        19 => wire__crate__matrix__authentication__login_impl(port, ptr, rust_vec_len, data_len),
+        20 => wire__crate__matrix__authentication__logout_impl(port, ptr, rust_vec_len, data_len),
+        21 => wire__crate__matrix__authentication__register_impl(port, ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__platform__reload_tracing_file_writer_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        21 => wire__crate__api__matrix_client__is_logged_in_impl(port, ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__matrix_client__join_room_impl(port, ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__matrix_room__join_room_impl(port, ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__matrix_room__leave_room_impl(port, ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__matrix_client__listen_room_updates_impl(
+        23 => wire__crate__matrix__rooms__send_message_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__crate__matrix__sync_service__start_sync_service_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        26 => {
-            wire__crate__api__matrix_client__load_timeline_impl(port, ptr, rust_vec_len, data_len)
-        }
-        27 => wire__crate__api__logger__log_debug_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__logger__log_error_impl(port, ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__tracing__log_event_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__logger__log_info_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__logger__log_warn_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__matrix_client__login_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__matrix__authentication__login_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__matrix_client__logout_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__matrix__authentication__logout_impl(port, ptr, rust_vec_len, data_len),
-        36 => {
-            wire__crate__api__matrix_message__redact_message_impl(port, ptr, rust_vec_len, data_len)
-        }
-        37 => wire__crate__api__matrix_client__register_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__matrix__authentication__register_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__platform__reload_tracing_file_writer_impl(
+        25 => wire__crate__matrix__rooms__subscribe_to_all_room_updates_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        40 => wire__crate__api__matrix_client__remove_timeline_stream_impl(
+        26 => wire__crate__matrix__timelines__subscribe_to_timeline_updates_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        41 => wire__crate__api__matrix_message__send_formatted_message_impl(
-            port,
-            ptr,
-            rust_vec_len,
-            data_len,
-        ),
-        42 => wire__crate__api__matrix_client__send_message_impl(port, ptr, rust_vec_len, data_len),
-        43 => {
-            wire__crate__api__matrix_message__send_reaction_impl(port, ptr, rust_vec_len, data_len)
-        }
-        44 => wire__crate__api__matrix_message__send_text_message_impl(
-            port,
-            ptr,
-            rust_vec_len,
-            data_len,
-        ),
-        45 => wire__crate__api__matrix_client__send_to_timeline_stream_impl(
-            port,
-            ptr,
-            rust_vec_len,
-            data_len,
-        ),
-        46 => wire__crate__api__matrix_client__set_timeline_stream_impl(
-            port,
-            ptr,
-            rust_vec_len,
-            data_len,
-        ),
-        47 => wire__crate__api__matrix_client__start_sliding_sync_impl(
-            port,
-            ptr,
-            rust_vec_len,
-            data_len,
-        ),
-        48 => wire__crate__api__matrix_client__sync_once_impl(port, ptr, rust_vec_len, data_len),
-        49 => {
+        27 => {
             wire__crate__api__init__test_server_connectivity_impl(port, ptr, rust_vec_len, data_len)
         }
-        50 => wire__crate__api__matrix_client__timeline_paginate_backwards_impl(
-            port,
-            ptr,
-            rust_vec_len,
-            data_len,
-        ),
-        51 => wire__crate__api__matrix_client__timeline_paginate_forward_impl(
-            port,
-            ptr,
-            rust_vec_len,
-            data_len,
-        ),
         _ => unreachable!(),
     }
 }
@@ -2683,143 +1793,131 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::tracing::LogLevel>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::api::matrix_client::MatrixClientConfig {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [
-            self.homeserver_url.into_into_dart().into_dart(),
-            self.storage_path.into_into_dart().into_dart(),
-        ]
-        .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::api::matrix_client::MatrixClientConfig
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::api::matrix_client::MatrixClientConfig>
-    for crate::api::matrix_client::MatrixClientConfig
-{
-    fn into_into_dart(self) -> crate::api::matrix_client::MatrixClientConfig {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::api::matrix_client::MatrixMessage {
+impl flutter_rust_bridge::IntoDart for crate::matrix::timelines::Message {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
             self.event_id.into_into_dart().into_dart(),
             self.sender.into_into_dart().into_dart(),
             self.content.into_into_dart().into_dart(),
             self.timestamp.into_into_dart().into_dart(),
+            self.message_type.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
 }
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::api::matrix_client::MatrixMessage
+    for crate::matrix::timelines::Message
 {
 }
-impl flutter_rust_bridge::IntoIntoDart<crate::api::matrix_client::MatrixMessage>
-    for crate::api::matrix_client::MatrixMessage
+impl flutter_rust_bridge::IntoIntoDart<crate::matrix::timelines::Message>
+    for crate::matrix::timelines::Message
 {
-    fn into_into_dart(self) -> crate::api::matrix_client::MatrixMessage {
+    fn into_into_dart(self) -> crate::matrix::timelines::Message {
         self
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::api::matrix_client::MatrixRoomInfo {
+impl flutter_rust_bridge::IntoDart for crate::matrix::timelines::MessageType {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Message => 0.into_dart(),
+            Self::DateDivider => 1.into_dart(),
+            Self::ReadMarker => 2.into_dart(),
+            Self::TimelineStart => 3.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::matrix::timelines::MessageType
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::matrix::timelines::MessageType>
+    for crate::matrix::timelines::MessageType
+{
+    fn into_into_dart(self) -> crate::matrix::timelines::MessageType {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::matrix::timelines::MessageUpdate {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.message_update_type.into_into_dart().into_dart(),
+            self.messages.into_into_dart().into_dart(),
+            self.index.into_into_dart().into_dart(),
+            self.length.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::matrix::timelines::MessageUpdate
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::matrix::timelines::MessageUpdate>
+    for crate::matrix::timelines::MessageUpdate
+{
+    fn into_into_dart(self) -> crate::matrix::timelines::MessageUpdate {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::matrix::timelines::MessageUpdateType {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Reset => 0.into_dart(),
+            Self::Truncate => 1.into_dart(),
+            Self::Remove => 2.into_dart(),
+            Self::Set => 3.into_dart(),
+            Self::Insert => 4.into_dart(),
+            Self::PopBack => 5.into_dart(),
+            Self::PopFront => 6.into_dart(),
+            Self::PushBack => 7.into_dart(),
+            Self::PushFront => 8.into_dart(),
+            Self::Clear => 9.into_dart(),
+            Self::Append => 10.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::matrix::timelines::MessageUpdateType
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::matrix::timelines::MessageUpdateType>
+    for crate::matrix::timelines::MessageUpdateType
+{
+    fn into_into_dart(self) -> crate::matrix::timelines::MessageUpdateType {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::matrix::rooms::RoomUpdate {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
             self.room_id.into_into_dart().into_dart(),
-            self.name.into_into_dart().into_dart(),
-            self.topic.into_into_dart().into_dart(),
-            self.member_count.into_into_dart().into_dart(),
-            self.latest_event.into_into_dart().into_dart(),
-            self.latest_event_timestamp.into_into_dart().into_dart(),
+            self.raw_name.into_into_dart().into_dart(),
+            self.display_name.into_into_dart().into_dart(),
+            self.is_dm.into_into_dart().into_dart(),
+            self.update_type.into_into_dart().into_dart(),
+            self.unread_notifications.into_into_dart().into_dart(),
+            self.unread_highlight.into_into_dart().into_dart(),
+            self.unread_mentions.into_into_dart().into_dart(),
+            self.unread_messages.into_into_dart().into_dart(),
+            self.message.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
 }
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::api::matrix_client::MatrixRoomInfo
+    for crate::matrix::rooms::RoomUpdate
 {
 }
-impl flutter_rust_bridge::IntoIntoDart<crate::api::matrix_client::MatrixRoomInfo>
-    for crate::api::matrix_client::MatrixRoomInfo
+impl flutter_rust_bridge::IntoIntoDart<crate::matrix::rooms::RoomUpdate>
+    for crate::matrix::rooms::RoomUpdate
 {
-    fn into_into_dart(self) -> crate::api::matrix_client::MatrixRoomInfo {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::api::matrix_client::RoomTimeline {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [
-            self.event_id.into_into_dart().into_dart(),
-            self.sender.into_into_dart().into_dart(),
-            self.content.into_into_dart().into_dart(),
-            self.timestamp.into_into_dart().into_dart(),
-        ]
-        .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::api::matrix_client::RoomTimeline
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::api::matrix_client::RoomTimeline>
-    for crate::api::matrix_client::RoomTimeline
-{
-    fn into_into_dart(self) -> crate::api::matrix_client::RoomTimeline {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::api::matrix_client::SyncEvent {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [
-            self.event_type.into_into_dart().into_dart(),
-            self.room_id.into_into_dart().into_dart(),
-            self.event_id.into_into_dart().into_dart(),
-            self.sender.into_into_dart().into_dart(),
-            self.content.into_into_dart().into_dart(),
-            self.timestamp.into_into_dart().into_dart(),
-            self.sync_time.into_into_dart().into_dart(),
-        ]
-        .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::api::matrix_client::SyncEvent
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::api::matrix_client::SyncEvent>
-    for crate::api::matrix_client::SyncEvent
-{
-    fn into_into_dart(self) -> crate::api::matrix_client::SyncEvent {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::api::matrix_client::SyncStatus {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [
-            self.is_syncing.into_into_dart().into_dart(),
-            self.rooms_count.into_into_dart().into_dart(),
-            self.messages_count.into_into_dart().into_dart(),
-            self.last_sync_time.into_into_dart().into_dart(),
-        ]
-        .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::api::matrix_client::SyncStatus
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::api::matrix_client::SyncStatus>
-    for crate::api::matrix_client::SyncStatus
-{
-    fn into_into_dart(self) -> crate::api::matrix_client::SyncStatus {
+    fn into_into_dart(self) -> crate::matrix::rooms::RoomUpdate {
         self
     }
 }
@@ -2893,6 +1991,29 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::platform::TracingFileConfigur
         self
     }
 }
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::matrix::rooms::UpdateType {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Joined => 0.into_dart(),
+            Self::Left => 1.into_dart(),
+            Self::Invited => 2.into_dart(),
+            Self::Knocked => 3.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::matrix::rooms::UpdateType
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::matrix::rooms::UpdateType>
+    for crate::matrix::rooms::UpdateType
+{
+    fn into_into_dart(self) -> crate::matrix::rooms::UpdateType {
+        self
+    }
+}
 
 impl SseEncode for flutter_rust_bridge::for_generated::anyhow::Error {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -2955,7 +2076,7 @@ impl SseEncode
 
 impl SseEncode
     for StreamSink<
-        crate::api::matrix_client::MatrixRoomInfo,
+        crate::matrix::timelines::MessageUpdate,
         flutter_rust_bridge::for_generated::SseCodec,
     >
 {
@@ -2966,22 +2087,7 @@ impl SseEncode
 }
 
 impl SseEncode
-    for StreamSink<
-        crate::api::matrix_client::RoomTimeline,
-        flutter_rust_bridge::for_generated::SseCodec,
-    >
-{
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        unimplemented!("")
-    }
-}
-
-impl SseEncode
-    for StreamSink<
-        crate::api::matrix_client::SyncEvent,
-        flutter_rust_bridge::for_generated::SseCodec,
-    >
+    for StreamSink<crate::matrix::rooms::RoomUpdate, flutter_rust_bridge::for_generated::SseCodec>
 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -3063,22 +2169,12 @@ impl SseEncode for Vec<String> {
     }
 }
 
-impl SseEncode for Vec<crate::api::matrix_client::MatrixMessage> {
+impl SseEncode for Vec<crate::matrix::timelines::Message> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
-            <crate::api::matrix_client::MatrixMessage>::sse_encode(item, serializer);
-        }
-    }
-}
-
-impl SseEncode for Vec<crate::api::matrix_client::MatrixRoomInfo> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <i32>::sse_encode(self.len() as _, serializer);
-        for item in self {
-            <crate::api::matrix_client::MatrixRoomInfo>::sse_encode(item, serializer);
+            <crate::matrix::timelines::Message>::sse_encode(item, serializer);
         }
     }
 }
@@ -3089,6 +2185,16 @@ impl SseEncode for Vec<u8> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <u8>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::matrix::rooms::RoomUpdate> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::matrix::rooms::RoomUpdate>::sse_encode(item, serializer);
         }
     }
 }
@@ -3132,36 +2238,70 @@ impl SseEncode for crate::api::tracing::LogLevel {
     }
 }
 
-impl SseEncode for crate::api::matrix_client::MatrixClientConfig {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <String>::sse_encode(self.homeserver_url, serializer);
-        <String>::sse_encode(self.storage_path, serializer);
-    }
-}
-
-impl SseEncode for crate::api::matrix_client::MatrixMessage {
+impl SseEncode for crate::matrix::timelines::Message {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <String>::sse_encode(self.event_id, serializer);
         <String>::sse_encode(self.sender, serializer);
         <String>::sse_encode(self.content, serializer);
         <u64>::sse_encode(self.timestamp, serializer);
+        <crate::matrix::timelines::MessageType>::sse_encode(self.message_type, serializer);
     }
 }
 
-impl SseEncode for crate::api::matrix_client::MatrixRoomInfo {
+impl SseEncode for crate::matrix::timelines::MessageType {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <String>::sse_encode(self.room_id, serializer);
-        <Option<String>>::sse_encode(self.name, serializer);
-        <Option<String>>::sse_encode(self.topic, serializer);
-        <u64>::sse_encode(self.member_count, serializer);
-        <Option<crate::api::matrix_client::MatrixMessage>>::sse_encode(
-            self.latest_event,
+        <i32>::sse_encode(
+            match self {
+                crate::matrix::timelines::MessageType::Message => 0,
+                crate::matrix::timelines::MessageType::DateDivider => 1,
+                crate::matrix::timelines::MessageType::ReadMarker => 2,
+                crate::matrix::timelines::MessageType::TimelineStart => 3,
+                _ => {
+                    unimplemented!("");
+                }
+            },
             serializer,
         );
-        <Option<u64>>::sse_encode(self.latest_event_timestamp, serializer);
+    }
+}
+
+impl SseEncode for crate::matrix::timelines::MessageUpdate {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <crate::matrix::timelines::MessageUpdateType>::sse_encode(
+            self.message_update_type,
+            serializer,
+        );
+        <Option<Vec<crate::matrix::timelines::Message>>>::sse_encode(self.messages, serializer);
+        <Option<usize>>::sse_encode(self.index, serializer);
+        <Option<usize>>::sse_encode(self.length, serializer);
+    }
+}
+
+impl SseEncode for crate::matrix::timelines::MessageUpdateType {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::matrix::timelines::MessageUpdateType::Reset => 0,
+                crate::matrix::timelines::MessageUpdateType::Truncate => 1,
+                crate::matrix::timelines::MessageUpdateType::Remove => 2,
+                crate::matrix::timelines::MessageUpdateType::Set => 3,
+                crate::matrix::timelines::MessageUpdateType::Insert => 4,
+                crate::matrix::timelines::MessageUpdateType::PopBack => 5,
+                crate::matrix::timelines::MessageUpdateType::PopFront => 6,
+                crate::matrix::timelines::MessageUpdateType::PushBack => 7,
+                crate::matrix::timelines::MessageUpdateType::PushFront => 8,
+                crate::matrix::timelines::MessageUpdateType::Clear => 9,
+                crate::matrix::timelines::MessageUpdateType::Append => 10,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
     }
 }
 
@@ -3175,12 +2315,22 @@ impl SseEncode for Option<String> {
     }
 }
 
-impl SseEncode for Option<crate::api::matrix_client::MatrixMessage> {
+impl SseEncode for Option<bool> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
-            <crate::api::matrix_client::MatrixMessage>::sse_encode(value, serializer);
+            <bool>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::matrix::timelines::Message> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::matrix::timelines::Message>::sse_encode(value, serializer);
         }
     }
 }
@@ -3215,6 +2365,16 @@ impl SseEncode for Option<u64> {
     }
 }
 
+impl SseEncode for Option<usize> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <usize>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for Option<Vec<Certificate>> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -3225,36 +2385,29 @@ impl SseEncode for Option<Vec<Certificate>> {
     }
 }
 
-impl SseEncode for crate::api::matrix_client::RoomTimeline {
+impl SseEncode for Option<Vec<crate::matrix::timelines::Message>> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <String>::sse_encode(self.event_id, serializer);
-        <String>::sse_encode(self.sender, serializer);
-        <String>::sse_encode(self.content, serializer);
-        <u64>::sse_encode(self.timestamp, serializer);
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <Vec<crate::matrix::timelines::Message>>::sse_encode(value, serializer);
+        }
     }
 }
 
-impl SseEncode for crate::api::matrix_client::SyncEvent {
+impl SseEncode for crate::matrix::rooms::RoomUpdate {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <String>::sse_encode(self.event_type, serializer);
-        <Option<String>>::sse_encode(self.room_id, serializer);
-        <Option<String>>::sse_encode(self.event_id, serializer);
-        <Option<String>>::sse_encode(self.sender, serializer);
-        <Option<String>>::sse_encode(self.content, serializer);
-        <Option<u64>>::sse_encode(self.timestamp, serializer);
-        <u64>::sse_encode(self.sync_time, serializer);
-    }
-}
-
-impl SseEncode for crate::api::matrix_client::SyncStatus {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_syncing, serializer);
-        <u64>::sse_encode(self.rooms_count, serializer);
-        <u64>::sse_encode(self.messages_count, serializer);
-        <Option<u64>>::sse_encode(self.last_sync_time, serializer);
+        <String>::sse_encode(self.room_id, serializer);
+        <Option<String>>::sse_encode(self.raw_name, serializer);
+        <Option<String>>::sse_encode(self.display_name, serializer);
+        <Option<bool>>::sse_encode(self.is_dm, serializer);
+        <crate::matrix::rooms::UpdateType>::sse_encode(self.update_type, serializer);
+        <Option<u64>>::sse_encode(self.unread_notifications, serializer);
+        <Option<u64>>::sse_encode(self.unread_highlight, serializer);
+        <Option<u64>>::sse_encode(self.unread_mentions, serializer);
+        <Option<u64>>::sse_encode(self.unread_messages, serializer);
+        <Option<crate::matrix::timelines::Message>>::sse_encode(self.message, serializer);
     }
 }
 
@@ -3324,6 +2477,24 @@ impl SseEncode for u8 {
 impl SseEncode for () {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {}
+}
+
+impl SseEncode for crate::matrix::rooms::UpdateType {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::matrix::rooms::UpdateType::Joined => 0,
+                crate::matrix::rooms::UpdateType::Left => 1,
+                crate::matrix::rooms::UpdateType::Invited => 2,
+                crate::matrix::rooms::UpdateType::Knocked => 3,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
 }
 
 impl SseEncode for usize {

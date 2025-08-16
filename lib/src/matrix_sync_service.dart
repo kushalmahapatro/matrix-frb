@@ -1,4 +1,4 @@
-import 'package:matrix/src/rust/api/matrix_client.dart';
+import 'package:matrix/src/rust/matrix/sync_service.dart';
 
 class MatrixSyncService {
   static final MatrixSyncService _instance = MatrixSyncService._internal();
@@ -7,13 +7,7 @@ class MatrixSyncService {
 
   MatrixSyncService._internal();
 
-  late Stream<SyncEvent> _syncStream;
-
-  Stream<SyncEvent> get syncStream => _syncStream;
-
   Future<void> performInitialSync() async {
-    _syncStream = initSyncStream();
-    await syncOnce();
-    await startSlidingSync();
+    await startSyncService();
   }
 }

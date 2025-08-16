@@ -6,13 +6,17 @@ import 'package:graphx/graphx.dart';
 import 'package:matrix/main.dart';
 import 'package:matrix/src/extensions/context_extension.dart';
 import 'package:matrix/src/logging_service.dart';
-import 'package:matrix/src/matrix_sync_service.dart';
-import 'package:matrix/src/rust/api/matrix_client.dart';
+// import 'package:matrix/src/matrix_sync_service.dart';
+// import 'package:matrix/src/rust/api/matrix_client.dart';
 import 'package:matrix/src/login_screen.dart';
 import 'package:matrix/src/home_screen.dart';
-import 'package:matrix/src/rust/api/tracing.dart';
+import 'package:matrix/src/matrix_sync_service.dart';
+// import 'package:matrix/src/rust/api/matrix_client.dart';
+import 'package:matrix/src/rust/matrix/client.dart';
 import 'package:matrix/src/theme/matrix_theme.dart';
 import 'package:sqflite/sqflite.dart';
+
+import 'rust/matrix/authentication.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -52,9 +56,14 @@ class _SplashScreenState extends State<SplashScreen>
       'Databases path: $databasesPath',
     );
 
-    final config = MatrixClientConfig(
-      homeserverUrl: homeserverUrl,
-      storagePath: databasesPath,
+    // final config = MatrixClientConfig(
+    //   homeserverUrl: homeserverUrl,
+    //   storagePath: databasesPath,
+    // );
+
+    final config = ClientConfig(
+      sessionPath: databasesPath,
+      homeserverUrl: homeserverUrl.toString(),
     );
 
     // Test Rust logging
@@ -63,13 +72,13 @@ class _SplashScreenState extends State<SplashScreen>
       'Starting Matrix client initialization',
     );
 
-    final initSuccess = await initClient(config: config);
+    final initSuccess = await configureClient(config: config);
     LoggingService.info(runtimeType.toString(), 'Init result: $initSuccess');
 
     if (!mounted) return;
 
     try {
-      final userLoggedIn = await isLoggedIn();
+      final userLoggedIn = await isClientAuthenticated();
 
       if (!mounted) return;
 

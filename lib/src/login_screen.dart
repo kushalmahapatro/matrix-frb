@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:matrix/main.dart';
 import 'package:matrix/src/extensions/context_extension.dart';
 import 'package:matrix/src/matrix_sync_service.dart';
-import 'package:matrix/src/rust/api/matrix_client.dart';
 import 'package:matrix/src/home_screen.dart';
+import 'package:matrix/src/rust/matrix/authentication.dart';
 import 'package:matrix/src/theme/matrix_theme.dart';
 import 'package:matrix/src/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
@@ -17,7 +17,9 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
-  final _homeserverController = TextEditingController(text: homeserverUrl);
+  final _homeserverController = TextEditingController(
+    text: homeserverUrl.toString(),
+  );
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;

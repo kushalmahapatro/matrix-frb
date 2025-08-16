@@ -1,7 +1,7 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:matrix/src/rust/api/matrix_client.dart';
+import 'package:matrix/main.dart';
+import 'package:matrix/src/rust/matrix/rooms.dart';
+import 'package:matrix/src/rust/matrix/timelines.dart';
 import 'package:matrix/src/theme/matrix_theme.dart';
 
 class TimelineScreen extends StatefulWidget {
@@ -18,39 +18,104 @@ class TimelineScreen extends StatefulWidget {
 }
 
 class _TimelineScreenState extends State<TimelineScreen> {
-  List<RoomTimeline> timeline = [];
+  List<Message> timeline = [];
   late TextEditingController textEditingController;
-  late final Timer timer;
   @override
   void initState() {
     textEditingController = TextEditingController();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      loadTimeline(roomId: widget.roomId).listen(
-        (items) {
-          if (mounted) {
-            setState(() {
-              if (!timeline.contains(items)) {
-                timeline.add(items);
-              }
-            });
-          }
-        },
-        onError: (error) {
-          // Handle error if needed
-          print('Error loading timeline: $error');
-        },
-      );
+
+    getTimelineItemsByRoomId(roomId: widget.roomId).then((value) {
+      if (mounted) {
+        setState(() {
+          timeline = value;
+        });
+      }
     });
 
-    Future.delayed(const Duration(seconds: 1), () {
-      timelinePaginateBackwards(roomId: widget.roomId);
+    subscribeToTimelineUpdates(roomId: widget.roomId).listen((event) {
+      if (mounted) {
+        switch (event.messageUpdateType) {
+          case MessageUpdateType.append:
+            if (event.messages != null) {
+              setState(() {
+                timeline.addAll(event.messages!);
+              });
+            }
+            break;
+          case MessageUpdateType.pushFront:
+            if (event.messages != null && event.messages!.length == 1) {
+              setState(() {
+                timeline.insert(0, event.messages!.first);
+              });
+            }
+            break;
+          case MessageUpdateType.remove:
+            if (event.index != null) {
+              setState(() {
+                timeline.removeAt(event.index!.toInt());
+              });
+            }
+            break;
+          case MessageUpdateType.reset:
+            if (event.messages != null) {
+              setState(() {
+                timeline = event.messages!;
+              });
+            }
+            break;
+
+          case MessageUpdateType.truncate:
+            setState(() {
+              timeline.removeRange(event.index!.toInt(), timeline.length);
+            });
+
+          case MessageUpdateType.set_:
+            if (event.index != null &&
+                event.messages != null &&
+                event.messages!.length == 1 &&
+                timeline.length >= event.index!.toInt()) {
+              setState(() {
+                timeline[event.index!.toInt()] = event.messages!.first;
+              });
+            }
+            break;
+
+          case MessageUpdateType.insert:
+            if (event.index != null &&
+                event.messages != null &&
+                event.messages!.length == 1) {
+              setState(() {
+                timeline.insert(event.index!.toInt(), event.messages!.first);
+              });
+            }
+          case MessageUpdateType.popBack:
+            setState(() {
+              timeline.removeLast();
+            });
+          case MessageUpdateType.popFront:
+            setState(() {
+              timeline.removeAt(0);
+            });
+          case MessageUpdateType.pushBack:
+            if (event.messages != null && event.messages!.length == 1) {
+              setState(() {
+                timeline.add(event.messages!.first);
+              });
+            }
+            break;
+          case MessageUpdateType.clear:
+            setState(() {
+              timeline.clear();
+            });
+        }
+      }
     });
+
     super.initState();
   }
 
   @override
   void dispose() {
-    removeTimelineStream(roomId: widget.roomId);
     super.dispose();
   }
 
@@ -67,19 +132,22 @@ class _TimelineScreenState extends State<TimelineScreen> {
               itemCount: timeline.length,
               itemBuilder: (context, index) {
                 final message = timeline.reversed.toList()[index];
-                return RichText(
-                  text: TextSpan(
-                    style: MatrixTheme.captionStyle,
-                    children: [
-                      TextSpan(
-                        text:
-                            "[${message.sender.replaceAll(':server.serverplatform.ae', '')}] ",
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      TextSpan(text: ': ${message.content}'),
-                    ],
-                  ),
-                );
+                if (message.messageType == MessageType.message) {
+                  return RichText(
+                    text: TextSpan(
+                      style: MatrixTheme.captionStyle,
+                      children: [
+                        TextSpan(
+                          text: getSenderName(message.sender),
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        TextSpan(text: ' ${message.content}'),
+                      ],
+                    ),
+                  );
+                } else {
+                  return SizedBox.shrink();
+                }
               },
             ),
           ),
@@ -117,5 +185,10 @@ class _TimelineScreenState extends State<TimelineScreen> {
       ),
       bottomNavigationBar: SizedBox(height: 40),
     );
+  }
+
+  String getSenderName(String sender) {
+    final host = homeserverUrl.host;
+    return sender.replaceAll(host, '');
   }
 }
