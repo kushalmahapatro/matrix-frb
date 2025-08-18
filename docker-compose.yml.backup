@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL database for Synapse
   postgres:
@@ -10,6 +8,9 @@ services:
       POSTGRES_PASSWORD: matrix_password
       POSTGRES_USER: matrix_user
       POSTGRES_DB: synapse
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+      LC_ALL: C
+      LANG: C
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -24,7 +25,7 @@ services:
       - postgres
     volumes:
       - synapse_data:/data
-      - ./synapse/homeserver.yaml:/data/homeserver.yaml:ro
+      - ./synapse:/data:rw
     environment:
       SYNAPSE_SERVER_NAME: localhost
       SYNAPSE_REPORT_STATS: "no"
@@ -43,7 +44,7 @@ services:
       - synapse
     environment:
       SYNCV3_SERVER: http://synapse:8008
-      SYNCV3_DB: sqlite:///sliding-sync.db
+      SYNCV3_DB: postgres://matrix_user:matrix_password@postgres:5432/synapse?sslmode=disable
       SYNCV3_SECRET: "secret"
       SYNCV3_BINDADDR: 0.0.0.0:8009
     volumes:
@@ -65,7 +66,7 @@ services:
         {
           "default_server_config": {
             "m.homeserver": {
-              "base_url": "http://synapse:8008"
+              "base_url": "https://matrix.kushalm.xyz"
             },
             "m.identity_server": {
               "base_url": "https://vector.im"
