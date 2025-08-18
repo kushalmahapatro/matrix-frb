@@ -24,6 +24,17 @@ Future<String> sendMessage({required String roomId, required String content}) =>
       content: content,
     );
 
+Future<String> createDirectRoom({required String userId}) =>
+    RustLib.instance.api.crateMatrixRoomsCreateDirectRoom(userId: userId);
+
+Future<String> createGroupRoom({
+  required String name,
+  required List<String> userIds,
+}) => RustLib.instance.api.crateMatrixRoomsCreateGroupRoom(
+  name: name,
+  userIds: userIds,
+);
+
 class RoomUpdate {
   final String roomId;
   final String? rawName;

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
+import 'package:matrix/src/create_room_screen.dart';
 import 'package:matrix/src/login_screen.dart';
 import 'package:matrix/src/rust/matrix/authentication.dart';
 import 'package:matrix/src/rust/matrix/rooms.dart';
@@ -184,14 +185,28 @@ class _ChatListingScreenState extends State<ChatListingScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // TODO: Implement create room functionality
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('CREATE ROOM - COMING SOON'),
-              backgroundColor: Colors.green,
+        onPressed: () async {
+          final result = await Navigator.of(context).push<String>(
+            PageRouteBuilder(
+              pageBuilder:
+                  (context, animation, secondaryAnimation) =>
+                      const CreateRoomScreen(),
+              transitionDuration: const Duration(milliseconds: 800),
+              transitionsBuilder: (
+                context,
+                animation,
+                secondaryAnimation,
+                child,
+              ) {
+                return FadeTransition(opacity: animation, child: child);
+              },
             ),
           );
+
+          if (result != null) {
+            // Room was created, refresh the room list
+            _loadRooms();
+          }
         },
         backgroundColor: context.read<ThemeProvider>().textColor,
         foregroundColor: context.read<ThemeProvider>().backgroundColor,

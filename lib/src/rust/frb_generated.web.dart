@@ -18,6 +18,7 @@ import 'matrix/client.dart';
 import 'matrix/rooms.dart';
 import 'matrix/sync_service.dart';
 import 'matrix/timelines.dart';
+import 'matrix/user_serach.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_web.dart';
 import 'third_party/reqwest/tls.dart';
 
@@ -143,6 +144,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<TraceLogPacks> dco_decode_list_trace_log_packs(dynamic raw);
 
   @protected
+  List<User> dco_decode_list_user(dynamic raw);
+
+  @protected
   LogEntry dco_decode_log_entry(dynamic raw);
 
   @protected
@@ -217,6 +221,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UpdateType dco_decode_update_type(dynamic raw);
+
+  @protected
+  User dco_decode_user(dynamic raw);
+
+  @protected
+  UserSearchResult dco_decode_user_search_result(dynamic raw);
 
   @protected
   BigInt dco_decode_usize(dynamic raw);
@@ -335,6 +345,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<User> sse_decode_list_user(SseDeserializer deserializer);
+
+  @protected
   LogEntry sse_decode_log_entry(SseDeserializer deserializer);
 
   @protected
@@ -417,6 +430,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   UpdateType sse_decode_update_type(SseDeserializer deserializer);
+
+  @protected
+  User sse_decode_user(SseDeserializer deserializer);
+
+  @protected
+  UserSearchResult sse_decode_user_search_result(SseDeserializer deserializer);
 
   @protected
   BigInt sse_decode_usize(SseDeserializer deserializer);
@@ -556,6 +575,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_user(List<User> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_log_entry(LogEntry self, SseSerializer serializer);
 
   @protected
@@ -648,6 +670,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_update_type(UpdateType self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_user(User self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_user_search_result(
+    UserSearchResult self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_usize(BigInt self, SseSerializer serializer);

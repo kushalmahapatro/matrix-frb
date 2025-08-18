@@ -275,3 +275,66 @@ pub fn send_message(room_id: String, content: String) -> Result<String, String> 
         })
     })
 }
+
+
+pub fn create_direct_room(user_id: String) -> Result<String, String> {
+    tokio::task::block_in_place(|| {
+        let runtime = GLOBAL_RUNTIME
+            .get()
+            .expect("Global runtime not initialized");
+        runtime.block_on(async {
+            let app = GLOBAL_APP.get().expect("Global app not initialized");
+
+            use matrix_sdk::ruma::UserId;
+            use matrix_sdk::ruma::api::client::room::create_room::v3::Request as CreateRoomRequest;
+
+            let user_id = UserId::parse(&user_id).map_err(|e| e.to_string())?;
+            
+            let mut request = CreateRoomRequest::new();
+            request.is_direct = true;
+            request.invite = vec![user_id.to_owned()];
+            request.preset = Some(matrix_sdk::ruma::api::client::room::create_room::v3::RoomPreset::TrustedPrivateChat);
+
+            let response = app.client
+                .create_room(request)
+                .await
+                .map_err(|e| e.to_string())?;
+
+            Ok(response.room_id().to_string())
+        })
+    })
+}
+
+pub fn create_group_room(name: String, user_ids: Vec<String>) -> Result<String, String> {
+    tokio::task::block_in_place(|| {
+        let runtime = GLOBAL_RUNTIME
+            .get()
+            .expect("Global runtime not initialized");
+        runtime.block_on(async {
+            let app = GLOBAL_APP.get().expect("Global app not initialized");
+
+            use matrix_sdk::ruma::UserId;
+            use matrix_sdk::ruma::api::client::room::create_room::v3::Request as CreateRoomRequest;
+
+            let mut request = CreateRoomRequest::new();
+            request.name = Some(name);
+            request.is_direct = false;
+            request.preset = Some(matrix_sdk::ruma::api::client::room::create_room::v3::RoomPreset::PrivateChat);
+
+            // Parse and add invited users
+            let mut invites = Vec::new();
+            for user_id_str in user_ids {
+                let user_id = UserId::parse(&user_id_str).map_err(|e| e.to_string())?;
+                invites.push(user_id);
+            }
+            request.invite = invites;
+
+            let response = app.client
+                .create_room(request)
+                .await
+                .map_err(|e| e.to_string())?;
+
+            Ok(response.room_id().to_string())
+        })
+    })
+}

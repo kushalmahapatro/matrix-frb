@@ -129,69 +129,71 @@ class _TimelineScreenState extends State<TimelineScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.roomName)),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: context.read<ThemeProvider>().backgroundGradient,
-        ),
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView.builder(
-                reverse: true,
-                shrinkWrap: false,
-                itemCount: timeline.length,
-                itemBuilder: (context, index) {
-                  final message = timeline.reversed.toList()[index];
-                  if (message.messageType == MessageType.message) {
-                    return RichText(
-                      text: TextSpan(
-                        style: MatrixTheme.captionStyle,
-                        children: [
-                          TextSpan(
-                            text: getSenderName(message.sender),
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          TextSpan(text: ' ${message.content}'),
-                        ],
-                      ),
-                    );
-                  } else {
-                    return SizedBox.shrink();
-                  }
-                },
-              ),
-            ),
-            SizedBox(
-              height: 60,
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: textEditingController,
-                        decoration: InputDecoration(
-                          hintText: 'Type a message',
-                          border: UnderlineInputBorder(),
+      body: SafeArea(
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: context.read<ThemeProvider>().backgroundGradient,
+          ),
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView.builder(
+                  reverse: true,
+                  shrinkWrap: false,
+                  itemCount: timeline.length,
+                  itemBuilder: (context, index) {
+                    final message = timeline.reversed.toList()[index];
+                    if (message.messageType == MessageType.message) {
+                      return RichText(
+                        text: TextSpan(
+                          style: MatrixTheme.captionStyle,
+                          children: [
+                            TextSpan(
+                              text: getSenderName(message.sender),
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            TextSpan(text: ' ${message.content}'),
+                          ],
                         ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.send),
-                      onPressed: () {
-                        sendMessage(
-                          roomId: widget.roomId,
-                          content: textEditingController.text,
-                        );
-                        textEditingController.clear();
-                      },
-                    ),
-                  ],
+                      );
+                    } else {
+                      return SizedBox.shrink();
+                    }
+                  },
                 ),
               ),
-            ),
-          ],
+              SizedBox(
+                height: 60,
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: textEditingController,
+                          decoration: InputDecoration(
+                            hintText: 'Type a message',
+                            border: UnderlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.send),
+                        onPressed: () {
+                          sendMessage(
+                            roomId: widget.roomId,
+                            content: textEditingController.text,
+                          );
+                          textEditingController.clear();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
