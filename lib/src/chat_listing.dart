@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/widget_previews.dart';
 import 'package:matrix/src/login_screen.dart';
 import 'package:matrix/src/rust/matrix/authentication.dart';
 import 'package:matrix/src/rust/matrix/rooms.dart';
@@ -9,16 +10,19 @@ import 'package:matrix/src/theme/theme_provider.dart';
 import 'package:matrix/src/timeline_screen.dart';
 import 'package:provider/provider.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+enum ChatType { all, invited, direct, group }
+
+class ChatListingScreen extends StatefulWidget {
+  const ChatListingScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<ChatListingScreen> createState() => _ChatListingScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _ChatListingScreenState extends State<ChatListingScreen> {
   List<RoomUpdate> _rooms = [];
   bool _loading = false;
+  ChatType selectedChatType = ChatType.all;
 
   @override
   void initState() {
@@ -119,7 +123,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('MATRIX TERMINAL', style: MatrixTheme.titleStyle),
+        title: const Text('MATRIX', style: MatrixTheme.titleStyle),
         actions: [
           const ThemeSwitcher(),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadRooms),
@@ -135,39 +139,8 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             // Status Bar
             Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: MatrixTheme.primaryGreen, width: 1),
-                ),
-              ),
-              child: Row(
-                children: [
-                  // Sync Status
-                  Icon(Icons.sync, color: MatrixTheme.primaryGreen, size: 16),
-                  const SizedBox(width: 8),
-                  Text(
-                    'SYNCING',
-                    style: TextStyle(
-                      color: MatrixTheme.primaryGreen,
-                      fontSize: 12,
-                      fontFamily: MatrixTheme.fontFamily,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'ROOMS: ${_rooms.length}',
-                    style: MatrixTheme.captionStyle,
-                  ),
-                  const SizedBox(width: 16),
-
-                  // Text(
-                  //   'MESSAGES: ${_syncStatus!.messagesCount}',
-                  //   style: MatrixTheme.captionStyle,
-                  // ),
-                ],
-              ),
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: chatTypeGroupingWidget(),
             ),
 
             // Rooms List
@@ -205,14 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       )
-                      : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _rooms.length,
-                        itemBuilder: (context, index) {
-                          final room = _rooms[index];
-                          return _buildRoomCard(room);
-                        },
-                      ),
+                      : chatListWidget(),
             ),
           ],
         ),
@@ -230,6 +196,115 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: context.read<ThemeProvider>().textColor,
         foregroundColor: context.read<ThemeProvider>().backgroundColor,
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  @Preview(name: 'Chat Listing')
+  ListView chatListWidget() {
+    List<RoomUpdate> previewRooms = switch (selectedChatType) {
+      ChatType.all => _rooms,
+      ChatType.invited =>
+        _rooms
+            .where((element) => element.updateType == UpdateType.invited)
+            .toList(),
+      ChatType.direct =>
+        _rooms.where((element) => element.isDm == true).toList(),
+      ChatType.group =>
+        _rooms.where((element) => element.isDm == false).toList(),
+    };
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: previewRooms.length,
+      itemBuilder: (context, index) {
+        final room = previewRooms[index];
+        return _buildRoomCard(room);
+      },
+    );
+  }
+
+  @Preview(name: 'Chat type Group')
+  SizedBox chatTypeGroupingWidget() {
+    String getCount(ChatType type) {
+      switch (type) {
+        case ChatType.all:
+          return _rooms.length.toString();
+        case ChatType.invited:
+          return _rooms
+              .where((element) => element.updateType == UpdateType.invited)
+              .length
+              .toString();
+        case ChatType.direct:
+          return _rooms
+              .where((element) => element.isDm == true)
+              .length
+              .toString();
+        case ChatType.group:
+          return _rooms
+              .where((element) => element.isDm == false)
+              .length
+              .toString();
+      }
+    }
+
+    return SizedBox(
+      height: 40,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children:
+            ChatType.values.map((type) {
+              return InkWell(
+                onTap: () {
+                  setState(() {
+                    selectedChatType = type;
+                  });
+                },
+                child: Container(
+                  padding: EdgeInsets.all(10),
+                  decoration:
+                      type == selectedChatType
+                          ? BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: MatrixTheme.primaryGreen,
+                                width: 2,
+                              ),
+                            ),
+                          )
+                          : null,
+                  child: Row(
+                    children: [
+                      Text(
+                        type.name.toUpperCase(),
+                        style: MatrixTheme.bodyStyle.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      Container(
+                        height: 16,
+                        width: 16,
+                        alignment: Alignment.center,
+                        margin: EdgeInsetsDirectional.only(start: 8),
+                        decoration: BoxDecoration(
+                          color: MatrixTheme.primaryGreen,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          getCount(type),
+                          style: MatrixTheme.bodyStyle.copyWith(
+                            color: MatrixTheme.darkBackground,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
       ),
     );
   }

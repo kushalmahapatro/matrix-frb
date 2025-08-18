@@ -64,9 +64,9 @@ buildConfigs.forEach { (taskPostfix, profileMode) ->
             -o ../android/app/src/main/jniLibs build $profileMode"""
 
         workingDir("../../rust")
-        val ndkPath = System.getenv("ANDROID_NDK_HOME") ?: System.getenv("ANDROID_NDK") ?: ""
-        environment("ANDROID_NDK_HOME", ndkPath)
-        environment("ANDROID_NDK", ndkPath)
+        // val ndkPath = System.getenv("ANDROID_NDK_HOME") ?: System.getenv("ANDROID_NDK") ?: ""
+        // environment("ANDROID_NDK_HOME", ndkPath)
+        // environment("ANDROID_NDK", ndkPath)
         if (System.getProperty("os.name").lowercase().contains("windows")) {
             commandLine("cmd", "/C", ndkCommand)
         } else {

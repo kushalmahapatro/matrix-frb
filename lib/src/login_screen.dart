@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:matrix/main.dart';
 import 'package:matrix/src/extensions/context_extension.dart';
 import 'package:matrix/src/matrix_sync_service.dart';
-import 'package:matrix/src/home_screen.dart';
+import 'package:matrix/src/chat_listing.dart';
 import 'package:matrix/src/rust/matrix/authentication.dart';
 import 'package:matrix/src/theme/matrix_theme.dart';
 import 'package:matrix/src/theme/theme_provider.dart';
@@ -80,7 +80,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
             pageBuilder:
-                (context, animation, secondaryAnimation) => const HomeScreen(),
+                (context, animation, secondaryAnimation) =>
+                    const ChatListingScreen(),
             transitionDuration: const Duration(milliseconds: 800),
             transitionsBuilder: (
               context,
@@ -139,7 +140,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
             pageBuilder:
-                (context, animation, secondaryAnimation) => const HomeScreen(),
+                (context, animation, secondaryAnimation) =>
+                    const ChatListingScreen(),
             transitionDuration: const Duration(milliseconds: 800),
             transitionsBuilder: (
               context,
@@ -209,6 +211,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                       children: [
                         // Homeserver URL
                         _buildMatrixTextField(
+                          disabled: true,
                           controller: _homeserverController,
                           label: 'HOMESERVER URL',
                           hint: 'https://matrix.org',
@@ -345,23 +348,31 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                     ),
                                   ),
                         ),
+
+                        const SizedBox(height: 16),
+
+                        InkWell(
+                          onTap: () {
+                            setState(() {
+                              _isRegistration = !_isRegistration;
+                            });
+                          },
+                          child:
+                              _isRegistration
+                                  ? Text(
+                                    'Already have an account?',
+                                    textAlign: TextAlign.center,
+                                  )
+                                  : Text(
+                                    'Don\'t have an account?',
+                                    textAlign: TextAlign.center,
+                                  ),
+                        ),
                       ],
                     ),
                   ),
 
                   // Switch between Login and Register
-                  InkWell(
-                    onTap: () {
-                      setState(() {
-                        _isRegistration = !_isRegistration;
-                      });
-                    },
-                    child:
-                        _isRegistration
-                            ? Text('Already have an account?')
-                            : Text('Don\'t have an account?'),
-                  ),
-
                   const SizedBox(height: 100),
 
                   // Footer
@@ -386,6 +397,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     required IconData icon,
     bool isPassword = false,
     String? Function(String?)? validator,
+    bool disabled = false,
   }) {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
@@ -400,6 +412,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 8),
             TextFormField(
+              enabled: !disabled,
               controller: controller,
               obscureText: isPassword && !_showPassword,
               style: MatrixTheme.inputStyle.copyWith(

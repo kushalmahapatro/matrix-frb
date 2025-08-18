@@ -10,7 +10,10 @@ import 'package:provider/provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as path;
 
-Uri homeserverUrl = Uri.parse('http://localhost:8008');
+Uri homeserverUrl = Uri.parse('http://10.44.1.85:8008');
+// Uri homeserverUrl = Uri.parse(
+// 'https://hugh-prefer-bring-entry.trycloudflare.com',
+// );
 // const String homeserverUrl = 'https://server.serverplatform.ae';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

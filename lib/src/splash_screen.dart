@@ -4,14 +4,11 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:graphx/graphx.dart';
 import 'package:matrix/main.dart';
+import 'package:matrix/src/chat_listing.dart';
 import 'package:matrix/src/extensions/context_extension.dart';
 import 'package:matrix/src/logging_service.dart';
-// import 'package:matrix/src/matrix_sync_service.dart';
-// import 'package:matrix/src/rust/api/matrix_client.dart';
 import 'package:matrix/src/login_screen.dart';
-import 'package:matrix/src/home_screen.dart';
 import 'package:matrix/src/matrix_sync_service.dart';
-// import 'package:matrix/src/rust/api/matrix_client.dart';
 import 'package:matrix/src/rust/matrix/client.dart';
 import 'package:matrix/src/theme/matrix_theme.dart';
 import 'package:sqflite/sqflite.dart';
@@ -56,11 +53,6 @@ class _SplashScreenState extends State<SplashScreen>
       'Databases path: $databasesPath',
     );
 
-    // final config = MatrixClientConfig(
-    //   homeserverUrl: homeserverUrl,
-    //   storagePath: databasesPath,
-    // );
-
     final config = ClientConfig(
       sessionPath: databasesPath,
       homeserverUrl: homeserverUrl.toString(),
@@ -80,6 +72,8 @@ class _SplashScreenState extends State<SplashScreen>
     try {
       final userLoggedIn = await isClientAuthenticated();
 
+      await Future.delayed(const Duration(seconds: 1));
+
       if (!mounted) return;
 
       // Navigate to appropriate screen
@@ -89,7 +83,8 @@ class _SplashScreenState extends State<SplashScreen>
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
             pageBuilder:
-                (context, animation, secondaryAnimation) => const HomeScreen(),
+                (context, animation, secondaryAnimation) =>
+                    const ChatListingScreen(),
             transitionDuration: const Duration(milliseconds: 800),
             transitionsBuilder: (
               context,
@@ -219,7 +214,7 @@ class MatrixRainDrawingScene extends GSprite {
     final dimBG = GSprite();
     dimBG.graphics
         .beginFill(backgroundColor.withValues(alpha: 0.1))
-        .drawRect(0, 0, stage!.stageWidth, stage!.stageHeight)
+        // .drawRect(0, 0, stage!.stageWidth, stage!.stageHeight)
         .endFill();
     _container.addChild(dimBG);
     Map<Offset, String> overlays = {};
@@ -295,7 +290,7 @@ class MatrixRainDrawingScene extends GSprite {
     /// we have to draw a rect (transparent), so the bounds are detected when
     /// capturing the snapshot.
     _container.graphics
-        .beginFill(Colors.red.withValues(alpha: 0))
+        .beginFill(Colors.black.withValues(alpha: 0.3))
         .drawRect(0, 0, stage!.stageWidth, stage!.stageHeight)
         .endFill();
     _captured = GBitmap();
@@ -330,7 +325,7 @@ class MatrixRainDrawingScene extends GSprite {
           color: textColor.withValues(alpha: _random.nextDouble()),
           shadows: [
             Shadow(
-              color: textColor.withValues(alpha: _random.nextDouble()),
+              color: backgroundColor.withValues(alpha: _random.nextDouble()),
               blurRadius: 10,
             ),
           ],
