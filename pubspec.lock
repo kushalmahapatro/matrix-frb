@@ -185,6 +185,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.1"
+  elementary:
+    dependency: "direct main"
+    description:
+      name: elementary
+      sha256: "76236b3cebc6616f36de32772ba2e59de097a5c4572ad58c6aef657383065b0c"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.2.1"
+  elementary_helper:
+    dependency: "direct main"
+    description:
+      name: elementary_helper
+      sha256: e59c86ff1ba1f115522a6ccd5f9618d871e6ce41d0775cef2867f9e264beb505
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.3"
   fake_async:
     dependency: transitive
     description:
@@ -551,6 +567,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.5.0"
+  result_dart:
+    dependency: "direct main"
+    description:
+      name: result_dart
+      sha256: "0666b21fbdf697b3bdd9986348a380aa204b3ebe7c146d8e4cdaa7ce735e6054"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.1"
   rust_lib_matrix:
     dependency: "direct main"
     description:

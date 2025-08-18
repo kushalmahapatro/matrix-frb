@@ -158,44 +158,71 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
         decoration: BoxDecoration(
           gradient: context.read<ThemeProvider>().backgroundGradient,
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Room Type Selection
-              const Text('ROOM TYPE', style: MatrixTheme.labelStyle),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildTypeButton(
-                      type: CreateRoomType.direct,
-                      label: 'DIRECT CHAT',
-                      icon: Icons.person,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Room Type Selection
+                const Text('ROOM TYPE', style: MatrixTheme.labelStyle),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildTypeButton(
+                        type: CreateRoomType.direct,
+                        label: 'DIRECT CHAT',
+                        icon: Icons.person,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildTypeButton(
-                      type: CreateRoomType.group,
-                      label: 'GROUP CHAT',
-                      icon: Icons.group,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildTypeButton(
+                        type: CreateRoomType.group,
+                        label: 'GROUP CHAT',
+                        icon: Icons.group,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
+                  ],
+                ),
+                const SizedBox(height: 24),
 
-              // Group Name Input (only for group chats)
-              if (_selectedType == CreateRoomType.group) ...[
-                const Text('GROUP NAME', style: MatrixTheme.labelStyle),
+                // Group Name Input (only for group chats)
+                if (_selectedType == CreateRoomType.group) ...[
+                  const Text('GROUP NAME', style: MatrixTheme.labelStyle),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _groupNameController,
+                    style: MatrixTheme.bodyStyle,
+                    decoration: InputDecoration(
+                      hintText: 'Enter group name...',
+                      hintStyle: MatrixTheme.labelStyle,
+                      filled: true,
+                      fillColor: Colors.grey[900],
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                          color: MatrixTheme.primaryGreen,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
+                // User Search
+                const Text('ADD PARTICIPANTS', style: MatrixTheme.labelStyle),
                 const SizedBox(height: 8),
                 TextField(
-                  controller: _groupNameController,
+                  controller: _searchController,
                   style: MatrixTheme.bodyStyle,
                   decoration: InputDecoration(
-                    hintText: 'Enter group name...',
+                    hintText: 'Search users (@username or username)...',
                     hintStyle: MatrixTheme.labelStyle,
                     filled: true,
                     fillColor: Colors.grey[900],
@@ -209,173 +236,148 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
                         color: MatrixTheme.primaryGreen,
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-
-              // User Search
-              const Text('ADD PARTICIPANTS', style: MatrixTheme.labelStyle),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _searchController,
-                style: MatrixTheme.bodyStyle,
-                decoration: InputDecoration(
-                  hintText: 'Search users (@username or username)...',
-                  hintStyle: MatrixTheme.labelStyle,
-                  filled: true,
-                  fillColor: Colors.grey[900],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(
-                      color: MatrixTheme.primaryGreen,
-                    ),
-                  ),
-                  suffixIcon:
-                      _isSearching
-                          ? const Padding(
-                            padding: EdgeInsets.all(12),
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: MatrixTheme.primaryGreen,
-                              ),
-                            ),
-                          )
-                          : const Icon(
-                            Icons.search,
-                            color: MatrixTheme.primaryGreen,
-                          ),
-                ),
-                onChanged: _searchUsers,
-              ),
-              const SizedBox(height: 16),
-
-              // Search Results
-              if (_searchResults.isNotEmpty) ...[
-                const Text('SEARCH RESULTS', style: MatrixTheme.labelStyle),
-                const SizedBox(height: 8),
-                Container(
-                  constraints: const BoxConstraints(maxHeight: 200),
-                  child: ListView.builder(
-                    itemCount: _searchResults.length,
-                    itemBuilder: (context, index) {
-                      final user = _searchResults[index];
-                      return _buildUserTile(
-                        user: user,
-                        trailing: IconButton(
-                          icon: const Icon(
-                            Icons.add,
-                            color: MatrixTheme.primaryGreen,
-                          ),
-                          onPressed: () => _addUser(user),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-
-              // Selected Users
-              Expanded(
-                child:
-                    _selectedUsers.isNotEmpty
-                        ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'SELECTED PARTICIPANTS (${_selectedUsers.length})',
-                              style: MatrixTheme.labelStyle,
-                            ),
-                            const SizedBox(height: 8),
-                            Expanded(
-                              child: ListView.builder(
-                                itemCount: _selectedUsers.length,
-                                itemBuilder: (context, index) {
-                                  final user = _selectedUsers[index];
-                                  return _buildUserTile(
-                                    user: user,
-                                    trailing: IconButton(
-                                      icon: const Icon(
-                                        Icons.remove,
-                                        color: Colors.red,
-                                      ),
-                                      onPressed: () => _removeUser(user),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        )
-                        : const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.person_search,
-                                color: MatrixTheme.primaryGreen,
-                                size: 48,
-                              ),
-                              SizedBox(height: 12),
-                              Text(
-                                'NO PARTICIPANTS SELECTED',
-                                style: MatrixTheme.titleStyle,
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'SEARCH AND ADD USERS TO CREATE A ROOM',
-                                style: MatrixTheme.bodyStyle,
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        ),
-              ),
-
-              // Create Button
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isCreating ? null : _createRoom,
-                  style: MatrixTheme.primaryButtonStyle,
-                  child:
-                      _isCreating
-                          ? const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SizedBox(
+                    suffixIcon:
+                        _isSearching
+                            ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: Colors.black,
+                                  color: MatrixTheme.primaryGreen,
                                 ),
                               ),
-                              SizedBox(width: 12),
+                            )
+                            : const Icon(
+                              Icons.search,
+                              color: MatrixTheme.primaryGreen,
+                            ),
+                  ),
+                  onChanged: _searchUsers,
+                ),
+                const SizedBox(height: 16),
+
+                // Search Results
+                if (_searchResults.isNotEmpty) ...[
+                  const Text('SEARCH RESULTS', style: MatrixTheme.labelStyle),
+                  const SizedBox(height: 8),
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 200),
+                    child: ListView.builder(
+                      itemCount: _searchResults.length,
+                      itemBuilder: (context, index) {
+                        final user = _searchResults[index];
+                        return _buildUserTile(
+                          user: user,
+                          trailing: IconButton(
+                            icon: const Icon(
+                              Icons.add,
+                              color: MatrixTheme.primaryGreen,
+                            ),
+                            onPressed: () => _addUser(user),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // Selected Users
+                Expanded(
+                  child:
+                      _selectedUsers.isNotEmpty
+                          ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               Text(
-                                'CREATING...',
-                                style: MatrixTheme.buttonStyle,
+                                'SELECTED PARTICIPANTS (${_selectedUsers.length})',
+                                style: MatrixTheme.labelStyle,
+                              ),
+                              const SizedBox(height: 8),
+                              Expanded(
+                                child: ListView.builder(
+                                  itemCount: _selectedUsers.length,
+                                  itemBuilder: (context, index) {
+                                    final user = _selectedUsers[index];
+                                    return _buildUserTile(
+                                      user: user,
+                                      trailing: IconButton(
+                                        icon: const Icon(
+                                          Icons.remove,
+                                          color: Colors.red,
+                                        ),
+                                        onPressed: () => _removeUser(user),
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
                             ],
                           )
-                          : Text(
-                            _selectedType == CreateRoomType.direct
-                                ? 'CREATE DIRECT CHAT'
-                                : 'CREATE GROUP CHAT',
-                            style: MatrixTheme.buttonStyle,
+                          : const Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.person_search,
+                                  color: MatrixTheme.primaryGreen,
+                                  size: 48,
+                                ),
+                                SizedBox(height: 12),
+                                Text(
+                                  'NO PARTICIPANTS SELECTED',
+                                  style: MatrixTheme.titleStyle,
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  'SEARCH AND ADD USERS TO CREATE A ROOM',
+                                  style: MatrixTheme.bodyStyle,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
                           ),
                 ),
-              ),
-            ],
+
+                // Create Button
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isCreating ? null : _createRoom,
+                    style: MatrixTheme.primaryButtonStyle,
+                    child:
+                        _isCreating
+                            ? const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                SizedBox(width: 12),
+                                Text(
+                                  'CREATING...',
+                                  style: MatrixTheme.buttonStyle,
+                                ),
+                              ],
+                            )
+                            : Text(
+                              _selectedType == CreateRoomType.direct
+                                  ? 'CREATE DIRECT CHAT'
+                                  : 'CREATE GROUP CHAT',
+                              style: MatrixTheme.buttonStyle,
+                            ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

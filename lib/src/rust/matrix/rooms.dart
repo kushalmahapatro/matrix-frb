@@ -35,6 +35,12 @@ Future<String> createGroupRoom({
   userIds: userIds,
 );
 
+Future<String> joinRoom({required String roomId}) =>
+    RustLib.instance.api.crateMatrixRoomsJoinRoom(roomId: roomId);
+
+Future<String> leaveRoom({required String roomId}) =>
+    RustLib.instance.api.crateMatrixRoomsLeaveRoom(roomId: roomId);
+
 class RoomUpdate {
   final String roomId;
   final String? rawName;

@@ -1,236 +1,161 @@
-# Matrix Flutter App with Flutter Rust Bridge
+# Matrix Terminal Client
 
-This project demonstrates how to integrate the Matrix SDK with Flutter using Flutter Rust Bridge instead of UniFFI.
+A Matrix protocol client built with Flutter and Rust, featuring a terminal-inspired UI reminiscent of the Matrix movie aesthetic.
 
-## Overview
+## Features
 
-This project shows how to:
-- Use Flutter Rust Bridge to create bindings between Flutter/Dart and Rust
-- Integrate the Matrix SDK (matrix-sdk crate) with Flutter
-- Create a Matrix client with login, room management, and messaging capabilities
+- **Matrix Movie Aesthetic**: Terminal-style UI with green-on-black color scheme and JetBrains Mono font
+- **Elementary State Management**: Clean architecture using Elementary pattern
+- **Feature-First Structure**: Organized by features rather than layers
+- **Cross-Platform**: Runs on iOS, Android, macOS, Linux, Windows, and Web
+- **Real-time Messaging**: Matrix protocol integration via Rust SDK
+- **Terminal Animations**: Matrix rain effect and smooth transitions
 
-## Project Structure
+## Architecture
+
+### Feature-First Structure
 
 ```
-matrix/
-├── lib/
-│   ├── main.dart                    # Flutter UI with Matrix client integration
-│   └── src/rust/
-│       ├── frb_generated.dart       # Auto-generated Flutter Rust Bridge bindings
-│       └── api/
-│           ├── matrix_client.dart   # Matrix client wrapper
-│           ├── matrix_room.dart     # Room management functions
-│           └── matrix_message.dart  # Message handling functions
-├── rust/
-│   ├── src/
-│   │   ├── lib.rs                   # Main Rust library entry point
-│   │   └── api/
-│   │       ├── mod.rs               # API module definitions
-│   │       ├── matrix_client.rs     # Matrix client implementation
-│   │       ├── matrix_room.rs       # Room operations
-│   │       └── matrix_message.rs    # Message operations
-│   └── Cargo.toml                   # Rust dependencies
-└── flutter_rust_bridge.yaml         # Flutter Rust Bridge configuration
+lib/src/
+├── core/                    # Shared components and utilities
+│   ├── presentation/
+│   │   ├── widgets/        # Reusable terminal UI components
+│   │   └── theme/          # Matrix theme configuration
+│   ├── domain/
+│   │   └── services/       # Core services
+│   └── utils/              # Utilities and helpers
+├── features/
+│   ├── auth/               # Authentication feature
+│   │   ├── domain/
+│   │   │   ├── models/     # Auth state models
+│   │   │   └── services/   # Auth service
+│   │   └── presentation/
+│   │       └── screens/    # Login, splash screens
+│   ├── chat/               # Chat listing feature
+│   │   ├── domain/
+│   │   │   ├── models/     # Chat state models
+│   │   │   └── services/   # Chat services
+│   │   └── presentation/
+│   │       └── screens/    # Chat listing screen
+│   ├── rooms/              # Room/Timeline feature
+│   │   ├── domain/
+│   │   │   ├── models/     # Room and message models
+│   │   │   └── services/   # Room services
+│   │   └── presentation/
+│   │       └── screens/    # Room timeline screen
+│   └── settings/           # Settings feature
+│       └── presentation/
+│           └── screens/    # Settings screen
 ```
 
-## Key Differences from UniFFI
+### State Management
 
-### 1. **Dependency Management**
-Instead of using `matrix-sdk-ffi` (which doesn't exist), we use the standard `matrix-sdk` crate:
-```toml
-[dependencies]
-matrix-sdk = "0.13.0"
-matrix-sdk-sqlite = "0.13.0"
-```
+Uses **Elementary** pattern for clean separation of concerns:
+- **Widget**: Pure UI components
+- **WidgetModel**: Business logic and state management
+- **Model**: Data layer and external service calls
 
-### 2. **API Design**
-- **UniFFI**: Uses generated FFI bindings with specific FFI types
-- **Flutter Rust Bridge**: Uses Rust types directly with automatic serialization
+### Terminal UI Components
 
-### 3. **Type Safety**
-- **UniFFI**: Requires manual type conversions between FFI and native types
-- **Flutter Rust Bridge**: Automatic type conversion with `serde` serialization
+- `TerminalScreen`: Base screen with Matrix aesthetic
+- `TerminalContainer`: Bordered containers with glow effects
+- `TerminalButton`: Matrix-styled buttons
+- `TerminalTextField`: Terminal-style input fields
+- `TerminalStatusMessage`: Status messages with icons
 
-### 4. **Async Handling**
-- **UniFFI**: Uses callbacks or manual async handling
-- **Flutter Rust Bridge**: Native async/await support
+## Matrix Movie Aesthetic
 
-## Implementation Details
+### Color Palette
+- **Matrix Green**: `#00FF41` - Primary terminal green
+- **Matrix Dark Green**: `#008F11` - Darker variant
+- **Matrix Light Green**: `#65FF65` - Lighter variant
+- **Matrix Accent**: `#00D4AA` - Accent color for highlights
+- **Terminal Black**: `#000000` - Pure black background
+- **Terminal Background**: `#0D1117` - Slightly lighter background
 
-### Matrix Client Wrapper
+### Typography
+- **Font**: JetBrains Mono (monospace)
+- **Letter Spacing**: Increased for terminal feel
+- **Glow Effects**: Text shadows for authentic CRT monitor look
 
-The `MatrixClientWrapper` class provides a high-level interface to the Matrix SDK:
+### Animations
+- **Matrix Rain**: Falling character animation on splash screen
+- **Fade Transitions**: Smooth screen transitions
+- **Glow Effects**: Subtle glowing borders and text
 
-```rust
-pub struct MatrixClientWrapper {
-    client: Arc<Mutex<Option<Client>>>,
-    session: Arc<Mutex<Option<Session>>>,
-}
-```
+## Getting Started
 
-### Key Features
+### Prerequisites
+- Flutter SDK (^3.7.2)
+- Rust toolchain
+- Matrix homeserver access
 
-1. **Authentication**
-   - Login with username/password
-   - Session management
-   - Logout functionality
+### Installation
 
-2. **Room Management**
-   - List available rooms
-   - Get room information (name, topic, member count)
-   - Join/leave rooms
-
-3. **Messaging**
-   - Send text messages
-   - Retrieve message history
-   - Message reactions
-
-4. **Real-time Updates**
-   - Sync with Matrix server
-   - Handle room events
-
-## Usage Example
-
-```dart
-// Get the Matrix client instance
-final client = getMatrixClient();
-
-// Login to Matrix
-final config = MatrixClientConfig(
-  homeserverUrl: 'https://matrix.org',
-  username: 'your_username',
-  password: 'your_password',
-);
-final success = client.login(config: config);
-
-// Get rooms
-final rooms = client.getRooms();
-
-// Send a message
-client.sendMessage(roomId: roomId, content: 'Hello Matrix!');
-```
-
-## Local Matrix Server Setup
-
-For development and testing, you can run a local Synapse Matrix server using Docker.
-
-### Quick Setup
-
-1. **Generate Synapse Configuration**
-   ```bash
-   docker run -it --rm \
-       --mount type=volume,src=matrix_synapse_data,dst=/data \
-       -e SYNAPSE_SERVER_NAME=localhost \
-       -e SYNAPSE_REPORT_STATS=no \
-       -e SYNAPSE_ENABLE_REGISTRATION=yes \
-       -e SYNAPSE_ENABLE_REGISTRATION_WITHOUT_VERIFICATION=yes \
-       matrixdotorg/synapse:latest generate
-   ```
-
-2. **Enable Registration** (if needed)
-   ```bash
-   # Copy the generated config to edit it
-   docker run --rm --mount type=volume,src=matrix_synapse_data,dst=/data -v $(pwd):/host alpine:latest cp /data/homeserver.yaml /host/homeserver_generated.yaml
-   
-   # Edit the file to add registration settings
-   # Add these lines to homeserver_generated.yaml:
-   # enable_registration: true
-   # enable_registration_without_verification: true
-   
-   # Copy the updated config back
-   docker run --rm --mount type=volume,src=matrix_synapse_data,dst=/data -v $(pwd):/host alpine:latest cp /host/homeserver_generated.yaml /data/homeserver.yaml
-   ```
-
-3. **Start Synapse Server**
-   ```bash
-   docker run -d --name matrix-synapse \
-       --mount type=volume,src=matrix_synapse_data,dst=/data \
-       -p 8008:8008 \
-       matrixdotorg/synapse:latest run \
-       -m synapse.app.homeserver \
-       --config-path=/data/homeserver.yaml
-   ```
-
-4. **Start Element Web Client** (optional)
-   ```bash
-   docker run -d --name matrix-element \
-       -p 8080:80 \
-       --env ELEMENT_CONFIG='{"default_server_config":{"m.homeserver":{"base_url":"http://localhost:8008"}},"disable_guests":true,"brand":"Local Matrix"}' \
-       vectorim/element-web:latest
-   ```
-
-### Server URLs
-- **Synapse API**: http://localhost:8008
-- **Element Web UI**: http://localhost:8080
-
-### Test Registration
-```bash
-curl -s -X POST http://localhost:8008/_matrix/client/r0/register \
-    -H "Content-Type: application/json" \
-    -d '{"auth": {"type": "m.login.dummy"}, "initial_device_display_name": "test", "username": "testuser", "password": "testpass"}'
-```
-
-### Stop Servers
-```bash
-docker stop matrix-synapse matrix-element
-docker rm matrix-synapse matrix-element
-```
-
-## Building and Running
-
-1. **Install Dependencies**
+1. Clone the repository
+2. Install dependencies:
    ```bash
    flutter pub get
-   cd rust && cargo build
    ```
 
-2. **Generate Bindings**
+3. Generate code:
    ```bash
-   flutter_rust_bridge_codegen generate
+   dart run build_runner build
    ```
 
-3. **Run the App**
+4. Run the app:
    ```bash
    flutter run
    ```
 
-## Configuration
+### Development Commands
 
-The `flutter_rust_bridge.yaml` file configures the code generation:
+```bash
+# Install dependencies
+flutter pub get
 
-```yaml
-rust_input: crate::api
-rust_root: rust/
-dart_output: lib/src/rust
+# Generate freezed classes
+dart run build_runner build
+
+# Watch for changes
+dart run build_runner watch
+
+# Run tests
+flutter test
+
+# Build for release
+flutter build apk          # Android
+flutter build ios          # iOS
+flutter build macos        # macOS
+flutter build linux        # Linux
+flutter build windows      # Windows
+flutter build web          # Web
 ```
 
-## Benefits of Flutter Rust Bridge over UniFFI
+## Key Dependencies
 
-1. **Simpler Setup**: No need for complex FFI type definitions
-2. **Better Type Safety**: Automatic serialization with `serde`
-3. **Easier Debugging**: Direct Rust types in Dart
-4. **Better Performance**: Less overhead from FFI conversions
-5. **More Flexible**: Can use any Rust crate, not just FFI-compatible ones
+- **elementary**: ^3.2.1 - State management
+- **elementary_helper**: ^1.0.3 - Elementary utilities
+- **freezed**: ^3.1.0 - Immutable data classes
+- **flutter_rust_bridge**: 2.11.1 - Rust-Dart interop
+- **auto_route**: ^8.4.0 - Navigation (planned)
 
-## Future Enhancements
+## Matrix Integration
 
-- [ ] End-to-end encryption support
-- [ ] File upload/download
-- [ ] Voice/video calling
-- [ ] Push notifications
-- [ ] Offline message caching
-- [ ] Room creation and management
-- [ ] User profile management
+The app integrates with Matrix protocol via Rust SDK:
+- Authentication (login/register)
+- Room management
+- Real-time messaging
+- Session persistence
 
 ## Contributing
 
-This is a demonstration project. For production use, consider:
-- Adding proper error handling
-- Implementing retry logic
-- Adding unit tests
-- Security hardening
-- Performance optimization
+1. Follow the feature-first architecture
+2. Use Elementary pattern for new screens
+3. Maintain Matrix movie aesthetic
+4. Add terminal-style animations where appropriate
+5. Write tests for business logic
 
 ## License
 
-This project is for educational purposes. The Matrix SDK is licensed under the Apache 2.0 License.
+This project is open source and available under the MIT License.

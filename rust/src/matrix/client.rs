@@ -98,11 +98,12 @@ pub async fn configure_client(config: ClientConfig) -> Result<bool, String> {
 
     let client = client_builder.build().await.map_err(|e| e.to_string())?;
 
-    set_global_client(Some(client.clone())).await?;
     GLOBAL_CONFIG.get_or_init(|| config_clone);
 
     // Try reading a session, otherwise create a new one.
-    restore_session_if_available(&client, &path).await?;
+    let _ = restore_session_if_available(&client, &path).await;
+
+    set_global_client(Some(client.clone())).await?;
 
     Ok(true)
 }

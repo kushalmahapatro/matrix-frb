@@ -42,7 +42,7 @@ class ThemeProvider extends ChangeNotifier {
     } else {
       _themeMode = MatrixThemeMode.values[themeIndex];
     }
-    _updateDarkMode();
+    _updateThemeMode();
     notifyListeners();
   }
 
@@ -50,7 +50,7 @@ class ThemeProvider extends ChangeNotifier {
     if (_themeMode == mode) return;
 
     _themeMode = mode;
-    _updateDarkMode();
+    _updateThemeMode();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_themeKey, mode.index);
@@ -58,7 +58,7 @@ class ThemeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _updateDarkMode() {
+  void _updateThemeMode() {
     switch (_themeMode) {
       case MatrixThemeMode.system:
         final Brightness brightness =
@@ -72,6 +72,7 @@ class ThemeProvider extends ChangeNotifier {
         _isDarkMode = true;
         break;
     }
+    MatrixTheme.updateThemeMode(_isDarkMode);
   }
 
   void updateSystemTheme(Brightness brightness) {

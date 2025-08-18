@@ -5,7 +5,7 @@ use flutter_rust_bridge::frb;
 use imbl::Vector;
 use matrix_sdk::{
     ruma::{OwnedRoomId, RoomId},
-    Client, Room,
+    Client, Room, RoomState,
 };
 use matrix_sdk_ui::{sync_service::SyncService, timeline::RoomExt};
 use std::sync::Mutex;
@@ -93,6 +93,7 @@ pub enum UpdateType {
     Left,
     Invited,
     Knocked,
+    Banned,
 }
 
 pub struct RoomUpdate {
@@ -117,6 +118,13 @@ async fn get_room_update_data(room: &Room) -> RoomUpdate {
     let unread_highlight_count = room.unread_notification_counts().highlight_count;
     let unread_mentions_count = room.num_unread_mentions();
     let unread_messages = room.num_unread_messages();
+    let update_type = match room.state() {
+        RoomState::Joined => UpdateType::Joined,
+        RoomState::Invited => UpdateType::Invited,
+        RoomState::Knocked => UpdateType::Knocked,
+        RoomState::Banned => UpdateType::Banned,
+        RoomState::Left => UpdateType::Left,
+    };
 
     let last_event = room.latest_event_item().await;
     let mut message = Message {
@@ -153,7 +161,7 @@ async fn get_room_update_data(room: &Room) -> RoomUpdate {
         raw_name,
         display_name,
         is_dm: Some(is_dm),
-        update_type: UpdateType::Joined,
+        update_type: update_type,
         unread_notifications: Some(unread_notification_count),
         unread_highlight: Some(unread_highlight_count),
         unread_mentions: Some(unread_mentions_count),
@@ -202,7 +210,8 @@ pub fn subscribe_to_all_room_updates(stream: StreamSink<RoomUpdate>) {
                         for room_id in &updates.joined {
                             match &app.client.get_room(&room_id.0) {
                                 Some(room) => {
-                                    let update = get_room_update_data(room).await;
+                                    let mut update = get_room_update_data(room).await;
+                                    update.update_type = UpdateType::Joined;
                                     let _ = stream.add(update);
                                 }
 
@@ -215,7 +224,8 @@ pub fn subscribe_to_all_room_updates(stream: StreamSink<RoomUpdate>) {
                         for room_id in &updates.invited {
                             match &app.client.get_room(&room_id.0) {
                                 Some(room) => {
-                                    let update = get_room_update_data(room).await;
+                                    let mut update = get_room_update_data(room).await;
+                                    update.update_type = UpdateType::Invited;
                                     let _ = stream.add(update);
                                 }
 
@@ -228,7 +238,8 @@ pub fn subscribe_to_all_room_updates(stream: StreamSink<RoomUpdate>) {
                         for room_id in &updates.left {
                             match &app.client.get_room(&room_id.0) {
                                 Some(room) => {
-                                    let update = get_room_update_data(room).await;
+                                    let mut update = get_room_update_data(room).await;
+                                    update.update_type = UpdateType::Left;
                                     let _ = stream.add(update);
                                 }
 
@@ -237,6 +248,7 @@ pub fn subscribe_to_all_room_updates(stream: StreamSink<RoomUpdate>) {
                                 }
                             }
                         }
+                        
                     }
                     Err(e) => {
                         log_error(format!("Error receiving room updates: {}", e));
@@ -335,6 +347,37 @@ pub fn create_group_room(name: String, user_ids: Vec<String>) -> Result<String, 
                 .map_err(|e| e.to_string())?;
 
             Ok(response.room_id().to_string())
+        })
+    })
+}
+
+
+pub fn join_room(room_id: String) -> Result<String, String> {
+    tokio::task::block_in_place(|| {
+        let runtime = GLOBAL_RUNTIME
+            .get()
+            .expect("Global runtime not initialized");
+        runtime.block_on(async {
+            let app = GLOBAL_APP.get().expect("Global app not initialized");
+            let room_id = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+            let room = &app.client.get_room(&room_id).ok_or("Room not found")?;
+            let _ = room.join().await.map_err(|e| e.to_string())?;
+            Ok(room_id.to_string())
+        })
+    })
+}
+
+pub fn leave_room(room_id: String) -> Result<String, String> {  
+    tokio::task::block_in_place(|| {
+        let runtime = GLOBAL_RUNTIME
+            .get()
+            .expect("Global runtime not initialized");
+        runtime.block_on(async {
+            let app = GLOBAL_APP.get().expect("Global app not initialized");
+            let room_id = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+            let room = &app.client.get_room(&room_id).ok_or("Room not found")?;
+            let _ = room.leave().await.map_err(|e| e.to_string())?; 
+            Ok(room_id.to_string())
         })
     })
 }
