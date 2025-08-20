@@ -239,6 +239,6 @@ class LoginScreen extends ElementaryWidget<LoginScreenWM> implements AuthRoute {
 
   @override
   void navigateToChatListingScreen(BuildContext context) {
-    NavigatorService.push(context, const ChatListingScreen());
+    NavigatorService.pushReplacement(context, const ChatListingScreen());
   }
 }

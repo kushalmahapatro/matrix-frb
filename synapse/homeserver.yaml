@@ -1,7 +1,13 @@
 # Synapse homeserver configuration for local development
 # This file is used by the Docker container
-
 server_name: "localhost"
+
+# --- Token & session lifetimes (1 week) ---
+session_lifetime: 1w
+refreshable_access_token_lifetime: 1w
+nonrefreshable_access_token_lifetime: 1w
+# refresh_token_lifetime: 1w   # optional
+
 pid_file: /data/homeserver.pid
 listeners:
   - port: 8008
@@ -63,6 +69,21 @@ trusted_key_servers:
 
 # User directory search
 user_directory_search_all_users: true
+# --- User directory / discovery ---
+user_directory:
+  enabled: true
+  search_all_users: true
+  prefer_local_users: true
+  # show_locked_users: false
+
+# --- Auto-join rooms for new users ---
+auto_join_rooms:
+  - "#lobby:localhost"
+  - "#announcements:localhost"
+autocreate_auto_join_rooms: true
+autocreate_auto_join_room_preset: public_chat
+autocreate_auto_join_rooms_federated: true
+# auto_join_mxid_localpart: system  # only if using a private preset
 
 # Room directory
 room_directory_servers:

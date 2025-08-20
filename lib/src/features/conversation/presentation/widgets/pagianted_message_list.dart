@@ -23,7 +23,6 @@ class PaginatedMessageList extends StatefulWidget {
 
 class _PaginatedMessageListState extends State<PaginatedMessageList> {
   final _controller = ScrollController();
-  final _messages = <Message>[]; // oldest → newest
   bool _isLoadingOlder = false;
   bool _hasMore = true;
   int _unseenNewCount = 0;
@@ -36,13 +35,13 @@ class _PaginatedMessageListState extends State<PaginatedMessageList> {
   @override
   void initState() {
     super.initState();
-    _messages.addAll(widget.initialMessages);
-    if (_messages.isNotEmpty) {
-      _hasMore = _messages.first.messageType != MessageType.timelineStart;
+    if (widget.initialMessages.isNotEmpty) {
+      _hasMore =
+          widget.initialMessages.first.messageType != MessageType.timelineStart;
       _controller.addListener(_onScroll);
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_messages.length < 5 && _hasMore) {
+        if (widget.initialMessages.length < 5 && _hasMore) {
           _maybeLoadOlder();
         }
       });
@@ -70,13 +69,13 @@ class _PaginatedMessageListState extends State<PaginatedMessageList> {
   }
 
   Future<void> _maybeLoadOlder() async {
-    if (_isLoadingOlder || !_hasMore || _messages.isEmpty) return;
+    if (_isLoadingOlder || !_hasMore || widget.initialMessages.isEmpty) return;
     setState(() => _isLoadingOlder = true);
 
     // Preserve visual position during insert:
     final beforeMax = _controller.position.maxScrollExtent;
 
-    final oldest = _messages.first;
+    final oldest = widget.initialMessages.first;
     final older = await widget.loadOlder(
       oldest,
     ); // returns older messages, oldest → newest
@@ -89,9 +88,10 @@ class _PaginatedMessageListState extends State<PaginatedMessageList> {
     }
 
     setState(() {
-      _messages.insertAll(0, older);
+      widget.initialMessages.insertAll(0, older);
       _isLoadingOlder = false;
-      _hasMore = _messages.first.messageType != MessageType.timelineStart;
+      _hasMore =
+          widget.initialMessages.first.messageType != MessageType.timelineStart;
     });
 
     // Adjust by delta in maxScrollExtent so content doesn't jump.
@@ -107,7 +107,7 @@ class _PaginatedMessageListState extends State<PaginatedMessageList> {
   // Call this when a brand-new message arrives (push from server)
   void addIncoming(Message m) {
     final shouldAutoscroll = _isAtBottom;
-    setState(() => _messages.add(m));
+    setState(() => widget.initialMessages.add(m));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (shouldAutoscroll) {
         _scrollToBottom();
@@ -129,16 +129,16 @@ class _PaginatedMessageListState extends State<PaginatedMessageList> {
 
   Message _firstVisible() {
     // Approx via pixels/estimatedExtent, or keep an ItemPositionsListener (see note below)
-    return _messages.first;
+    return widget.initialMessages.first;
   }
 
   Message _lastVisible() {
-    return _messages.last;
+    return widget.initialMessages.last;
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_messages.isEmpty) {
+    if (widget.initialMessages.isEmpty) {
       return const Center(
         child: Text(
           'NO MESSAGES YET\nSTART THE CONVERSATION',
@@ -148,7 +148,7 @@ class _PaginatedMessageListState extends State<PaginatedMessageList> {
       );
     }
 
-    final display = _messages.reversed.toList(
+    final display = widget.initialMessages.reversed.toList(
       growable: false,
     ); // newest → oldest for UI
 
@@ -165,16 +165,6 @@ class _PaginatedMessageListState extends State<PaginatedMessageList> {
             controller: _controller,
             reverse: true,
             slivers: [
-              // Top loader (shows when asking older, i.e., at top with reverse:true)
-              SliverToBoxAdapter(
-                child:
-                    _isLoadingOlder
-                        ? const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                          child: Center(child: CircularProgressIndicator()),
-                        )
-                        : const SizedBox.shrink(),
-              ),
               SliverList.builder(
                 itemCount: display.length,
                 itemBuilder: (context, index) {

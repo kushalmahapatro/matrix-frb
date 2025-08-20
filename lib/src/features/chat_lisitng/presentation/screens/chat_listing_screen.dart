@@ -383,8 +383,8 @@ class ChatListingScreen extends ElementaryWidget<ChatListingScreenWM>
   }
 
   @override
-  void navigateToCreateScreen(BuildContext context) {
-    NavigatorService.push(context, const CreateRoomScreen());
+  Future<String?> navigateToCreateScreen(BuildContext context) {
+    return NavigatorService.push<String?>(context, const CreateRoomScreen());
   }
 
   @override

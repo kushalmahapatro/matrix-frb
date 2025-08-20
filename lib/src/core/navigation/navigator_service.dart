@@ -18,8 +18,8 @@ class NavigatorService {
     );
   }
 
-  static void push(BuildContext context, Widget page) {
-    Navigator.of(context).push(
+  static Future<T?> push<T extends Object?>(BuildContext context, Widget page) {
+    return Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => page,
         transitionDuration: const Duration(milliseconds: 800),

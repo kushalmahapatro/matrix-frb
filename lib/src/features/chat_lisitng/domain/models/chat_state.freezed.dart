@@ -12,11 +12,17 @@ part of 'chat_state.dart';
 // dart format off
 T _$identity<T>(T value) => value;
 /// @nodoc
-mixin _$ChatState {
+mixin _$ChatState implements DiagnosticableTreeMixin {
 
 
 
 
+@override
+void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+  properties
+    ..add(DiagnosticsProperty('type', 'ChatState'))
+    ;
+}
 
 @override
 bool operator ==(Object other) {
@@ -28,7 +34,7 @@ bool operator ==(Object other) {
 int get hashCode => runtimeType.hashCode;
 
 @override
-String toString() {
+String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
   return 'ChatState()';
 }
 
@@ -186,7 +192,7 @@ return error(_that.message);case _:
 /// @nodoc
 
 
-class ChatStateLoading implements ChatState {
+class ChatStateLoading with DiagnosticableTreeMixin implements ChatState {
   const ChatStateLoading();
   
 
@@ -194,6 +200,12 @@ class ChatStateLoading implements ChatState {
 
 
 
+@override
+void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+  properties
+    ..add(DiagnosticsProperty('type', 'ChatState.loading'))
+    ;
+}
 
 @override
 bool operator ==(Object other) {
@@ -205,7 +217,7 @@ bool operator ==(Object other) {
 int get hashCode => runtimeType.hashCode;
 
 @override
-String toString() {
+String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
   return 'ChatState.loading()';
 }
 
@@ -218,7 +230,7 @@ String toString() {
 /// @nodoc
 
 
-class ChatStateLoaded implements ChatState {
+class ChatStateLoaded with DiagnosticableTreeMixin implements ChatState {
   const ChatStateLoaded({required final  List<Chat> rooms}): _rooms = rooms;
   
 
@@ -237,6 +249,12 @@ class ChatStateLoaded implements ChatState {
 $ChatStateLoadedCopyWith<ChatStateLoaded> get copyWith => _$ChatStateLoadedCopyWithImpl<ChatStateLoaded>(this, _$identity);
 
 
+@override
+void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+  properties
+    ..add(DiagnosticsProperty('type', 'ChatState.loaded'))
+    ..add(DiagnosticsProperty('rooms', rooms));
+}
 
 @override
 bool operator ==(Object other) {
@@ -248,7 +266,7 @@ bool operator ==(Object other) {
 int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_rooms));
 
 @override
-String toString() {
+String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
   return 'ChatState.loaded(rooms: $rooms)';
 }
 
@@ -290,7 +308,7 @@ as List<Chat>,
 /// @nodoc
 
 
-class ChatStateError implements ChatState {
+class ChatStateError with DiagnosticableTreeMixin implements ChatState {
   const ChatStateError({required this.message});
   
 
@@ -303,6 +321,12 @@ class ChatStateError implements ChatState {
 $ChatStateErrorCopyWith<ChatStateError> get copyWith => _$ChatStateErrorCopyWithImpl<ChatStateError>(this, _$identity);
 
 
+@override
+void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+  properties
+    ..add(DiagnosticsProperty('type', 'ChatState.error'))
+    ..add(DiagnosticsProperty('message', message));
+}
 
 @override
 bool operator ==(Object other) {
@@ -314,7 +338,7 @@ bool operator ==(Object other) {
 int get hashCode => Object.hash(runtimeType,message);
 
 @override
-String toString() {
+String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
   return 'ChatState.error(message: $message)';
 }
 
@@ -354,7 +378,7 @@ as String,
 }
 
 /// @nodoc
-mixin _$Chat {
+mixin _$Chat implements DiagnosticableTreeMixin {
 
  String get id; String get name; String get lastMessage; ChatRoomStatus get status; DateTime? get lastActivity; int get unreadCount; bool get isDirect; String? get avatarUrl;
 /// Create a copy of Chat
@@ -364,6 +388,12 @@ mixin _$Chat {
 $ChatCopyWith<Chat> get copyWith => _$ChatCopyWithImpl<Chat>(this as Chat, _$identity);
 
 
+@override
+void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+  properties
+    ..add(DiagnosticsProperty('type', 'Chat'))
+    ..add(DiagnosticsProperty('id', id))..add(DiagnosticsProperty('name', name))..add(DiagnosticsProperty('lastMessage', lastMessage))..add(DiagnosticsProperty('status', status))..add(DiagnosticsProperty('lastActivity', lastActivity))..add(DiagnosticsProperty('unreadCount', unreadCount))..add(DiagnosticsProperty('isDirect', isDirect))..add(DiagnosticsProperty('avatarUrl', avatarUrl));
+}
 
 @override
 bool operator ==(Object other) {
@@ -375,7 +405,7 @@ bool operator ==(Object other) {
 int get hashCode => Object.hash(runtimeType,id,name,lastMessage,status,lastActivity,unreadCount,isDirect,avatarUrl);
 
 @override
-String toString() {
+String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
   return 'Chat(id: $id, name: $name, lastMessage: $lastMessage, status: $status, lastActivity: $lastActivity, unreadCount: $unreadCount, isDirect: $isDirect, avatarUrl: $avatarUrl)';
 }
 
@@ -554,7 +584,7 @@ return $default(_that.id,_that.name,_that.lastMessage,_that.status,_that.lastAct
 /// @nodoc
 
 
-class _Chat extends Chat {
+class _Chat extends Chat with DiagnosticableTreeMixin {
   const _Chat({required this.id, required this.name, required this.lastMessage, required this.status, this.lastActivity, this.unreadCount = 0, this.isDirect = false, this.avatarUrl}): super._();
   
 
@@ -574,6 +604,12 @@ class _Chat extends Chat {
 _$ChatCopyWith<_Chat> get copyWith => __$ChatCopyWithImpl<_Chat>(this, _$identity);
 
 
+@override
+void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+  properties
+    ..add(DiagnosticsProperty('type', 'Chat'))
+    ..add(DiagnosticsProperty('id', id))..add(DiagnosticsProperty('name', name))..add(DiagnosticsProperty('lastMessage', lastMessage))..add(DiagnosticsProperty('status', status))..add(DiagnosticsProperty('lastActivity', lastActivity))..add(DiagnosticsProperty('unreadCount', unreadCount))..add(DiagnosticsProperty('isDirect', isDirect))..add(DiagnosticsProperty('avatarUrl', avatarUrl));
+}
 
 @override
 bool operator ==(Object other) {
@@ -585,7 +621,7 @@ bool operator ==(Object other) {
 int get hashCode => Object.hash(runtimeType,id,name,lastMessage,status,lastActivity,unreadCount,isDirect,avatarUrl);
 
 @override
-String toString() {
+String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
   return 'Chat(id: $id, name: $name, lastMessage: $lastMessage, status: $status, lastActivity: $lastActivity, unreadCount: $unreadCount, isDirect: $isDirect, avatarUrl: $avatarUrl)';
 }
 

@@ -94,13 +94,42 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
 
     if (_selectedType == CreateRoomType.group &&
         _groupNameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('ENTER GROUP NAME'),
-          backgroundColor: Colors.orange,
-        ),
+      // show a dialog asking for the group name
+      final result = await showDialog<bool>(
+        context: context,
+        builder:
+            (context) => AlertDialog(
+              backgroundColor: Colors.black,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: MatrixTheme.primaryGreen),
+              ),
+              title: Text('Enter Group Name', style: MatrixTheme.titleStyle),
+              content: TextField(controller: _groupNameController),
+              actions: [
+                TextButton(
+                  style: MatrixTheme.secondaryButtonStyle,
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: Text('Cancel'),
+                ),
+                TextButton(
+                  style: MatrixTheme.primaryButtonStyle,
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: Text('Create'),
+                ),
+              ],
+            ),
       );
-      return;
+
+      if (result != true && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('PROVIDE A GROUP NAME'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
     }
 
     setState(() {
@@ -187,33 +216,6 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-
-                // Group Name Input (only for group chats)
-                if (_selectedType == CreateRoomType.group) ...[
-                  const Text('GROUP NAME', style: MatrixTheme.labelStyle),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _groupNameController,
-                    style: MatrixTheme.bodyStyle,
-                    decoration: InputDecoration(
-                      hintText: 'Enter group name...',
-                      hintStyle: MatrixTheme.labelStyle,
-                      filled: true,
-                      fillColor: Colors.grey[900],
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(
-                          color: MatrixTheme.primaryGreen,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
 
                 // User Search
                 const Text('ADD PARTICIPANTS', style: MatrixTheme.labelStyle),
@@ -317,26 +319,28 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
                             ],
                           )
                           : const Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.person_search,
-                                  color: MatrixTheme.primaryGreen,
-                                  size: 48,
-                                ),
-                                SizedBox(height: 12),
-                                Text(
-                                  'NO PARTICIPANTS SELECTED',
-                                  style: MatrixTheme.titleStyle,
-                                ),
-                                SizedBox(height: 8),
-                                Text(
-                                  'SEARCH AND ADD USERS TO CREATE A ROOM',
-                                  style: MatrixTheme.bodyStyle,
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
+                            child: SingleChildScrollView(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.person_search,
+                                    color: MatrixTheme.primaryGreen,
+                                    size: 48,
+                                  ),
+                                  SizedBox(height: 12),
+                                  Text(
+                                    'NO PARTICIPANTS SELECTED',
+                                    style: MatrixTheme.titleStyle,
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'SEARCH AND ADD USERS TO CREATE A ROOM',
+                                    style: MatrixTheme.bodyStyle,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                 ),

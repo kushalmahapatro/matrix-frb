@@ -57,21 +57,22 @@ class ConversationScreenModel extends ElementaryModel {
 class ConversationScreenWM
     extends BaseWidgetModel<ConversationScreen, ConversationScreenModel> {
   ConversationScreenWM(super.model);
-  final ValueNotifier<ConversationState> _roomState = ValueNotifier(
-    const ConversationState.loading(),
-  );
-
-  final ValueNotifier<bool> _isInvited = ValueNotifier(false);
+  late final ValueNotifier<ConversationState> _roomState;
+  late final ValueNotifier<bool> _isInvited;
   late final TextEditingController _messageController;
 
   ValueNotifier<ConversationState> get roomState => _roomState;
   TextEditingController get messageController => _messageController;
   ValueNotifier<bool> get isInvited => _isInvited;
 
+  bool _disposed = false;
+
   @override
   void initWidgetModel() {
     super.initWidgetModel();
     _messageController = TextEditingController();
+    _roomState = ValueNotifier(const ConversationState.loading());
+    _isInvited = ValueNotifier(false);
 
     if (widget.status == ChatRoomStatus.invited) {
       _roomState.value = const ConversationState.waitingForInvite();
@@ -85,6 +86,8 @@ class ConversationScreenWM
   void dispose() {
     _roomState.dispose();
     _messageController.dispose();
+    _isInvited.dispose();
+    _disposed = true;
     super.dispose();
   }
 
@@ -150,53 +153,37 @@ class ConversationScreenWM
       if (currentState is! RoomStateLoaded) {
         return;
       }
+      List<Message> newMessages = [];
       switch (update.messageUpdateType) {
         case MessageUpdateType.append:
           if (update.messages != null) {
-            _roomState.value = ConversationState.loaded(
-              messages: [...currentState.messages, ...update.messages ?? []],
-              roomInfo: currentState.roomInfo,
-            );
+            newMessages = [...currentState.messages, ...update.messages ?? []];
           }
           break;
         case MessageUpdateType.pushFront:
           if (update.messages != null && update.messages!.length == 1) {
-            _roomState.value = ConversationState.loaded(
-              messages: [...update.messages ?? [], ...currentState.messages],
-              roomInfo: currentState.roomInfo,
-            );
+            newMessages = [...update.messages ?? [], ...currentState.messages];
           }
           break;
         case MessageUpdateType.remove:
           if (update.index != null &&
               update.index!.toInt() < currentState.messages.length &&
               update.index!.toInt() >= 0) {
-            final newMessages = List<Message>.from(currentState.messages);
+            newMessages = List<Message>.from(currentState.messages);
             newMessages.removeAt(update.index!.toInt());
-            _roomState.value = ConversationState.loaded(
-              messages: newMessages,
-              roomInfo: currentState.roomInfo,
-            );
           }
           break;
         case MessageUpdateType.reset:
           if (update.messages != null) {
-            _roomState.value = ConversationState.loaded(
-              messages: update.messages ?? [],
-              roomInfo: currentState.roomInfo,
-            );
+            newMessages = update.messages ?? [];
           }
           break;
         case MessageUpdateType.truncate:
           if (update.index != null &&
               update.index!.toInt() < currentState.messages.length &&
               update.index!.toInt() >= 0) {
-            final newMessages = List<Message>.from(currentState.messages);
+            newMessages = List<Message>.from(currentState.messages);
             newMessages.removeRange(update.index!.toInt(), newMessages.length);
-            _roomState.value = ConversationState.loaded(
-              messages: newMessages,
-              roomInfo: currentState.roomInfo,
-            );
           }
           break;
         case MessageUpdateType.set_:
@@ -205,12 +192,8 @@ class ConversationScreenWM
               update.messages!.length == 1 &&
               update.index!.toInt() < currentState.messages.length &&
               update.index!.toInt() >= 0) {
-            final newMessages = List<Message>.from(currentState.messages);
+            newMessages = List<Message>.from(currentState.messages);
             newMessages[update.index!.toInt()] = update.messages!.first;
-            _roomState.value = ConversationState.loaded(
-              messages: newMessages,
-              roomInfo: currentState.roomInfo,
-            );
           }
           break;
         case MessageUpdateType.insert:
@@ -219,58 +202,45 @@ class ConversationScreenWM
               update.messages!.length == 1 &&
               update.index!.toInt() < currentState.messages.length &&
               update.index!.toInt() >= 0) {
-            final newMessages = List<Message>.from(currentState.messages);
+            newMessages = List<Message>.from(currentState.messages);
             newMessages.insert(update.index!.toInt(), update.messages!.first);
-            _roomState.value = ConversationState.loaded(
-              messages: newMessages,
-              roomInfo: currentState.roomInfo,
-            );
           }
           break;
         case MessageUpdateType.popBack:
           if (update.index != null &&
               update.messages != null &&
               update.messages!.length == 1) {
-            final newMessages = List<Message>.from(currentState.messages);
+            newMessages = List<Message>.from(currentState.messages);
             newMessages.removeLast();
-            _roomState.value = ConversationState.loaded(
-              messages: newMessages,
-              roomInfo: currentState.roomInfo,
-            );
           }
           break;
         case MessageUpdateType.popFront:
           if (update.messages != null && update.messages!.length == 1) {
-            final newMessages = List<Message>.from(currentState.messages);
+            newMessages = List<Message>.from(currentState.messages);
             newMessages.removeAt(0);
-            _roomState.value = ConversationState.loaded(
-              messages: newMessages,
-              roomInfo: currentState.roomInfo,
-            );
           }
           break;
 
         case MessageUpdateType.pushBack:
           if (update.messages != null && update.messages!.length == 1) {
-            final newMessages = List<Message>.from(currentState.messages);
+            newMessages = List<Message>.from(currentState.messages);
             newMessages.add(update.messages!.first);
-            _roomState.value = ConversationState.loaded(
-              messages: newMessages,
-              roomInfo: currentState.roomInfo,
-            );
           }
           break;
 
         case MessageUpdateType.clear:
           if (update.messages != null && update.messages!.length == 1) {
-            final newMessages = List<Message>.from(currentState.messages);
+            newMessages = List<Message>.from(currentState.messages);
             newMessages.clear();
-            _roomState.value = ConversationState.loaded(
-              messages: newMessages,
-              roomInfo: currentState.roomInfo,
-            );
           }
           break;
+      }
+
+      if (!_disposed) {
+        _roomState.value = ConversationState.loaded(
+          messages: newMessages,
+          roomInfo: currentState.roomInfo,
+        );
       }
     });
   }

@@ -11,5 +11,5 @@ abstract class ChatListingRoutes {
 
   void navigateToSettingsScreen(BuildContext context);
 
-  void navigateToCreateScreen(BuildContext context);
+  Future<String?> navigateToCreateScreen(BuildContext context);
 }

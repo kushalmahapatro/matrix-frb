@@ -105,8 +105,33 @@ class ChatListingScreenWM
     }
   }
 
-  void createRoom() {
-    widget.navigateToCreateScreen(context);
+  Future<void> createRoom() async {
+    final result = await widget.navigateToCreateScreen(context);
+    if (result != null) {
+      await Future.delayed(const Duration(seconds: 2));
+      ChatState currentState = _chatState.value;
+      if (currentState is ChatStateLoaded) {
+        final room = currentState.rooms.firstWhere(
+          (element) => element.id == result,
+          orElse:
+              () => Chat(
+                id: '',
+                name: '',
+                lastMessage: '',
+                status: ChatRoomStatus.invited,
+              ),
+        );
+
+        if (room.id.isNotEmpty && context.mounted) {
+          widget.navigateToConversationScreen(
+            context,
+            room.id,
+            room.name,
+            room.status,
+          );
+        }
+      }
+    }
   }
 
   void openSettings() {
@@ -153,7 +178,11 @@ class ChatListingScreenWM
           }
           break;
       }
-      _chatState.value = ChatState.loaded(rooms: _rooms.toList());
+      _rooms.sort(
+        (a, b) =>
+            b.lastActivity?.compareTo(a.lastActivity ?? DateTime.now()) ?? 0,
+      );
+      _chatState.value = ChatState.loaded(rooms: [..._rooms]);
       _selectedChatType.value = _selectedChatType.value;
     });
   }
