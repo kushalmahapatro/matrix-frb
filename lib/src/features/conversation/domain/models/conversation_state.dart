@@ -33,4 +33,23 @@ enum MessageType { text, image, file, system }
 
 extension MessageExtension on Message {
   String get displayName => sender.replaceAll(AppConfig.homeserverUrl.host, '');
+
+  DateTime get dateTime {
+    // Convert timestamp to DateTime
+    final timestamp = this.timestamp.toInt();
+    return DateTime.fromMillisecondsSinceEpoch(timestamp);
+  }
+
+  String get formattedDate {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays > 0) {
+      return '${dateTime.day}/${dateTime.month} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } else {
+      return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+    }
+  }
+
+  // Format date as needed, e.g., "MMM dd, yyyy"
 }

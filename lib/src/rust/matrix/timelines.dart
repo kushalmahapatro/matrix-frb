@@ -21,6 +21,14 @@ Stream<MessageUpdate> subscribeToTimelineUpdates({required String roomId}) =>
       roomId: roomId,
     );
 
+Future<List<Message>> getOlderMessages({
+  required String roomId,
+  required int count,
+}) => RustLib.instance.api.crateMatrixTimelinesGetOlderMessages(
+  roomId: roomId,
+  count: count,
+);
+
 class Message {
   final String eventId;
   final String sender;

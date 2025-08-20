@@ -96,4 +96,4 @@ class RoomUpdate {
           message == other.message;
 }
 
-enum UpdateType { joined, left, invited, knocked }
+enum UpdateType { joined, left, invited, knocked, banned }

@@ -28,7 +28,7 @@ lib/src/
 │   ├── auth/               # Authentication feature
 │   │   ├── domain/
 │   │   │   ├── models/     # Auth state models
-│   │   │   └── services/   # Auth service
+│   │   │   └── services/   # Auth service`
 │   │   └── presentation/
 │   │       └── screens/    # Login, splash screens
 │   ├── chat/               # Chat listing feature

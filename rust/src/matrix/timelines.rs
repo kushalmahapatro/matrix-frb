@@ -3,7 +3,7 @@ use futures::StreamExt;
 use imbl::Vector;
 use matrix_sdk::ruma::{OwnedEventId, OwnedRoomId};
 use matrix_sdk::Client;
-use matrix_sdk_ui::timeline::{RoomExt, TimelineItem};
+use matrix_sdk_ui::timeline::{RoomExt, TimelineFocus, TimelineItem};
 use matrix_sdk_ui::Timeline as SdkTimeline;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -12,7 +12,7 @@ use std::sync::Mutex;
 use tokio::sync::OnceCell;
 use tokio::task::JoinHandle;
 
-use crate::api::logger::log_info;
+use crate::api::logger::{log_error, log_info};
 use crate::api::platform::GLOBAL_RUNTIME;
 use crate::frb_generated::StreamSink;
 use crate::matrix::status::StatusHandle;
@@ -253,148 +253,183 @@ pub fn get_timeline_items_by_room_id(room_id: String) -> Vec<Message> {
     })
 }
 
-pub fn subscribe_to_timeline_updates(stream: StreamSink<MessageUpdate>, room_id: String) {
-    let rt = GLOBAL_RUNTIME.get().unwrap();
-    rt.block_on(async {
-        let room_id: OwnedRoomId = match room_id.parse() {
-            Ok(id) => id,
-            Err(_) => {
-                println!("Failed to parse room ID");
-                return;
-            }
-        };
+pub async fn subscribe_to_timeline_updates(stream: StreamSink<MessageUpdate>, room_id: String) {
+    let room_id: OwnedRoomId = match room_id.parse() {
+        Ok(id) => id,
+        Err(_) => {
+            log_error(format!("Failed to parse room ID"));
+            return;
+        }
+    };
 
-        let room_id_ref = room_id.as_ref();
-        let room = match GLOBAL_APP.get().unwrap().client.get_room(room_id_ref) {
-            Some(room) => room,
-            None => {
-                println!("Room not found");
-                return;
-            }
-        };
-        let timeline = room.timeline().await.unwrap();
-        let (_events, mut diff_stream) = timeline.subscribe().await;
+    let room_id_ref = room_id.as_ref();
+    let room = match GLOBAL_APP.get().unwrap().client.get_room(room_id_ref) {
+        Some(room) => room,
+        None => {
+            log_error(format!("Room not found"));
+            return;
+        }
+    };
+    let timeline = room
+        .timeline_builder()
+        .with_focus(TimelineFocus::Live {
+            hide_threaded_events: true,
+        })
+        .build()
+        .await;
 
-        while let Some(diffs) = diff_stream.next().await {
-            for diff in diffs {
-                log_info(format!("Received timeline diff: {:?}", diff));
-                match diff {
-                    matrix_sdk_ui::eyeball_im::VectorDiff::Append { values } => {
-                        let mut messages = Vec::new();
-                        for value in values {
-                            let message = get_message_from_timeline_item(&value);
-                            messages.push(message);
-                        }
-                        let _ = stream.add(MessageUpdate {
-                            messages: Some(messages),
-                            message_update_type: MessageUpdateType::Append,
-                            index: None,
-                            length: None,
-                        });
-                    }
-                    matrix_sdk_ui::eyeball_im::VectorDiff::Clear => {
-                        let _ = stream.add(MessageUpdate {
-                            message_update_type: MessageUpdateType::Clear,
-                            messages: None,
-                            index: None,
-                            length: None,
-                        });
-                    }
+    let timeline = match timeline {
+        Ok(timeline) => timeline,
+        Err(e) => {
+            log_error(format!("Failed to build timeline: {}", e));
+            return;
+        }
+    };
+    let (_events, mut diff_stream) = timeline.subscribe().await;
 
-                    matrix_sdk_ui::eyeball_im::VectorDiff::PushFront { value } => {
-                        let mut messages = Vec::new();
+    while let Some(diffs) = diff_stream.next().await {
+        for diff in diffs {
+            log_info(format!("Received timeline diff: {:?}", diff));
+            match diff {
+                matrix_sdk_ui::eyeball_im::VectorDiff::Append { values } => {
+                    let mut messages = Vec::new();
+                    for value in values {
                         let message = get_message_from_timeline_item(&value);
                         messages.push(message);
-                        let _ = stream.add(MessageUpdate {
-                            message_update_type: MessageUpdateType::PushFront,
-                            messages: Some(messages),
-                            index: None,
-                            length: None,
-                        });
                     }
-                    matrix_sdk_ui::eyeball_im::VectorDiff::PushBack { value } => {
-                        let mut messages = Vec::new();
+                    let _ = stream.add(MessageUpdate {
+                        messages: Some(messages),
+                        message_update_type: MessageUpdateType::Append,
+                        index: None,
+                        length: None,
+                    });
+                }
+                matrix_sdk_ui::eyeball_im::VectorDiff::Clear => {
+                    let _ = stream.add(MessageUpdate {
+                        message_update_type: MessageUpdateType::Clear,
+                        messages: None,
+                        index: None,
+                        length: None,
+                    });
+                }
+
+                matrix_sdk_ui::eyeball_im::VectorDiff::PushFront { value } => {
+                    let mut messages = Vec::new();
+                    let message = get_message_from_timeline_item(&value);
+                    messages.push(message);
+                    let _ = stream.add(MessageUpdate {
+                        message_update_type: MessageUpdateType::PushFront,
+                        messages: Some(messages),
+                        index: None,
+                        length: None,
+                    });
+                }
+                matrix_sdk_ui::eyeball_im::VectorDiff::PushBack { value } => {
+                    let mut messages = Vec::new();
+                    let message = get_message_from_timeline_item(&value);
+                    messages.push(message);
+                    let _ = stream.add(MessageUpdate {
+                        message_update_type: MessageUpdateType::PushBack,
+                        messages: Some(messages),
+                        index: None,
+                        length: None,
+                    });
+                }
+                matrix_sdk_ui::eyeball_im::VectorDiff::PopFront => {
+                    let _ = stream.add(MessageUpdate {
+                        message_update_type: MessageUpdateType::PopFront,
+                        messages: None,
+                        index: None,
+                        length: None,
+                    });
+                }
+
+                matrix_sdk_ui::eyeball_im::VectorDiff::PopBack => {
+                    let _ = stream.add(MessageUpdate {
+                        message_update_type: MessageUpdateType::PopBack,
+                        messages: None,
+                        index: None,
+                        length: None,
+                    });
+                }
+                matrix_sdk_ui::eyeball_im::VectorDiff::Insert { index, value } => {
+                    let mut messages = Vec::new();
+                    let message = get_message_from_timeline_item(&value);
+                    messages.push(message);
+
+                    let _ = stream.add(MessageUpdate {
+                        message_update_type: MessageUpdateType::Insert,
+                        messages: Some(messages),
+                        index: Some(index),
+                        length: None,
+                    });
+                }
+                matrix_sdk_ui::eyeball_im::VectorDiff::Set { index, value } => {
+                    let mut messages = Vec::new();
+                    let message = get_message_from_timeline_item(&value);
+                    messages.push(message);
+
+                    let _ = stream.add(MessageUpdate {
+                        message_update_type: MessageUpdateType::Set,
+                        messages: Some(messages),
+                        index: Some(index),
+                        length: None,
+                    });
+                }
+                matrix_sdk_ui::eyeball_im::VectorDiff::Remove { index } => {
+                    let _ = stream.add(MessageUpdate {
+                        message_update_type: MessageUpdateType::Remove,
+                        messages: None,
+                        index: Some(index),
+                        length: None,
+                    });
+                }
+                matrix_sdk_ui::eyeball_im::VectorDiff::Truncate { length } => {
+                    let _ = stream.add(MessageUpdate {
+                        message_update_type: MessageUpdateType::Truncate,
+                        messages: None,
+                        index: None,
+                        length: Some(length),
+                    });
+                }
+                matrix_sdk_ui::eyeball_im::VectorDiff::Reset { values } => {
+                    let mut messages = Vec::new();
+                    for value in values {
                         let message = get_message_from_timeline_item(&value);
                         messages.push(message);
-                        let _ = stream.add(MessageUpdate {
-                            message_update_type: MessageUpdateType::PushBack,
-                            messages: Some(messages),
-                            index: None,
-                            length: None,
-                        });
                     }
-                    matrix_sdk_ui::eyeball_im::VectorDiff::PopFront => {
-                        let _ = stream.add(MessageUpdate {
-                            message_update_type: MessageUpdateType::PopFront,
-                            messages: None,
-                            index: None,
-                            length: None,
-                        });
-                    }
-
-                    matrix_sdk_ui::eyeball_im::VectorDiff::PopBack => {
-                        let _ = stream.add(MessageUpdate {
-                            message_update_type: MessageUpdateType::PopBack,
-                            messages: None,
-                            index: None,
-                            length: None,
-                        });
-                    }
-                    matrix_sdk_ui::eyeball_im::VectorDiff::Insert { index, value } => {
-                        let mut messages = Vec::new();
-                        let message = get_message_from_timeline_item(&value);
-                        messages.push(message);
-
-                        let _ = stream.add(MessageUpdate {
-                            message_update_type: MessageUpdateType::Insert,
-                            messages: Some(messages),
-                            index: Some(index),
-                            length: None,
-                        });
-                    }
-                    matrix_sdk_ui::eyeball_im::VectorDiff::Set { index, value } => {
-                        let mut messages = Vec::new();
-                        let message = get_message_from_timeline_item(&value);
-                        messages.push(message);
-
-                        let _ = stream.add(MessageUpdate {
-                            message_update_type: MessageUpdateType::Set,
-                            messages: Some(messages),
-                            index: Some(index),
-                            length: None,
-                        });
-                    }
-                    matrix_sdk_ui::eyeball_im::VectorDiff::Remove { index } => {
-                        let _ = stream.add(MessageUpdate {
-                            message_update_type: MessageUpdateType::Remove,
-                            messages: None,
-                            index: Some(index),
-                            length: None,
-                        });
-                    }
-                    matrix_sdk_ui::eyeball_im::VectorDiff::Truncate { length } => {
-                        let _ = stream.add(MessageUpdate {
-                            message_update_type: MessageUpdateType::Truncate,
-                            messages: None,
-                            index: None,
-                            length: Some(length),
-                        });
-                    }
-                    matrix_sdk_ui::eyeball_im::VectorDiff::Reset { values } => {
-                        let mut messages = Vec::new();
-                        for value in values {
-                            let message = get_message_from_timeline_item(&value);
-                            messages.push(message);
-                        }
-                        let _ = stream.add(MessageUpdate {
-                            message_update_type: MessageUpdateType::Reset,
-                            messages: Some(messages),
-                            index: None,
-                            length: None,
-                        });
-                    }
+                    let _ = stream.add(MessageUpdate {
+                        message_update_type: MessageUpdateType::Reset,
+                        messages: Some(messages),
+                        index: None,
+                        length: None,
+                    });
                 }
             }
         }
-    });
+    }
+}
+
+pub async fn get_older_messages(room_id: String, count: u16) -> Result<Vec<Message>, String> {
+    let owned_rrom_id: OwnedRoomId = match room_id.parse() {
+        Ok(id) => id,
+        Err(_) => {
+            println!("Failed to parse room ID");
+            return Err("Failed to parse room ID".to_string());
+        }
+    };
+
+    let global_app = GLOBAL_APP.get().unwrap();
+    let room_id_ref = owned_rrom_id.as_ref();
+    let room = global_app.client.get_room(room_id_ref).unwrap();
+    let timeline = room.timeline().await.unwrap();
+
+    let result = timeline.paginate_backwards(count).await;
+    match result {
+        Ok(_) => Ok(get_timeline_items_by_room_id(room_id)),
+        Err(_) => {
+            log_error(format!("Failed to paginate backwards"));
+            Err("Failed to paginate backwards".to_string())
+        }
+    }
 }

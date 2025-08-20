@@ -7,6 +7,7 @@ import 'package:matrix/src/features/conversation/domain/models/conversation_stat
     hide MessageType;
 import 'package:matrix/src/features/conversation/domain/services/conversation_service.dart';
 import 'package:matrix/src/features/conversation/presentation/screens/conversation_screen_wm.dart';
+import 'package:matrix/src/features/conversation/presentation/widgets/pagianted_message_list.dart';
 import 'package:matrix/src/features/conversation/routes/conversation_routes.dart';
 import 'package:matrix/src/rust/matrix/timelines.dart';
 import 'package:matrix/src/theme/matrix_theme.dart';
@@ -72,7 +73,17 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                           ],
                         ),
                       ),
-                  loaded: (messages, roomInfo) => _buildMessagesList(messages),
+                  loaded: (messages, roomInfo) {
+                    return PaginatedMessageList(
+                      initialMessages: messages,
+                      loadOlder: (Message oldest) async {
+                        await wm.fetchOlderMessages(conversationId: roomId);
+                        return [];
+                      },
+                      onVisibleRange:
+                          (Message firstVisible, Message lastVisible) {},
+                    );
+                  },
                   error:
                       (message) => Center(
                         child: TerminalContainer(
@@ -128,69 +139,6 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
     );
   }
 
-  Widget _buildMessagesList(List<Message> messages) {
-    if (messages.isEmpty) {
-      return const Center(
-        child: Text(
-          'NO MESSAGES YET\nSTART THE CONVERSATION',
-          style: MatrixTheme.captionStyle,
-          textAlign: TextAlign.center,
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(8),
-      itemCount: messages.length,
-      itemBuilder: (context, index) {
-        final message = messages[index];
-        if ([
-              MessageType.dateDivider,
-              MessageType.readMarker,
-            ].contains(message.messageType) ||
-            message.content.isEmpty) {
-          return const SizedBox.shrink();
-        }
-        return _buildMessageBubble(message);
-      },
-    );
-  }
-
-  Widget _buildMessageBubble(Message message) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Message header
-          Row(
-            children: [
-              Text(
-                '> ${message.displayName}',
-                style: MatrixTheme.messageAuthorStyle,
-              ),
-              const Spacer(),
-              Text(
-                _formatTime(message.timestamp),
-                style: MatrixTheme.messageTimeStyle,
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 4),
-
-          // Message content
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: MatrixTheme.messageDecoration,
-            child: Text(message.content, style: MatrixTheme.messageStyle),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildMessageInput(ConversationScreenWM wm) {
     return Row(
       children: [
@@ -233,18 +181,6 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
         ),
       ],
     );
-  }
-
-  String _formatTime(BigInt timestamp) {
-    final dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp.toInt());
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays > 0) {
-      return '${dateTime.day}/${dateTime.month} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-    } else {
-      return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-    }
   }
 
   Widget _acceptInviteWidget(ConversationScreenWM wm) {

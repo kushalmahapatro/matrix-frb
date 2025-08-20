@@ -1,6 +1,6 @@
 import 'package:elementary/elementary.dart';
 import 'package:flutter/material.dart';
-import 'package:matrix/src/core/presentation/widgets/terminal_container.dart';
+
 import 'package:matrix/src/core/state_management/base_state_widget_model.dart';
 import 'package:matrix/src/features/chat_lisitng/domain/models/chat_state.dart';
 import 'package:matrix/src/features/conversation/domain/models/conversation_state.dart'
@@ -41,6 +41,17 @@ class ConversationScreenModel extends ElementaryModel {
   Future<Result<String>> rejectInvite(String roomId) {
     return conversationService.rejectInvite(roomId);
   }
+
+  Future<Result<List<Message>>> fetchOlderMessages({
+    required String conversationId,
+    int count = 20,
+  }) async {
+    final messages = await conversationService.fetchOlderMessages(
+      roomId: conversationId,
+      count: count,
+    );
+    return messages;
+  }
 }
 
 class ConversationScreenWM
@@ -67,7 +78,6 @@ class ConversationScreenWM
       _isInvited.value = true;
     } else {
       _loadMessages();
-      _listenToChatUpdates();
     }
   }
 
@@ -101,6 +111,7 @@ class ConversationScreenWM
         message: 'Failed to load messages: $e',
       );
     }
+    _listenToChatUpdates();
   }
 
   Future<void> sendMessage() async {
@@ -269,7 +280,6 @@ class ConversationScreenWM
     if (result.isSuccess()) {
       _isInvited.value = false;
       _loadMessages();
-      _listenToChatUpdates();
     }
   }
 
@@ -278,5 +288,17 @@ class ConversationScreenWM
     if (result.isSuccess() && context.mounted) {
       widget.goBack(context);
     }
+  }
+
+  Future<List<Message>> fetchOlderMessages({
+    required String conversationId,
+    int limit = 20,
+  }) async {
+    final result = await model.fetchOlderMessages(
+      conversationId: conversationId,
+      count: limit,
+    );
+
+    return result.fold((success) => success, (failure) => []);
   }
 }

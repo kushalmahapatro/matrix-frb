@@ -52,4 +52,19 @@ class ConversationService {
       return Failure(Exception(e));
     }
   }
+
+  Future<Result<List<timelines.Message>>> fetchOlderMessages({
+    required String roomId,
+    int count = 20,
+  }) async {
+    try {
+      final previousMessages = await timelines.getOlderMessages(
+        roomId: roomId,
+        count: count,
+      );
+      return Success(previousMessages);
+    } catch (e) {
+      return Failure(Exception(e));
+    }
+  }
 }
