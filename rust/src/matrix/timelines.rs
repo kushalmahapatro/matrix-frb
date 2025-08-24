@@ -39,6 +39,8 @@ pub enum MessageUpdateType {
     PushFront,
     Clear,
     Append,
+    TimelineStart,
+    ReadMarker,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -270,6 +272,7 @@ pub async fn subscribe_to_timeline_updates(stream: StreamSink<MessageUpdate>, ro
             return;
         }
     };
+
     let timeline = room
         .timeline_builder()
         .with_focus(TimelineFocus::Live {
@@ -285,129 +288,166 @@ pub async fn subscribe_to_timeline_updates(stream: StreamSink<MessageUpdate>, ro
             return;
         }
     };
+
     let (_events, mut diff_stream) = timeline.subscribe().await;
 
-    while let Some(diffs) = diff_stream.next().await {
-        for diff in diffs {
-            log_info(format!("Received timeline diff: {:?}", diff));
-            match diff {
-                matrix_sdk_ui::eyeball_im::VectorDiff::Append { values } => {
-                    let mut messages = Vec::new();
-                    for value in values {
-                        let message = get_message_from_timeline_item(&value);
-                        messages.push(message);
+    // Send initial heartbeat to confirm connection
+    let _ = stream.add(MessageUpdate {
+        message_update_type: MessageUpdateType::TimelineStart,
+        messages: None,
+        index: None,
+        length: None,
+    });
+
+    // Create a heartbeat timer
+    let mut heartbeat_interval = tokio::time::interval(tokio::time::Duration::from_secs(30));
+
+    loop {
+        tokio::select! {
+            // Handle timeline updates
+            diffs = diff_stream.next() => {
+                match diffs {
+                    Some(diffs) => {
+                        for diff in diffs {
+                            log_info(format!("Received timeline diff: {:?}", diff));
+                            match diff {
+                                matrix_sdk_ui::eyeball_im::VectorDiff::Append { values } => {
+                                    let mut messages = Vec::new();
+                                    for value in values {
+                                        let message = get_message_from_timeline_item(&value);
+                                        messages.push(message);
+                                    }
+                                    let _ = stream.add(MessageUpdate {
+                                        messages: Some(messages),
+                                        message_update_type: MessageUpdateType::Append,
+                                        index: None,
+                                        length: None,
+                                    });
+                                }
+                                matrix_sdk_ui::eyeball_im::VectorDiff::Clear => {
+                                    let _ = stream.add(MessageUpdate {
+                                        message_update_type: MessageUpdateType::Clear,
+                                        messages: None,
+                                        index: None,
+                                        length: None,
+                                    });
+                                }
+                                matrix_sdk_ui::eyeball_im::VectorDiff::PushFront { value } => {
+                                    let mut messages = Vec::new();
+                                    let message = get_message_from_timeline_item(&value);
+                                    messages.push(message);
+                                    let _ = stream.add(MessageUpdate {
+                                        message_update_type: MessageUpdateType::PushFront,
+                                        messages: Some(messages),
+                                        index: None,
+                                        length: None,
+                                    });
+                                }
+                                matrix_sdk_ui::eyeball_im::VectorDiff::PushBack { value } => {
+                                    let mut messages = Vec::new();
+                                    let message = get_message_from_timeline_item(&value);
+                                    messages.push(message);
+                                    let _ = stream.add(MessageUpdate {
+                                        message_update_type: MessageUpdateType::PushBack,
+                                        messages: Some(messages),
+                                        index: None,
+                                        length: None,
+                                    });
+                                }
+                                matrix_sdk_ui::eyeball_im::VectorDiff::PopFront => {
+                                    let _ = stream.add(MessageUpdate {
+                                        message_update_type: MessageUpdateType::PopFront,
+                                        messages: None,
+                                        index: None,
+                                        length: None,
+                                    });
+                                }
+                                matrix_sdk_ui::eyeball_im::VectorDiff::PopBack => {
+                                    let _ = stream.add(MessageUpdate {
+                                        message_update_type: MessageUpdateType::PopBack,
+                                        messages: None,
+                                        index: None,
+                                        length: None,
+                                    });
+                                }
+                                matrix_sdk_ui::eyeball_im::VectorDiff::Insert { index, value } => {
+                                    let mut messages = Vec::new();
+                                    let message = get_message_from_timeline_item(&value);
+                                    messages.push(message);
+
+                                    let _ = stream.add(MessageUpdate {
+                                        message_update_type: MessageUpdateType::Insert,
+                                        messages: Some(messages),
+                                        index: Some(index),
+                                        length: None,
+                                    });
+                                }
+                                matrix_sdk_ui::eyeball_im::VectorDiff::Set { index, value } => {
+                                    let mut messages = Vec::new();
+                                    let message = get_message_from_timeline_item(&value);
+                                    messages.push(message);
+
+                                    let _ = stream.add(MessageUpdate {
+                                        message_update_type: MessageUpdateType::Set,
+                                        messages: Some(messages),
+                                        index: Some(index),
+                                        length: None,
+                                    });
+                                }
+                                matrix_sdk_ui::eyeball_im::VectorDiff::Remove { index } => {
+                                    let _ = stream.add(MessageUpdate {
+                                        message_update_type: MessageUpdateType::Remove,
+                                        messages: None,
+                                        index: Some(index),
+                                        length: None,
+                                    });
+                                }
+                                matrix_sdk_ui::eyeball_im::VectorDiff::Truncate { length } => {
+                                    let _ = stream.add(MessageUpdate {
+                                        message_update_type: MessageUpdateType::Truncate,
+                                        messages: None,
+                                        index: None,
+                                        length: Some(length),
+                                    });
+                                }
+                                matrix_sdk_ui::eyeball_im::VectorDiff::Reset { values } => {
+                                    let mut messages = Vec::new();
+                                    for value in values {
+                                        let message = get_message_from_timeline_item(&value);
+                                        messages.push(message);
+                                    }
+                                    let _ = stream.add(MessageUpdate {
+                                        message_update_type: MessageUpdateType::Reset,
+                                        messages: Some(messages),
+                                        index: None,
+                                        length: None,
+                                    });
+                                }
+                            }
+                        }
                     }
-                    let _ = stream.add(MessageUpdate {
-                        messages: Some(messages),
-                        message_update_type: MessageUpdateType::Append,
-                        index: None,
-                        length: None,
-                    });
-                }
-                matrix_sdk_ui::eyeball_im::VectorDiff::Clear => {
-                    let _ = stream.add(MessageUpdate {
-                        message_update_type: MessageUpdateType::Clear,
-                        messages: None,
-                        index: None,
-                        length: None,
-                    });
-                }
-
-                matrix_sdk_ui::eyeball_im::VectorDiff::PushFront { value } => {
-                    let mut messages = Vec::new();
-                    let message = get_message_from_timeline_item(&value);
-                    messages.push(message);
-                    let _ = stream.add(MessageUpdate {
-                        message_update_type: MessageUpdateType::PushFront,
-                        messages: Some(messages),
-                        index: None,
-                        length: None,
-                    });
-                }
-                matrix_sdk_ui::eyeball_im::VectorDiff::PushBack { value } => {
-                    let mut messages = Vec::new();
-                    let message = get_message_from_timeline_item(&value);
-                    messages.push(message);
-                    let _ = stream.add(MessageUpdate {
-                        message_update_type: MessageUpdateType::PushBack,
-                        messages: Some(messages),
-                        index: None,
-                        length: None,
-                    });
-                }
-                matrix_sdk_ui::eyeball_im::VectorDiff::PopFront => {
-                    let _ = stream.add(MessageUpdate {
-                        message_update_type: MessageUpdateType::PopFront,
-                        messages: None,
-                        index: None,
-                        length: None,
-                    });
-                }
-
-                matrix_sdk_ui::eyeball_im::VectorDiff::PopBack => {
-                    let _ = stream.add(MessageUpdate {
-                        message_update_type: MessageUpdateType::PopBack,
-                        messages: None,
-                        index: None,
-                        length: None,
-                    });
-                }
-                matrix_sdk_ui::eyeball_im::VectorDiff::Insert { index, value } => {
-                    let mut messages = Vec::new();
-                    let message = get_message_from_timeline_item(&value);
-                    messages.push(message);
-
-                    let _ = stream.add(MessageUpdate {
-                        message_update_type: MessageUpdateType::Insert,
-                        messages: Some(messages),
-                        index: Some(index),
-                        length: None,
-                    });
-                }
-                matrix_sdk_ui::eyeball_im::VectorDiff::Set { index, value } => {
-                    let mut messages = Vec::new();
-                    let message = get_message_from_timeline_item(&value);
-                    messages.push(message);
-
-                    let _ = stream.add(MessageUpdate {
-                        message_update_type: MessageUpdateType::Set,
-                        messages: Some(messages),
-                        index: Some(index),
-                        length: None,
-                    });
-                }
-                matrix_sdk_ui::eyeball_im::VectorDiff::Remove { index } => {
-                    let _ = stream.add(MessageUpdate {
-                        message_update_type: MessageUpdateType::Remove,
-                        messages: None,
-                        index: Some(index),
-                        length: None,
-                    });
-                }
-                matrix_sdk_ui::eyeball_im::VectorDiff::Truncate { length } => {
-                    let _ = stream.add(MessageUpdate {
-                        message_update_type: MessageUpdateType::Truncate,
-                        messages: None,
-                        index: None,
-                        length: Some(length),
-                    });
-                }
-                matrix_sdk_ui::eyeball_im::VectorDiff::Reset { values } => {
-                    let mut messages = Vec::new();
-                    for value in values {
-                        let message = get_message_from_timeline_item(&value);
-                        messages.push(message);
+                    None => {
+                        log_info("Timeline stream ended, exiting subscription loop".to_string());
+                        break;
                     }
-                    let _ = stream.add(MessageUpdate {
-                        message_update_type: MessageUpdateType::Reset,
-                        messages: Some(messages),
-                        index: None,
-                        length: None,
-                    });
                 }
+            }
+
+            // Handle heartbeat
+            _ = heartbeat_interval.tick() => {
+                // Send a heartbeat to keep the connection alive
+                let _ = stream.add(MessageUpdate {
+                    message_update_type: MessageUpdateType::ReadMarker, // Use ReadMarker as heartbeat
+                    messages: None,
+                    index: None,
+                    length: None,
+                });
+                log_info("Sent heartbeat to keep connection alive".to_string());
             }
         }
     }
+
+    log_info("Timeline subscription ended".to_string());
 }
 
 pub async fn get_older_messages(room_id: String, count: u16) -> Result<Vec<Message>, String> {

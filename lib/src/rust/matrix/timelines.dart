@@ -109,4 +109,6 @@ enum MessageUpdateType {
   pushFront,
   clear,
   append,
+  timelineStart,
+  readMarker,
 }

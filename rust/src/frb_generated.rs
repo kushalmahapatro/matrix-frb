@@ -1555,6 +1555,8 @@ impl SseDecode for crate::matrix::timelines::MessageUpdateType {
             8 => crate::matrix::timelines::MessageUpdateType::PushFront,
             9 => crate::matrix::timelines::MessageUpdateType::Clear,
             10 => crate::matrix::timelines::MessageUpdateType::Append,
+            11 => crate::matrix::timelines::MessageUpdateType::TimelineStart,
+            12 => crate::matrix::timelines::MessageUpdateType::ReadMarker,
             _ => unreachable!("Invalid variant for MessageUpdateType: {}", inner),
         };
     }
@@ -2146,6 +2148,8 @@ impl flutter_rust_bridge::IntoDart for crate::matrix::timelines::MessageUpdateTy
             Self::PushFront => 8.into_dart(),
             Self::Clear => 9.into_dart(),
             Self::Append => 10.into_dart(),
+            Self::TimelineStart => 11.into_dart(),
+            Self::ReadMarker => 12.into_dart(),
             _ => unreachable!(),
         }
     }
@@ -2619,6 +2623,8 @@ impl SseEncode for crate::matrix::timelines::MessageUpdateType {
                 crate::matrix::timelines::MessageUpdateType::PushFront => 8,
                 crate::matrix::timelines::MessageUpdateType::Clear => 9,
                 crate::matrix::timelines::MessageUpdateType::Append => 10,
+                crate::matrix::timelines::MessageUpdateType::TimelineStart => 11,
+                crate::matrix::timelines::MessageUpdateType::ReadMarker => 12,
                 _ => {
                     unimplemented!("");
                 }
