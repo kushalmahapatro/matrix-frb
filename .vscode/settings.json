@@ -1,5 +1,7 @@
 {
-    "kiroAgent.configureMCP": "Enabled",
-    "dart.flutterSdkPath": "/Users/km/.puro/envs/stable/flutter",
-    "dart.sdkPath": "/Users/km/.puro/envs/stable/flutter/bin/cache/dart-sdk"
+  "rust-analyzer.linkedProjects": [
+    "sdk/rust/Cargo.toml",
+    "sdk/rust/matrix-rust-sdk/Cargo.toml"
+  ],
+  "dart.flutterSdkPath": ".fvm/versions/3.41.4"
 }

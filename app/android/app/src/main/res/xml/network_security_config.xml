@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Allow connections to ntfy server with multiple fallback options -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">ntfy.kushalm.xyz</domain>
+        <domain includeSubdomains="true">104.21.51.128</domain>
+        <domain includeSubdomains="true">172.67.180.155</domain>
+        <domain includeSubdomains="true">matrix.kushalm.xyz</domain>
+        <domain includeSubdomains="true">sygnal.kushalm.xyz</domain>
+        
+        <!-- Trust system certificates and allow user-added certificates -->
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+        
+        <!-- Allow cleartext traffic for development -->
+        <cleartext-traffic-permitted>true</cleartext-traffic-permitted>
+    </domain-config>
+    
+    <!-- Base configuration for all other domains -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
+    
+    <!-- Debug configuration for development -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>

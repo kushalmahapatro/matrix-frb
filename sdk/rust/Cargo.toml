@@ -1,0 +1,121 @@
+[package]
+name = "matrix"
+version = "0.1.0"
+edition = "2021"
+
+rust-version = "1.93"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+flutter_rust_bridge = "=2.11.1"
+
+# Matrix Rust SDK from submodule (https://github.com/kushalmahapatro/matrix-rust-sdk)
+matrix-sdk = { path = "matrix-rust-sdk/crates/matrix-sdk" }
+# Shared reqwest client: set by rhttp when register_client is called, used by Matrix when rhttp-client feature is on.
+shared_http = { path = "shared_http" }
+matrix-sdk-sqlite = { path = "matrix-rust-sdk/crates/matrix-sdk-sqlite", features = [
+  "bundled",
+] }
+matrix-sdk-ui = { path = "matrix-rust-sdk/crates/matrix-sdk-ui" }
+matrix-sdk-common = { path = "matrix-rust-sdk/crates/matrix-sdk-common" }
+tracing = { version = "0.1.40", default-features = false, features = ["std"] }
+tracing-core = "0.1.32"
+# tracing-subscriber = "0.3.18"
+
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+url = "2.0"
+once_cell = "1.0"
+futures = "0.3"
+log = "0.4"
+# tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-log = "0.2"
+tracing-appender = { version = "0.2.2" }
+log-panics = { version = "2", features = ["with-backtrace"] }
+paranoid-android = "0.2.1"
+sentry = { version = "0.36.0", optional = true, default-features = false, features = [
+  # Most default features enabled otherwise.
+  "backtrace",
+  "contexts",
+  "panic",
+  "reqwest",
+  "sentry-debug-images",
+] }
+sentry-tracing = { version = "0.36.0", optional = true }
+imbl = "7.0.0"
+eyeball-im = "0.8"
+
+mime = "0.3.17"
+extension-trait = "1.0.2"
+syn = "2.0.104"
+quote = "1.0.40"
+proc-macro2 = "1.0.95"
+openssl = { version = "*", features = ["vendored"] }
+
+
+# rhttp
+async-trait = "0.1"
+futures-util = "0.3.31"
+chrono = "0.4.42"
+tokio = { version = "1.48.0", features = ["full"] }
+tokio-util = "0.7.17"
+
+[dependencies.reqwest]
+version = "0.13.1"
+default-features = false
+features = [
+  "charset",
+  "cookies",
+  "http2",
+  "stream",
+  "multipart",
+  "query",
+  "form",
+  "socks",
+  "rustls",
+  # Compression
+  "brotli",
+  "gzip",
+]
+
+
+# Android-specific configuration
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = "0.15.1"
+
+[features]
+default = []
+rhttp-client = []
+sentry = ["dep:sentry", "sentry-tracing"]
+sentry-tracing = ["dep:sentry-tracing"]
+js = []
+
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
+
+
+[profile.release]
+opt-level = 3
+strip = true
+panic = "abort"
+lto = true
+codegen-units = 1
+
+[profile.dev]
+opt-level = 3
+panic = "abort"
+
+
+[patch.crates-io]
+async-compat = { git = "https://github.com/element-hq/async-compat", rev = "5a27c8b290f1f1dcfc0c4ec22c464e38528aa591" }
+const_panic = { git = "https://github.com/jplatte/const_panic", rev = "9024a4cb3eac45c1d2d980f17aaee287b17be498" }
+# Needed to fix rotation log issue on Android (https://github.com/tokio-rs/tracing/issues/2937)
+tracing = { git = "https://github.com/tokio-rs/tracing.git", rev = "20f5b3d8ba057ca9c4ae00ad30dda3dce8a71c05" }
+tracing-core = { git = "https://github.com/tokio-rs/tracing.git", rev = "20f5b3d8ba057ca9c4ae00ad30dda3dce8a71c05" }
+tracing-subscriber = { git = "https://github.com/tokio-rs/tracing.git", rev = "20f5b3d8ba057ca9c4ae00ad30dda3dce8a71c05" }
+tracing-appender = { git = "https://github.com/tokio-rs/tracing.git", rev = "20f5b3d8ba057ca9c4ae00ad30dda3dce8a71c05" }

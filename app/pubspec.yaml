@@ -1,0 +1,49 @@
+name: matrix
+description: "Matrix chat Application"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  graphx: ^1.0.14
+  shared_preferences: ^2.2.2
+  provider: ^6.1.1
+  logger: ^2.6.1
+  path: ^1.9.1
+  elementary: ^3.2.1
+  elementary_helper: ^1.0.3
+  result_dart: ^2.1.1
+  device_info_plus: ^9.1.2
+  
+  # local package
+  matrix_sdk:
+    path: ../sdk/
+  path_provider: ^2.1.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  freezed: ^3.1.0
+  build_runner: ^2.5.4
+  integration_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  fonts:
+    - family: JetBrainsMono
+      fonts:
+        - asset: fonts/JetBrainsMono-Regular.ttf
+        - asset: fonts/JetBrainsMono-Bold.ttf
+          weight: 700
+        - asset: fonts/JetBrainsMono-Italic.ttf
+          style: italic
+        - asset: fonts/JetBrainsMono-BoldItalic.ttf
+          weight: 700
+          style: italic

@@ -1,0 +1,10 @@
+rust_input: crate::logger, crate::api::matrix_client, crate::rhttp::api
+
+rust_root: ./
+dart_output: ../lib/src/bindings/
+c_output: frb_bindings.h
+
+default_external_library_loader_web_prefix: pkg/
+
+full_dep: true  
+
