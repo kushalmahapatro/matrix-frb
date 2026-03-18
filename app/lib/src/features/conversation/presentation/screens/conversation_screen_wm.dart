@@ -11,7 +11,6 @@ import 'package:matrix/src/features/conversation/domain/services/conversation_se
 import 'package:matrix/src/features/conversation/presentation/screens/conversation_screen.dart';
 import 'package:matrix_sdk/matrix_sdk.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
-import 'package:matrix/src/theme/matrix_theme.dart';
 import 'package:result_dart/result_dart.dart';
 
 class ConversationScreenModel extends ElementaryModel {
@@ -32,8 +31,9 @@ class ConversationScreenModel extends ElementaryModel {
     return conversationService.sendMessage(roomId, content);
   }
 
-  Stream<MessageUpdate> subscribeToChatUpdates(String roomId) {
-    return conversationService.subscribeToTimelineUpdates(roomId);
+  /// Full message list from Rust on every change (no delta merge in Dart).
+  Stream<List<Message>> subscribeToTimelineList(String roomId) {
+    return conversationService.subscribeToTimelineList(roomId);
   }
 
   Future<Result<String>> acceptInvite(String roomId) {
@@ -46,7 +46,7 @@ class ConversationScreenModel extends ElementaryModel {
 
   Future<Result<List<Message>>> fetchOlderMessages({
     required String conversationId,
-    int count = 20,
+    int count = 50,
   }) async {
     final messages = await conversationService.fetchOlderMessages(
       roomId: conversationId,
@@ -73,8 +73,9 @@ class ConversationScreenWM
 
   bool _disposed = false;
 
-  // Stream management
-  StreamSubscription<MessageUpdate>? _chatUpdatesSubscription;
+  // Stream management: full message list from Rust
+  StreamSubscription<List<Message>>? _timelineListSubscription;
+  ConversationInfo? _roomInfo;
   Timer? _reconnectionTimer;
   Timer? _healthCheckTimer;
   bool _isStreamActive = false;
@@ -120,8 +121,8 @@ class ConversationScreenWM
   }
 
   void _disposeStreams() {
-    _chatUpdatesSubscription?.cancel();
-    _chatUpdatesSubscription = null;
+    _timelineListSubscription?.cancel();
+    _timelineListSubscription = null;
     _reconnectionTimer?.cancel();
     _reconnectionTimer = null;
     _healthCheckTimer?.cancel();
@@ -133,21 +134,13 @@ class ConversationScreenWM
     _roomState.value = const ConversationState.loading();
 
     try {
-      final messages = await model.loadMessages(widget.roomId);
-      final roomInfo = await model.loadRoomInfo();
-
-      messages.fold(
-        (success) => _roomState.value = ConversationState.loaded(
-          messages: success.toList(),
-          roomInfo: roomInfo,
-        ),
-        (failure) => _roomState.value = ConversationState.error(
-          message: 'Failed to load messages: $failure',
-        ),
-      );
-    } catch (e) {
-      _roomState.value = ConversationState.error(
-        message: 'Failed to load messages: $e',
+      _roomInfo = await model.loadRoomInfo();
+    } catch (_) {
+      _roomInfo = ConversationInfo(
+        id: widget.roomId,
+        name: widget.roomName,
+        topic: '',
+        memberCount: 0,
       );
     }
     _listenToChatUpdates();
@@ -159,20 +152,16 @@ class ConversationScreenWM
 
     try {
       final result = await model.sendMessage(widget.roomId, content);
-      await result.fold((eventId) async {
+      result.fold((eventId) {
         _messageController.clear();
-        final roomUpdate = await model.conversationService
-            .takeLastSentRoomUpdate();
-        if (roomUpdate != null) {
-          model.conversationService.matrixService.pushRoomUpdate(roomUpdate);
-        }
-      }, (_) async {});
+        // Room list is updated in Rust on send; no need to push from Flutter.
+      }, (_) {});
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to send message: $e'),
-            backgroundColor: MatrixTheme.errorRed,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -190,149 +179,38 @@ class ConversationScreenWM
   void _listenToChatUpdates() {
     LoggingService.info(
       'CONVERSATION_SCREEN',
-      'Starting chat updates subscription for room: ${widget.roomId}',
+      'Starting timeline list subscription for room: ${widget.roomId}',
     );
     _disposeStreams();
-    // Cancel any existing subscription for this room (e.g. from previous screen or before restart).
     MatrixService().cancelTimelineSubscriptionForRoom(widget.roomId);
 
-    _chatUpdatesSubscription = model
-        .subscribeToChatUpdates(widget.roomId)
+    final roomInfo = _roomInfo ?? ConversationInfo(
+      id: widget.roomId,
+      name: widget.roomName,
+      topic: '',
+      memberCount: 0,
+    );
+
+    _timelineListSubscription = model
+        .subscribeToTimelineList(widget.roomId)
         .listen(
-          (update) {
+          (list) {
+            if (_disposed) return;
             _lastUpdateTime = DateTime.now();
             _isStreamActive = true;
-
             LoggingService.info(
               'CONVERSATION_SCREEN',
-              'Received update: ${update.messageUpdateType}',
+              'Received timeline list: ${list.length} messages',
             );
-
-            final currentState = roomState.value;
-            if (currentState is! RoomStateLoaded) {
-              return;
-            }
-
-            final existingIds = {
-              for (final m in currentState.messages) m.eventId
-            };
-
-            List<Message> newMessages = [];
-            switch (update.messageUpdateType) {
-              case MessageUpdateType.append:
-                if (update.messages != null) {
-                  final toAdd = update.messages!
-                      .where((m) => !existingIds.contains(m.eventId))
-                      .toList();
-                  if (toAdd.isEmpty) return;
-                  newMessages = [...currentState.messages, ...toAdd];
-                }
-                break;
-              case MessageUpdateType.pushFront:
-                if (update.messages != null && update.messages!.length == 1) {
-                  final m = update.messages!.first;
-                  if (existingIds.contains(m.eventId)) return;
-                  newMessages = [m, ...currentState.messages];
-                }
-                break;
-              case MessageUpdateType.remove:
-                if (update.index.toInt() < currentState.messages.length &&
-                    update.index.toInt() >= 0) {
-                  newMessages = List<Message>.from(currentState.messages);
-                  newMessages.removeAt(update.index.toInt());
-                }
-                break;
-              case MessageUpdateType.reset:
-                if (update.messages != null) {
-                  newMessages = update.messages ?? [];
-                }
-                break;
-              case MessageUpdateType.truncate:
-                if (update.index.toInt() < currentState.messages.length &&
-                    update.index.toInt() >= 0) {
-                  newMessages = List<Message>.from(currentState.messages);
-                  newMessages.removeRange(
-                    update.index.toInt(),
-                    newMessages.length,
-                  );
-                }
-                break;
-              case MessageUpdateType.set_:
-                if (update.messages != null &&
-                    update.messages!.length == 1 &&
-                    update.index.toInt() < currentState.messages.length &&
-                    update.index.toInt() >= 0) {
-                  newMessages = List<Message>.from(currentState.messages);
-                  newMessages[update.index.toInt()] = update.messages!.first;
-                }
-                break;
-              case MessageUpdateType.insert:
-                if (update.messages != null &&
-                    update.messages!.length == 1 &&
-                    update.index.toInt() <= currentState.messages.length &&
-                    update.index.toInt() >= 0) {
-                  final m = update.messages!.first;
-                  if (existingIds.contains(m.eventId)) return;
-                  newMessages = List<Message>.from(currentState.messages);
-                  newMessages.insert(update.index.toInt(), m);
-                }
-                break;
-              case MessageUpdateType.popBack:
-                if (update.messages != null && update.messages!.length == 1) {
-                  newMessages = List<Message>.from(currentState.messages);
-                  newMessages.removeLast();
-                }
-                break;
-              case MessageUpdateType.popFront:
-                if (update.messages != null && update.messages!.length == 1) {
-                  newMessages = List<Message>.from(currentState.messages);
-                  newMessages.removeAt(0);
-                }
-                break;
-              case MessageUpdateType.pushBack:
-                if (update.messages != null && update.messages!.length == 1) {
-                  final m = update.messages!.first;
-                  if (existingIds.contains(m.eventId)) return;
-                  newMessages = List<Message>.from(currentState.messages);
-                  newMessages.add(m);
-                }
-                break;
-              case MessageUpdateType.clear:
-                if (update.messages != null && update.messages!.length == 1) {
-                  newMessages = List<Message>.from(currentState.messages);
-                  newMessages.clear();
-                }
-                break;
-              case MessageUpdateType.readMarker:
-                // Heartbeat message - just update timestamp, don't change UI
-                LoggingService.info(
-                  'CONVERSATION_SCREEN',
-                  'Received heartbeat, updating last update time',
-                );
-                _lastUpdateTime = DateTime.now();
-                return;
-              case MessageUpdateType.timelineStart:
-                // Initial connection message - just update timestamp, don't change UI
-                LoggingService.info(
-                  'CONVERSATION_SCREEN',
-                  'Timeline subscription started successfully',
-                );
-                _lastUpdateTime = DateTime.now();
-                return;
-            }
-
-            if (!_disposed && newMessages.isNotEmpty) {
-              LoggingService.info(
-                'CONVERSATION_SCREEN',
-                'Updating messages, new count: ${newMessages.length}',
-              );
-              _roomState.value = currentState.copyWith(messages: newMessages);
-            }
+            _roomState.value = ConversationState.loaded(
+              messages: list,
+              roomInfo: roomInfo,
+            );
           },
           onError: (error) {
             LoggingService.error(
               'CONVERSATION_SCREEN',
-              'Chat updates stream error: $error',
+              'Timeline list stream error: $error',
             );
             _isStreamActive = false;
             _scheduleReconnection();
@@ -340,17 +218,14 @@ class ConversationScreenWM
           onDone: () {
             LoggingService.info(
               'CONVERSATION_SCREEN',
-              'Chat updates stream completed',
+              'Timeline list stream completed',
             );
             _isStreamActive = false;
             _scheduleReconnection();
           },
         );
 
-    // Ensure only one active timeline subscription per room (avoids duplicates after restart).
-    MatrixService().registerTimelineSubscription(widget.roomId, _chatUpdatesSubscription!);
-
-    // Start health check timer
+    MatrixService().registerTimelineSubscription(widget.roomId, _timelineListSubscription!);
     _startHealthCheck();
   }
 
@@ -456,15 +331,31 @@ class ConversationScreenWM
     }
   }
 
-  Future<List<Message>> fetchOlderMessages({
+  /// Fetches older messages (paginates backwards) and updates room state with
+  /// the full timeline. Returns (newly loaded chunk for scroll, hasMore).
+  /// When the SDK returns the full list we update state and return ([], hasMore).
+  Future<(List<Message>, bool)> fetchOlderMessages({
     required String conversationId,
-    int limit = 20,
+    int limit = 50,
   }) async {
+    final currentState = roomState.value;
+    if (currentState is! RoomStateLoaded) {
+      return (List<Message>.from([]), false);
+    }
+
     final result = await model.fetchOlderMessages(
       conversationId: conversationId,
       count: limit,
     );
 
-    return result.fold((success) => success, (failure) => []);
+    return result.fold(
+      (fullList) {
+        final previousLength = currentState.messages.length;
+        _roomState.value = currentState.copyWith(messages: fullList);
+        final hasMore = fullList.length > previousLength;
+        return (List<Message>.from([]), hasMore);
+      },
+      (failure) => (List<Message>.from([]), false),
+    );
   }
 }

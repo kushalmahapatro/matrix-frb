@@ -53,14 +53,14 @@ class ChatListingScreenModel extends ElementaryModel {
     );
   }
 
-  Stream<Chat> subscribeToAllRoomUpdates() {
-    return _matrixService.client.subscribeToAllRoomUpdates().map(_roomUpdateToChat);
+  /// Canonical room list from Rust (full list on every change; no merge in Dart).
+  Stream<List<Chat>> subscribeToRoomList() {
+    return _matrixService.client.subscribeToRoomList().map(_roomUpdatesToChatList);
   }
 
-  /// Optimistic room updates (e.g. after sending a message) so the list shows
-  /// the correct last message immediately.
-  Stream<Chat> get optimisticRoomUpdates =>
-      _matrixService.roomUpdatesStream.map(_roomUpdateToChat);
+  static List<Chat> _roomUpdatesToChatList(List<RoomUpdate> updates) {
+    return updates.map(_roomUpdateToChat).toList();
+  }
 
   static Chat _roomUpdateToChat(RoomUpdate roomUpdate) {
     return Chat(
@@ -69,10 +69,10 @@ class ChatListingScreenModel extends ElementaryModel {
       lastMessage: roomUpdate.message?.content ?? '',
       lastActivity:
           (roomUpdate.message?.timestamp ?? BigInt.from(0)) > BigInt.from(0)
-          ? DateTime.fromMillisecondsSinceEpoch(
-              roomUpdate.message!.timestamp.toInt(),
-            )
-          : null,
+              ? DateTime.fromMillisecondsSinceEpoch(
+                  roomUpdate.message!.timestamp.toInt(),
+                )
+              : null,
       isDirect: roomUpdate.isDm ?? false,
       unreadCount: roomUpdate.unreadMessages?.toInt() ?? 0,
       status: ChatRoomStatus.values.firstWhere(
@@ -93,11 +93,9 @@ class ChatListingScreenWM
   final ValueNotifier<ChatType> _selectedChatType = ValueNotifier(ChatType.all);
 
   ValueNotifier<ChatType> get selectedChatType => _selectedChatType;
-  List<Chat> _rooms = [];
 
-  // Stream subscription management
-  StreamSubscription<Chat>? _roomUpdatesSubscription;
-  StreamSubscription<Chat>? _optimisticUpdatesSubscription;
+  // Stream subscription: full room list from Rust on every change
+  StreamSubscription<List<Chat>>? _roomListSubscription;
   bool _isSubscribed = false;
   Timer? _reconnectionTimer;
   Timer? _healthCheckTimer;
@@ -132,10 +130,8 @@ class ChatListingScreenWM
   void dispose() {
     _isSubscribed = false;
     MatrixService().unregisterRoomUpdatesSubscription();
-    _roomUpdatesSubscription?.cancel();
-    _roomUpdatesSubscription = null;
-    _optimisticUpdatesSubscription?.cancel();
-    _optimisticUpdatesSubscription = null;
+    _roomListSubscription?.cancel();
+    _roomListSubscription = null;
     _reconnectionTimer?.cancel();
     _stopHealthCheck();
     _chatState.dispose();
@@ -144,14 +140,7 @@ class ChatListingScreenWM
 
   Future<void> _loadAllChats() async {
     _chatState.value = const ChatState.loading();
-
-    try {
-      final rooms = await model.loadRooms();
-      _rooms = rooms.toList();
-      _chatState.value = ChatState.loaded(rooms: rooms);
-    } catch (e) {
-      _chatState.value = ChatState.error(message: 'Failed to load rooms: $e');
-    }
+    _listenToChatUpdates();
   }
 
   Future<void> createRoom() async {
@@ -186,72 +175,32 @@ class ChatListingScreenWM
     widget.navigateToSettingsScreen(context);
   }
 
-  void _onRoomUpdate(Chat updates) {
+  void _onRoomList(List<Chat> list) {
     LoggingService.info(
       'CHAT_LISTING_SCREEN',
-      'Received chat update: $updates',
+      'Received room list: ${list.length} rooms',
     );
-    final int index = _rooms.indexWhere(
-      (element) => element.id == updates.id,
-    );
-    switch (updates.status) {
-      case ChatRoomStatus.joined:
-        if (index == -1) {
-          _rooms.add(updates);
-        } else {
-          _rooms[index] = updates;
-        }
-        break;
-      case ChatRoomStatus.left:
-        if (index != -1) {
-          _rooms.removeAt(index);
-        }
-        break;
-      case ChatRoomStatus.invited:
-        if (index == -1) {
-          _rooms.add(updates);
-        } else {
-          _rooms[index] = updates;
-        }
-        break;
-      case ChatRoomStatus.knocked:
-        _rooms.removeWhere((element) => element.id == updates.id);
-        break;
-      case ChatRoomStatus.banned:
-        if (index == -1) {
-          _rooms.add(updates);
-        } else {
-          _rooms[index] = updates;
-        }
-        break;
-    }
-    _rooms.sort(
-      (a, b) =>
-          b.lastActivity?.compareTo(a.lastActivity ?? DateTime.now()) ?? 0,
-    );
-    _chatState.value = ChatState.loaded(rooms: [..._rooms]);
+    _chatState.value = ChatState.loaded(rooms: list);
     _selectedChatType.value = _selectedChatType.value;
     _lastUpdateTime = DateTime.now();
-    _checkAndTriggerNotification(updates);
   }
 
   void _listenToChatUpdates() {
-    _roomUpdatesSubscription?.cancel();
-    _optimisticUpdatesSubscription?.cancel();
+    _roomListSubscription?.cancel();
 
-    _roomUpdatesSubscription = model.subscribeToAllRoomUpdates().listen(
-      _onRoomUpdate,
+    _roomListSubscription = model.subscribeToRoomList().listen(
+      _onRoomList,
       onError: (error) {
         LoggingService.error(
           'CHAT_LISTING_SCREEN',
-          'Error in room updates stream: $error',
+          'Error in room list stream: $error',
         );
         _scheduleReconnection();
       },
       onDone: () {
         LoggingService.info(
           'CHAT_LISTING_SCREEN',
-          'Room updates stream completed',
+          'Room list stream completed',
         );
         if (_isSubscribed) {
           _scheduleReconnection();
@@ -259,19 +208,13 @@ class ChatListingScreenWM
       },
     );
 
-    // Ensure only one active room-updates subscription (avoids duplicates after restart).
-    MatrixService().registerRoomUpdatesSubscription(_roomUpdatesSubscription!);
-
-    _optimisticUpdatesSubscription = model.optimisticRoomUpdates.listen(
-      _onRoomUpdate,
-    );
-
+    MatrixService().registerRoomUpdatesSubscription(_roomListSubscription!);
     _isSubscribed = true;
     _resetReconnectionAttempts();
     _startHealthCheck();
     LoggingService.info(
       'CHAT_LISTING_SCREEN',
-      'Started listening to room updates',
+      'Started listening to room list',
     );
   }
 
@@ -294,13 +237,13 @@ class ChatListingScreenWM
 
   /// Pause room updates subscription when app goes to background
   void pauseRoomUpdates() {
-    if (_roomUpdatesSubscription != null && _isSubscribed) {
+    if (_roomListSubscription != null && _isSubscribed) {
       LoggingService.info(
         'CHAT_LISTING_SCREEN',
         'Pausing room updates subscription (app going to background)',
       );
       try {
-        _roomUpdatesSubscription!.pause();
+        _roomListSubscription!.pause();
         _stopHealthCheck(); // Stop health checks while paused
       } catch (e) {
         LoggingService.error(
@@ -308,10 +251,8 @@ class ChatListingScreenWM
           'Error pausing subscription: $e - will reconnect instead',
         );
         // If pause fails, cancel and will reconnect when resumed
-        _roomUpdatesSubscription?.cancel();
-        _roomUpdatesSubscription = null;
-        _optimisticUpdatesSubscription?.cancel();
-        _optimisticUpdatesSubscription = null;
+        _roomListSubscription?.cancel();
+        _roomListSubscription = null;
       }
     }
   }
@@ -325,9 +266,9 @@ class ChatListingScreenWM
       );
 
       // Check if subscription is still valid
-      if (_roomUpdatesSubscription != null) {
+      if (_roomListSubscription != null) {
         try {
-          _roomUpdatesSubscription!.resume();
+          _roomListSubscription!.resume();
           _startHealthCheck(); // Resume health checks
         } catch (e) {
           LoggingService.error(
@@ -359,13 +300,13 @@ class ChatListingScreenWM
 
   /// Check if room updates subscription is active
   bool get isRoomUpdatesActive =>
-      _isSubscribed && _roomUpdatesSubscription != null;
+      _isSubscribed && _roomListSubscription != null;
 
   /// Get detailed connection status for debugging
   Map<String, dynamic> get connectionStatus {
     return {
       'isSubscribed': _isSubscribed,
-      'hasSubscription': _roomUpdatesSubscription != null,
+      'hasSubscription': _roomListSubscription != null,
       'reconnectionAttempts': _reconnectionAttempts,
       'lastUpdateTime': _lastUpdateTime?.toIso8601String(),
       'timeSinceLastUpdate': _lastUpdateTime != null
@@ -499,32 +440,5 @@ class ChatListingScreenWM
   void _stopHealthCheck() {
     _healthCheckTimer?.cancel();
     _healthCheckTimer = null;
-  }
-
-  /// Check if the update contains a new message and trigger notification
-  void _checkAndTriggerNotification(Chat update) {
-    // Only trigger notifications for actual message updates, not room status changes
-    if (update.lastMessage.isNotEmpty && update.lastActivity != null) {
-      // Check if this is a new message (not just a room status update)
-      final existingRoom = _rooms.firstWhere(
-        (room) => room.id == update.id,
-        orElse: () => Chat(
-          id: '',
-          name: '',
-          lastMessage: '',
-          status: ChatRoomStatus.joined,
-        ),
-      );
-
-      // If the last message or timestamp changed, it's a new message
-      if (existingRoom.id.isNotEmpty &&
-          (existingRoom.lastMessage != update.lastMessage ||
-              existingRoom.lastActivity != update.lastActivity)) {
-        LoggingService.info(
-          'CHAT_LISTING_SCREEN',
-          'New message detected, triggering notification: ${update.lastMessage}',
-        );
-      }
-    }
   }
 }

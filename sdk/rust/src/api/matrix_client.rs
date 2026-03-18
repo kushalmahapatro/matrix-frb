@@ -1,6 +1,7 @@
 use matrix_sdk::Client;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 
 use crate::{
     frb_generated::StreamSink,
@@ -8,7 +9,8 @@ use crate::{
         client::ClientConfig,
         rooms::{self, RoomUpdate},
         sync_service::{self, App},
-        timelines, user_serach,
+        timelines::{self, Message},
+        user_serach,
     },
 };
 
@@ -23,6 +25,17 @@ pub struct MatrixClient {
     session_path: String,
     /// Room update for the last sent message (so UI can show correct last message without waiting for SDK cache).
     last_sent_room_update: Arc<Mutex<Option<RoomUpdate>>>,
+    /// Canonical room list (Rust-owned). Updated by sync and by send_message; pushed to [room_list_sink].
+    room_list_cache: Arc<Mutex<Vec<RoomUpdate>>>,
+    /// When set, [subscribe_to_room_list] is active; we push full list here on every change.
+    room_list_sink: Arc<Mutex<Option<Arc<StreamSink<Vec<RoomUpdate>>>>>>,
+    /// Per-room timeline list cache (for [subscribe_to_timeline_list]).
+    timeline_list_cache: Arc<Mutex<std::collections::HashMap<String, Vec<Message>>>>,
+    /// Per-room sinks for timeline list stream.
+    timeline_list_sinks:
+        Arc<Mutex<std::collections::HashMap<String, Arc<StreamSink<Vec<Message>>>>>>,
+    /// Cancel token per room so we abort the previous timeline loop when re-subscribing.
+    timeline_list_cancel: Arc<Mutex<std::collections::HashMap<String, CancellationToken>>>,
 }
 
 impl MatrixClient {
@@ -36,6 +49,11 @@ impl MatrixClient {
             app: Arc::new(Mutex::new(None)),
             session_path,
             last_sent_room_update: Arc::new(Mutex::new(None)),
+            room_list_cache: Arc::new(Mutex::new(Vec::new())),
+            room_list_sink: Arc::new(Mutex::new(None)),
+            timeline_list_cache: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            timeline_list_sinks: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            timeline_list_cancel: Arc::new(Mutex::new(std::collections::HashMap::new())),
         })
     }
 
@@ -46,12 +64,20 @@ impl MatrixClient {
     }
 
     /// Register a new account.
-    pub async fn register(&self, username: String, password: String) -> Result<bool, String> {
+    pub async fn register(
+        &self,
+        username: String,
+        password: String,
+        display_name: String,
+        token: Option<String>,
+    ) -> Result<bool, String> {
         return crate::matrix::authentication::register(
             &self.client,
             &self.session_path,
             username,
             password,
+            display_name,
+            token,
         )
         .await;
     }
@@ -66,6 +92,29 @@ impl MatrixClient {
     /// Whether the client has an active session.
     pub fn is_client_authenticated(&self) -> Result<bool, String> {
         crate::matrix::authentication::is_client_authenticated(&self.client)
+    }
+
+    /// Get the current user's display name (profile).
+    pub async fn get_display_name(&self) -> Result<Option<String>, String> {
+        self.client
+            .account()
+            .get_display_name()
+            .await
+            .map_err(|e| e.to_string())
+    }
+
+    /// Set the current user's display name (profile).
+    pub async fn set_display_name(&self, display_name: String) -> Result<(), String> {
+        let name = if display_name.trim().is_empty() {
+            None
+        } else {
+            Some(display_name.trim().to_string())
+        };
+        self.client
+            .account()
+            .set_display_name(name.as_deref())
+            .await
+            .map_err(|e| e.to_string())
     }
 
     pub async fn register_pusher(
@@ -114,6 +163,37 @@ impl MatrixClient {
         rooms::subscribe_to_all_room_updates(&self.client, stream).await;
     }
 
+    /// Subscribe to the canonical room list. Emits the full list whenever it changes (sync or send_message).
+    /// Call after [MatrixClient::start_sync_service]. Initial snapshot is sent immediately.
+    pub async fn subscribe_to_room_list(&self, stream: StreamSink<Vec<RoomUpdate>>) {
+        let app_guard = self.app.lock().await;
+        let app = match app_guard.as_ref() {
+            Some(a) => a.clone(),
+            None => {
+                tracing::warn!("subscribe_to_room_list: sync not started");
+                return;
+            }
+        };
+        drop(app_guard);
+
+        let initial = rooms::get_all_rooms(&app).await;
+        {
+            let mut cache = self.room_list_cache.lock().await;
+            *cache = initial.clone();
+        }
+        let _ = stream.add(initial);
+
+        let stream_ref = Arc::new(stream);
+        *self.room_list_sink.lock().await = Some(Arc::clone(&stream_ref));
+        let client = self.client.clone();
+        let cache = self.room_list_cache.clone();
+        let sink_guard = self.room_list_sink.clone();
+        tokio::spawn(async move {
+            rooms::subscribe_to_room_list_loop(client, cache, stream_ref).await;
+            *sink_guard.lock().await = None;
+        });
+    }
+
     /// Start the sync service (required for rooms and timeline to work).
     /// Stores the App in this client; rooms/timeline/sync state use it instead of global state.
     pub async fn start_sync_service(&self) -> Result<bool, String> {
@@ -136,11 +216,30 @@ impl MatrixClient {
         sync_service::restart_sync_service(app).await
     }
 
-    /// Send a message. Returns the event_id. After success, call [MatrixClient::take_last_sent_room_update]
-    /// to get the room update with the sent message as last (for updating the room list immediately).
+    /// Send a message. Returns the event_id. Room list and timeline list caches are updated immediately.
     pub async fn send_message(&self, room_id: String, content: String) -> Result<String, String> {
-        let result = rooms::send_message(&self.client, room_id, content).await?;
-        *self.last_sent_room_update.lock().await = Some(result.room_update);
+        let result = rooms::send_message(&self.client, room_id.clone(), content).await?;
+        let update = result.room_update.clone();
+        *self.last_sent_room_update.lock().await = Some(result.room_update.clone());
+        // Update canonical room list.
+        let mut cache = self.room_list_cache.lock().await;
+        rooms::merge_room_update_into_list(&mut cache, update.clone());
+        rooms::sort_room_list_by_activity(&mut cache);
+        if let Some(ref sink) = *self.room_list_sink.lock().await {
+            let _ = sink.add(cache.clone());
+        }
+        drop(cache);
+        // Append sent message to timeline list for this room so subscribers see it immediately.
+        if let Some(ref msg) = result.room_update.message {
+            let mut cache = self.timeline_list_cache.lock().await;
+            cache.entry(room_id.clone()).or_default().push(msg.clone());
+            let list = cache.get(&room_id).cloned().unwrap_or_default();
+            drop(cache);
+            let sinks = self.timeline_list_sinks.lock().await;
+            if let Some(sink) = sinks.get(&room_id) {
+                let _ = sink.add(list);
+            }
+        }
         Ok(result.event_id)
     }
 
@@ -185,12 +284,94 @@ impl MatrixClient {
         timelines::subscribe_to_timeline_updates(&self.client, stream, room_id).await;
     }
 
+    /// Subscribe to the canonical message list for a room. Emits the full list whenever it changes (timeline updates or send_message).
+    /// Sends initial list immediately, then runs the timeline diff loop. Call after [MatrixClient::start_sync_service].
+    pub async fn subscribe_to_timeline_list(
+        &self,
+        room_id: String,
+        stream: StreamSink<Vec<Message>>,
+    ) {
+        let initial = timelines::get_timeline_items_by_room_id(&self.client, room_id.clone()).await;
+        {
+            let mut cache = self.timeline_list_cache.lock().await;
+            cache.insert(room_id.clone(), initial.clone());
+        }
+        let _ = stream.add(initial.clone());
+        // Refresh room list with last message so listing shows it (SDK latest_event can be empty)
+        if let Some(last_msg) = initial.last().cloned() {
+            if let Ok(room_id_parsed) = room_id.parse::<matrix_sdk::ruma::OwnedRoomId>() {
+                if let Some(room) = self.client.get_room(&room_id_parsed) {
+                    let mut update = rooms::get_room_update_data(&room).await;
+                    update.message = Some(last_msg);
+                    let mut cache = self.room_list_cache.lock().await;
+                    rooms::merge_room_update_into_list(&mut cache, update);
+                    rooms::sort_room_list_by_activity(&mut cache);
+                    let list = cache.clone();
+                    drop(cache);
+                    if let Some(ref sink) = *self.room_list_sink.lock().await {
+                        let _ = sink.add(list);
+                    }
+                }
+            }
+        }
+
+        let mut sinks = self.timeline_list_sinks.lock().await;
+        sinks.insert(room_id.clone(), Arc::new(stream));
+        drop(sinks);
+
+        // Cancel any existing timeline loop for this room to avoid duplicate diffs.
+        let mut cancel_map = self.timeline_list_cancel.lock().await;
+        if let Some(prev) = cancel_map.remove(&room_id) {
+            prev.cancel();
+        }
+        let cancel_token = CancellationToken::new();
+        let cancel_child = cancel_token.child_token();
+        cancel_map.insert(room_id.clone(), cancel_token);
+        drop(cancel_map);
+
+        let client = self.client.clone();
+        let cache_map = self.timeline_list_cache.clone();
+        let sinks_map = self.timeline_list_sinks.clone();
+        let sinks_for_cleanup = self.timeline_list_sinks.clone();
+        let cancel_for_cleanup = self.timeline_list_cancel.clone();
+        let room_list_cache = self.room_list_cache.clone();
+        let room_list_sink = self.room_list_sink.clone();
+        let room_id_owned = room_id.clone();
+        tokio::spawn(async move {
+            timelines::subscribe_to_timeline_list_loop(
+                client,
+                room_id_owned.clone(),
+                cache_map,
+                sinks_map,
+                room_list_cache,
+                room_list_sink,
+                cancel_child,
+            )
+            .await;
+            let mut s = sinks_for_cleanup.lock().await;
+            s.remove(&room_id_owned);
+            let mut c = cancel_for_cleanup.lock().await;
+            c.remove(&room_id_owned);
+        });
+    }
+
+    /// Load older messages (paginate backwards). Updates the timeline list cache and pushes to
+    /// subscribers so the UI receives the full list including newly loaded messages.
     pub async fn get_older_messages(
         &self,
         room_id: String,
         count: u16,
-    ) -> Result<Vec<crate::matrix::timelines::Message>, String> {
-        timelines::get_older_messages(&self.client, room_id, count).await
+    ) -> Result<Vec<Message>, String> {
+        let list = timelines::get_older_messages(&self.client, room_id.clone(), count).await?;
+        {
+            let mut cache = self.timeline_list_cache.lock().await;
+            cache.insert(room_id.clone(), list.clone());
+        }
+        let sinks = self.timeline_list_sinks.lock().await;
+        if let Some(sink) = sinks.get(&room_id) {
+            let _ = sink.add(list.clone());
+        }
+        Ok(list)
     }
 
     pub async fn search_users(
@@ -203,17 +384,22 @@ impl MatrixClient {
     /// Subscribe to sync service state (Idle, Running, Terminated, Error, Offline).
     /// Call after [MatrixClient::start_sync_service]. When state changes, refresh rooms/timeline
     /// or show sync status; mirrors matrix-sdk-ffi SyncServiceStateObserver.
+    /// No-ops if sync was not started (no panic).
     pub async fn subscribe_sync_state(
         &self,
         stream: StreamSink<crate::matrix::sync_service::SyncState>,
     ) {
         let app_mutex = self.app.clone();
         let guard = app_mutex.lock().await;
-        let app = guard
-            .as_ref()
-            .ok_or("Sync not started; call start_sync_service first")
-            .unwrap()
-            .clone();
+        let app = match guard.as_ref() {
+            Some(a) => a.clone(),
+            None => {
+                tracing::warn!(
+                    "subscribe_sync_state: sync not started, call start_sync_service first"
+                );
+                return;
+            }
+        };
         drop(guard);
         sync_service::subscribe_sync_state(app, stream).await;
     }

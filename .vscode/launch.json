@@ -12,7 +12,11 @@
             "type": "dart",
             "cwd": "${workspaceFolder}/app",
             "request": "launch",
-            "program": "lib/main.dart"
+            "program": "lib/main.dart",
+            "args": [
+                "--dart-define",
+                "PROXY=false",
+            ]
         }
     ]
 }

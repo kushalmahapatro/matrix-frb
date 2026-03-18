@@ -2,20 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:matrix/src/features/conversation/domain/models/conversation_state.dart'
     hide MessageType;
 import 'package:matrix_sdk/matrix_sdk.dart';
-import 'package:matrix/src/theme/matrix_theme.dart';
+
+/// Result of loading older messages: [older] is the newly loaded chunk (or empty
+/// when the parent updated state with full list); [hasMore] indicates if more
+/// can be loaded.
+typedef LoadOlderResult = (List<Message> older, bool hasMore);
 
 class PaginatedMessageList extends StatefulWidget {
   const PaginatedMessageList({
     super.key,
     required this.initialMessages, // List<Message> ordered oldest → newest
-    required this.loadOlder, // Future<List<Message>> Function(Message oldest)
+    required this.loadOlder, // Future<LoadOlderResult> Function(Message oldest)
     required this.onVisibleRange, // Optional: for read receipts
   });
 
   final List<Message> initialMessages;
-  final Future<List<Message>> Function(Message oldest) loadOlder;
+  final Future<LoadOlderResult> Function(Message oldest) loadOlder;
   final void Function(Message firstVisible, Message lastVisible)?
-  onVisibleRange;
+      onVisibleRange;
 
   @override
   State<PaginatedMessageList> createState() => _PaginatedMessageListState();
@@ -26,6 +30,7 @@ class _PaginatedMessageListState extends State<PaginatedMessageList> {
   bool _isLoadingOlder = false;
   bool _hasMore = true;
   int _unseenNewCount = 0;
+  double _beforeMaxScrollExtent = 0;
 
   bool get _isAtBottom {
     // With reverse:true, bottom == pixels <= 20
@@ -55,16 +60,15 @@ class _PaginatedMessageListState extends State<PaginatedMessageList> {
     super.dispose();
   }
 
+  static const double _loadOlderThresholdPx = 80;
+
   void _onScroll() async {
-    // Load older when scrolled to top (because reverse:true)
-    if (_controller.position.atEdge &&
-        _controller.position.pixels >=
-            _controller.position.maxScrollExtent - 24) {
-      // At top
+    // Load older when scrolled near top (reverse:true so top = maxScrollExtent)
+    final pos = _controller.position;
+    if (pos.pixels >= pos.maxScrollExtent - _loadOlderThresholdPx) {
       _maybeLoadOlder();
     }
 
-    // (Optional) visible range reporting
     widget.onVisibleRange?.call(_firstVisible(), _lastVisible());
   }
 
@@ -72,34 +76,31 @@ class _PaginatedMessageListState extends State<PaginatedMessageList> {
     if (_isLoadingOlder || !_hasMore || widget.initialMessages.isEmpty) return;
     setState(() => _isLoadingOlder = true);
 
-    // Preserve visual position during insert:
-    final beforeMax = _controller.position.maxScrollExtent;
-
+    _beforeMaxScrollExtent = _controller.position.maxScrollExtent;
     final oldest = widget.initialMessages.first;
-    final older = await widget.loadOlder(
-      oldest,
-    ); // returns older messages, oldest → newest
-    if (older.isEmpty && mounted) {
+    final (older, hasMore) = await widget.loadOlder(oldest);
+
+    if (!mounted) return;
+
+    if (older.isNotEmpty) {
+      setState(() {
+        widget.initialMessages.insertAll(0, older);
+        _isLoadingOlder = false;
+        _hasMore = hasMore &&
+            widget.initialMessages.first.messageType != MessageType.timelineStart;
+      });
+    } else {
       setState(() {
         _isLoadingOlder = false;
-        // _hasMore = false;
+        _hasMore = hasMore;
       });
-      return;
     }
 
-    setState(() {
-      widget.initialMessages.insertAll(0, older);
-      _isLoadingOlder = false;
-      _hasMore =
-          widget.initialMessages.first.messageType != MessageType.timelineStart;
-    });
-
-    // Adjust by delta in maxScrollExtent so content doesn't jump.
+    // Adjust scroll so content doesn't jump (works for both insert and state-replace).
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_controller.hasClients) return;
+      if (!mounted || !_controller.hasClients) return;
       final afterMax = _controller.position.maxScrollExtent;
-      final delta = afterMax - beforeMax;
-      // With reverse:true, jump forward by delta to keep same items under finger.
+      final delta = afterMax - _beforeMaxScrollExtent;
       _controller.jumpTo(_controller.position.pixels + delta);
     });
   }
@@ -139,10 +140,10 @@ class _PaginatedMessageListState extends State<PaginatedMessageList> {
   @override
   Widget build(BuildContext context) {
     if (widget.initialMessages.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'NO MESSAGES YET\nSTART THE CONVERSATION',
-          style: MatrixTheme.captionStyle,
+          style: Theme.of(context).textTheme.bodySmall,
           textAlign: TextAlign.center,
         ),
       );
@@ -194,7 +195,26 @@ class _PaginatedMessageListState extends State<PaginatedMessageList> {
                   );
                 },
               ),
-              // Bottom safe area
+              if (_hasMore && !_isLoadingOlder)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Center(
+                      child: TextButton.icon(
+                        onPressed: _maybeLoadOlder,
+                        icon: const Icon(Icons.arrow_upward, size: 20),
+                        label: const Text('Load older messages'),
+                      ),
+                    ),
+                  ),
+                ),
+              if (_isLoadingOlder)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ),
               const SliverToBoxAdapter(child: SizedBox(height: 8)),
             ],
           ),
@@ -212,7 +232,7 @@ class _PaginatedMessageListState extends State<PaginatedMessageList> {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
-                    color: Theme.of(context).colorScheme.secondaryContainer,
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
@@ -232,8 +252,6 @@ class _PaginatedMessageListState extends State<PaginatedMessageList> {
   }
 
   Widget _buildMessageBubble(Message m, {int? index, Message? prev}) {
-    final showDateDivider =
-        prev == null || !_isSameDay(m.dateTime, prev.dateTime);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -242,9 +260,6 @@ class _PaginatedMessageListState extends State<PaginatedMessageList> {
       ],
     );
   }
-
-  bool _isSameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
 }
 
 class MessageBubble extends StatelessWidget {
@@ -254,31 +269,45 @@ class MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Message header
           Row(
             children: [
               Text(
                 '> ${message.displayName}',
-                style: MatrixTheme.messageAuthorStyle,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const Spacer(),
-              Text(message.formattedDate, style: MatrixTheme.messageTimeStyle),
+              Text(
+                message.formattedDate,
+                style: theme.textTheme.bodySmall,
+              ),
             ],
           ),
-
           const SizedBox(height: 4),
-
-          // Message content
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
-            decoration: MatrixTheme.messageDecoration,
-            child: Text(message.content, style: MatrixTheme.messageStyle),
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  color: theme.colorScheme.primary,
+                  width: 3,
+                ),
+              ),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            ),
+            child: Text(
+              message.content,
+              style: theme.textTheme.bodyMedium,
+            ),
           ),
         ],
       ),

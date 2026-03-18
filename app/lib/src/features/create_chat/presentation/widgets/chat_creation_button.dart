@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:matrix/src/features/create_chat/domain/models/create_chat_type.dart';
-import 'package:matrix/src/theme/matrix_theme.dart';
 
 class ChatCreationButton extends StatelessWidget {
   const ChatCreationButton({
@@ -19,16 +18,19 @@ class ChatCreationButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
+    final muted = theme.colorScheme.onSurfaceVariant;
     return InkWell(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected
-              ? MatrixTheme.primaryGreen.withValues(alpha: 0.2)
-              : Colors.grey[900],
+              ? primary.withValues(alpha: 0.2)
+              : theme.colorScheme.surfaceContainerHighest,
           border: Border.all(
-            color: isSelected ? MatrixTheme.primaryGreen : Colors.transparent,
+            color: isSelected ? primary : Colors.transparent,
             width: 2,
           ),
           borderRadius: BorderRadius.circular(8),
@@ -37,14 +39,14 @@ class ChatCreationButton extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: isSelected ? MatrixTheme.primaryGreen : Colors.grey,
+              color: isSelected ? primary : muted,
               size: 32,
             ),
             const SizedBox(height: 8),
             Text(
               label,
-              style: MatrixTheme.bodyStyle.copyWith(
-                color: isSelected ? MatrixTheme.primaryGreen : Colors.grey,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: isSelected ? primary : muted,
                 fontWeight: FontWeight.bold,
               ),
             ),

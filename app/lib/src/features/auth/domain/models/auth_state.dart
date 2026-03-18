@@ -15,6 +15,7 @@ abstract class LoginFormData with _$LoginFormData {
   const factory LoginFormData({
     @Default('') String username,
     @Default('') String password,
+    @Default('') String displayName,
     @Default(false) bool isRegistration,
     @Default(false) bool showPassword,
   }) = _LoginFormData;

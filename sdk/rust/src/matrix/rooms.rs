@@ -7,11 +7,9 @@ use matrix_sdk::{
     ruma::{OwnedRoomId, RoomId},
     Client, Room, RoomState,
 };
-use matrix_sdk_ui::{
-    sync_service::SyncService,
-    timeline::{LatestEventValue, RoomExt},
-};
+use matrix_sdk_ui::timeline::{LatestEventValue, RoomExt};
 use std::sync::Mutex;
+use tokio::sync::Mutex as AsyncMutex;
 
 use crate::{
     frb_generated::StreamSink,
@@ -21,7 +19,7 @@ use crate::{
         timelines::{Message, MessageType},
     },
 };
-use tracing::{error, info, warn};
+use tracing::{debug, error, warn};
 
 // RoomUpdate moved to api module
 
@@ -31,32 +29,17 @@ pub type Rooms = Arc<Mutex<Vector<Room>>>;
 #[frb(ignore)]
 pub struct RoomList {
     pub status_handle: StatusHandle,
-
     pub rooms: Rooms,
-
-    /// Extra information about rooms.
-    room_infos: RoomInfos,
-
-    /// The current room that's subscribed to in the room list's sliding sync.
-    current_room_subscription: Option<Room>,
-
-    /// The sync service used for synchronizing events.
-    sync_service: Arc<SyncService>,
+    /// Extra information about rooms (written by sync listen_task).
+    pub room_infos: RoomInfos,
 }
 
 impl RoomList {
-    pub fn new(
-        rooms: Rooms,
-        room_infos: RoomInfos,
-        sync_service: Arc<SyncService>,
-        status_handle: StatusHandle,
-    ) -> Self {
+    pub fn new(rooms: Rooms, room_infos: RoomInfos, status_handle: StatusHandle) -> Self {
         Self {
             rooms,
             status_handle,
             room_infos,
-            current_room_subscription: None,
-            sync_service,
         }
     }
 
@@ -84,6 +67,7 @@ pub struct ExtraRoomInfo {
     pub is_dm: Option<bool>,
 }
 
+#[derive(Clone)]
 pub enum UpdateType {
     Joined,
     Left,
@@ -92,6 +76,7 @@ pub enum UpdateType {
     Banned,
 }
 
+#[derive(Clone)]
 pub struct RoomUpdate {
     pub room_id: String,
     pub raw_name: Option<String>,
@@ -113,11 +98,11 @@ pub struct SendMessageResult {
     pub room_update: RoomUpdate,
 }
 
-async fn get_room_update_data(room: &Room) -> RoomUpdate {
+pub(crate) async fn get_room_update_data(room: &Room) -> RoomUpdate {
     let room_id = room.room_id().to_string();
     let raw_name = room.name().map(|name| name.to_string());
     let display_name = room.cached_display_name().map(|name| name.to_string());
-    let is_dm = room.is_direct().await.map_err(|e| false).unwrap();
+    let is_dm = room.is_direct().await.unwrap_or(false);
     let unread_notification_count = room.unread_notification_counts().notification_count;
     let unread_highlight_count = room.unread_notification_counts().highlight_count;
     let unread_mentions_count = room.num_unread_mentions();
@@ -168,18 +153,41 @@ async fn get_room_update_data(room: &Room) -> RoomUpdate {
         }
     }
 
-    return RoomUpdate {
+    RoomUpdate {
         room_id,
         raw_name,
         display_name,
         is_dm: Some(is_dm),
-        update_type: update_type,
+        update_type,
         unread_notifications: Some(unread_notification_count),
         unread_highlight: Some(unread_highlight_count),
         unread_mentions: Some(unread_mentions_count),
         unread_messages: Some(unread_messages),
         message: Some(message),
-    };
+    }
+}
+
+/// Merge one room update into the list (by room_id). Left = remove; else replace or insert.
+pub(crate) fn merge_room_update_into_list(list: &mut Vec<RoomUpdate>, update: RoomUpdate) {
+    use UpdateType::Left;
+    if matches!(update.update_type, Left) {
+        list.retain(|r| r.room_id != update.room_id);
+        return;
+    }
+    if let Some(pos) = list.iter().position(|r| r.room_id == update.room_id) {
+        list[pos] = update;
+    } else {
+        list.push(update);
+    }
+}
+
+/// Sort room list by last activity descending (most recent first).
+pub(crate) fn sort_room_list_by_activity(list: &mut [RoomUpdate]) {
+    list.sort_by(|a, b| {
+        let ts_a = a.message.as_ref().map(|m| m.timestamp).unwrap_or(0);
+        let ts_b = b.message.as_ref().map(|m| m.timestamp).unwrap_or(0);
+        ts_b.cmp(&ts_a)
+    });
 }
 
 /// Room list for the given app (used by [crate::api::matrix_client::MatrixClient]).
@@ -203,7 +211,8 @@ pub(crate) async fn subscribe_to_all_room_updates(client: &Client, stream: Strea
     loop {
         match client.subscribe_to_all_room_updates().recv().await {
             Ok(updates) => {
-                info!("Received room update: {:?}", updates);
+                debug!("Received room update: {} joined, {} invited, {} left, {} knocked",
+                    updates.joined.len(), updates.invited.len(), updates.left.len(), updates.knocked.len());
                 for room_id in &updates.joined {
                     match client.get_room(&room_id.0) {
                         Some(room) => {
@@ -240,9 +249,78 @@ pub(crate) async fn subscribe_to_all_room_updates(client: &Client, stream: Strea
                         }
                     }
                 }
+                for room_id in &updates.knocked {
+                    match client.get_room(&room_id.0) {
+                        Some(room) => {
+                            let mut update = get_room_update_data(&room).await;
+                            update.update_type = UpdateType::Knocked;
+                            let _ = stream.add(update);
+                        }
+                        None => {
+                            warn!("Room not found: {}", room_id.0);
+                        }
+                    }
+                }
             }
             Err(e) => {
-                error!("Error receiving room updates: {}", e);
+                error!("Room updates stream closed or lagged: {}", e);
+                break;
+            }
+        }
+    }
+}
+
+/// Runs until stream is dropped. Receives sync room updates, merges into cache, and sends full list each time.
+pub(crate) async fn subscribe_to_room_list_loop(
+    client: Client,
+    cache: Arc<AsyncMutex<Vec<RoomUpdate>>>,
+    stream: std::sync::Arc<StreamSink<Vec<RoomUpdate>>>,
+) {
+    loop {
+        match client.subscribe_to_all_room_updates().recv().await {
+            Ok(updates) => {
+                debug!(
+                    "Room list: {} joined, {} invited, {} left, {} knocked",
+                    updates.joined.len(),
+                    updates.invited.len(),
+                    updates.left.len(),
+                    updates.knocked.len()
+                );
+                let mut list = cache.lock().await;
+                for room_id in &updates.joined {
+                    if let Some(room) = client.get_room(&room_id.0) {
+                        let mut update = get_room_update_data(&room).await;
+                        update.update_type = UpdateType::Joined;
+                        merge_room_update_into_list(&mut list, update);
+                    }
+                }
+                for room_id in &updates.invited {
+                    if let Some(room) = client.get_room(&room_id.0) {
+                        let mut update = get_room_update_data(&room).await;
+                        update.update_type = UpdateType::Invited;
+                        merge_room_update_into_list(&mut list, update);
+                    }
+                }
+                for room_id in &updates.left {
+                    if let Some(room) = client.get_room(&room_id.0) {
+                        let mut update = get_room_update_data(&room).await;
+                        update.update_type = UpdateType::Left;
+                        merge_room_update_into_list(&mut list, update);
+                    }
+                }
+                for room_id in &updates.knocked {
+                    if let Some(room) = client.get_room(&room_id.0) {
+                        let mut update = get_room_update_data(&room).await;
+                        update.update_type = UpdateType::Knocked;
+                        merge_room_update_into_list(&mut list, update);
+                    }
+                }
+                sort_room_list_by_activity(&mut list);
+                let _ = stream.add(list.clone());
+            }
+            Err(e) => {
+                error!("Room list stream closed or lagged: {}", e);
+                break;
             }
         }
     }
@@ -259,10 +337,7 @@ pub(crate) async fn send_message(
 ) -> Result<SendMessageResult, String> {
     let room_id_parsed = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
     let room = client.get_room(&room_id_parsed).ok_or("Room not found")?;
-    let sender = client
-        .user_id()
-        .ok_or("Not logged in")?
-        .to_string();
+    let sender = client.user_id().ok_or("Not logged in")?.to_string();
 
     let result = room
         .send(
@@ -304,12 +379,14 @@ pub(crate) async fn create_direct_room(client: &Client, user_id: String) -> Resu
     request.preset =
         Some(matrix_sdk::ruma::api::client::room::create_room::v3::RoomPreset::TrustedPrivateChat);
 
-    let response = client
+    let room = client
         .create_room(request)
         .await
         .map_err(|e| e.to_string())?;
 
-    Ok(response.room_id().to_string())
+    room.enable_encryption().await.map_err(|e| e.to_string())?;
+
+    Ok(room.room_id().to_string())
 }
 
 pub(crate) async fn create_group_room(
@@ -333,12 +410,14 @@ pub(crate) async fn create_group_room(
     }
     request.invite = invites;
 
-    let response = client
+    let room = client
         .create_room(request)
         .await
         .map_err(|e| e.to_string())?;
 
-    Ok(response.room_id().to_string())
+    room.enable_encryption().await.map_err(|e| e.to_string())?;
+
+    Ok(room.room_id().to_string())
 }
 
 pub(crate) async fn join_room(client: &Client, room_id: String) -> Result<String, String> {

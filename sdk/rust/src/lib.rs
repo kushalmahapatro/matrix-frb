@@ -2,6 +2,9 @@ mod frb_generated; /* AUTO INJECTED BY flutter_rust_bridge. This line may not be
 // Matrix Flutter/Rust bridge library.
 // Entry points for codegen: `crate::api`, `crate::matrix` (see flutter_rust_bridge.yaml).
 
+#[cfg(target_os = "android")]
+mod android;
+
 pub mod api;
 pub mod logger;
 pub mod matrix;

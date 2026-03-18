@@ -1,6 +1,3 @@
-import java.util.Properties
-import java.io.FileInputStream
-
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -8,27 +5,18 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// Load keystore properties
-val keystorePropertiesFile = rootProject.file("keystore.properties")
-val keystoreProperties = Properties()
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
-}
-
 android {
     namespace = "dev.inve.matrixchat"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973"
+    ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-        // Enable core library desugaring for Java 8+ features
-        isCoreLibraryDesugaringEnabled = true
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     defaultConfig {
@@ -42,70 +30,21 @@ android {
         versionName = flutter.versionName
     }
 
-    signingConfigs {
-        create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String?
-            keyPassword = keystoreProperties["keyPassword"] as String?
-            storeFile = keystoreProperties["storeFile"]?.let { file(it) }
-            storePassword = keystoreProperties["storePassword"] as String?
-        }
-    }
-
     buildTypes {
-        getByName("debug") {
-            isMinifyEnabled = false
-            isShrinkResources = false
-        }
-        getByName("profile") {
-            isMinifyEnabled = false
-            isShrinkResources = false
-        }
-        getByName("release") {
-            signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = false
-            isShrinkResources = false
+        release {
+            // TODO: Add your own signing config for the release build.
+            // Signing with the debug keys for now, so `flutter run --release` works.
+            signingConfig = signingConfigs.getByName("debug")
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
+}
+
+dependencies {
+    // Kotlin component required by rustls-platform-verifier for TLS cert verification on Android
+    implementation("rustls:rustls-platform-verifier:0.1.1")
 }
 
 flutter {
     source = "../.."
-}
-
-dependencies {
-    // Core library desugaring for Java 8+ features
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-}
-
-val buildConfigs = listOf(
-    Pair("Debug", ""),
-    Pair("Profile", "--release"),
-    Pair("Release", "--release")
-)
-
-buildConfigs.forEach { (taskPostfix, profileMode) ->
-    tasks.whenTaskAdded(Action {
-        if (name == "javaPreCompile$taskPostfix") {
-            dependsOn("cargoBuild$taskPostfix")
-        }
-    })
-    tasks.register("cargoBuild$taskPostfix", Exec::class) {
-        // Until https://github.com/bbqsrc/cargo-ndk/pull/13 is merged,
-        // this workaround is necessary.
-        //-t armeabi-v7a -t arm64-v8a -t x86_64 -t x86 \
-
-        val ndkCommand = """cargo ndk \
-            -t arm64-v8a -t x86_64 \
-            -o ../android/app/src/main/jniLibs build --features rhttp-client $profileMode"""
-
-        workingDir("../../rust")
-        // val ndkPath = System.getenv("ANDROID_NDK_HOME") ?: System.getenv("ANDROID_NDK") ?: ""
-        // environment("ANDROID_NDK_HOME", ndkPath)
-        // environment("ANDROID_NDK", ndkPath)
-        if (System.getProperty("os.name").lowercase().contains("windows")) {
-            commandLine("cmd", "/C", ndkCommand)
-        } else {
-            commandLine("sh", "-c", ndkCommand)
-        }
-    }
 }

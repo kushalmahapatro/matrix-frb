@@ -228,7 +228,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RustStreamSink<String> dco_decode_StreamSink_String_Dco(dynamic raw);
 
   @protected
+  RustStreamSink<List<Message>> dco_decode_StreamSink_list_message_Dco(
+    dynamic raw,
+  );
+
+  @protected
   RustStreamSink<Uint8List> dco_decode_StreamSink_list_prim_u_8_strict_Dco(
+    dynamic raw,
+  );
+
+  @protected
+  RustStreamSink<List<RoomUpdate>> dco_decode_StreamSink_list_room_update_Dco(
     dynamic raw,
   );
 
@@ -778,7 +788,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<List<Message>> sse_decode_StreamSink_list_message_Dco(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RustStreamSink<Uint8List> sse_decode_StreamSink_list_prim_u_8_strict_Dco(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<List<RoomUpdate>> sse_decode_StreamSink_list_room_update_Dco(
     SseDeserializer deserializer,
   );
 
@@ -1295,6 +1315,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  String cst_encode_StreamSink_list_message_Dco(
+    RustStreamSink<List<Message>> raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_String(
+      raw.setupAndSerialize(
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_message,
+          decodeErrorData: dco_decode_AnyhowException,
+        ),
+      ),
+    );
+  }
+
+  @protected
   String cst_encode_StreamSink_list_prim_u_8_strict_Dco(
     RustStreamSink<Uint8List> raw,
   ) {
@@ -1303,6 +1338,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       raw.setupAndSerialize(
         codec: DcoCodec(
           decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_AnyhowException,
+        ),
+      ),
+    );
+  }
+
+  @protected
+  String cst_encode_StreamSink_list_room_update_Dco(
+    RustStreamSink<List<RoomUpdate>> raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_String(
+      raw.setupAndSerialize(
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_room_update,
           decodeErrorData: dco_decode_AnyhowException,
         ),
       ),
@@ -2607,8 +2657,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_StreamSink_list_message_Dco(
+    RustStreamSink<List<Message>> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_StreamSink_list_prim_u_8_strict_Dco(
     RustStreamSink<Uint8List> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_list_room_update_Dco(
+    RustStreamSink<List<RoomUpdate>> self,
     SseSerializer serializer,
   );
 
@@ -3272,6 +3334,15 @@ class RustLibWire implements BaseWire {
     that,
   );
 
+  void wire__crate__api__matrix_client__MatrixClient_get_display_name(
+    NativePortType port_,
+    int that,
+  ) =>
+      wasmModule.wire__crate__api__matrix_client__MatrixClient_get_display_name(
+        port_,
+        that,
+      );
+
   void wire__crate__api__matrix_client__MatrixClient_get_older_messages(
     NativePortType port_,
     int that,
@@ -3351,11 +3422,15 @@ class RustLibWire implements BaseWire {
     int that,
     String username,
     String password,
+    String display_name,
+    String? token,
   ) => wasmModule.wire__crate__api__matrix_client__MatrixClient_register(
     port_,
     that,
     username,
     password,
+    display_name,
+    token,
   );
 
   void wire__crate__api__matrix_client__MatrixClient_register_pusher(
@@ -3411,6 +3486,17 @@ class RustLibWire implements BaseWire {
     content,
   );
 
+  void wire__crate__api__matrix_client__MatrixClient_set_display_name(
+    NativePortType port_,
+    int that,
+    String display_name,
+  ) =>
+      wasmModule.wire__crate__api__matrix_client__MatrixClient_set_display_name(
+        port_,
+        that,
+        display_name,
+      );
+
   void wire__crate__api__matrix_client__MatrixClient_start_sync_service(
     NativePortType port_,
     int that,
@@ -3440,6 +3526,30 @@ class RustLibWire implements BaseWire {
       .wire__crate__api__matrix_client__MatrixClient_subscribe_to_all_room_updates(
         port_,
         that,
+        stream,
+      );
+
+  void wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_list(
+    NativePortType port_,
+    int that,
+    String stream,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_list(
+        port_,
+        that,
+        stream,
+      );
+
+  void wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_list(
+    NativePortType port_,
+    int that,
+    String room_id,
+    String stream,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_list(
+        port_,
+        that,
+        room_id,
         stream,
       );
 
@@ -3816,6 +3926,11 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     int that,
   );
 
+  external void wire__crate__api__matrix_client__MatrixClient_get_display_name(
+    NativePortType port_,
+    int that,
+  );
+
   external void
   wire__crate__api__matrix_client__MatrixClient_get_older_messages(
     NativePortType port_,
@@ -3866,6 +3981,8 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     int that,
     String username,
     String password,
+    String display_name,
+    String? token,
   );
 
   external void wire__crate__api__matrix_client__MatrixClient_register_pusher(
@@ -3899,6 +4016,12 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     String content,
   );
 
+  external void wire__crate__api__matrix_client__MatrixClient_set_display_name(
+    NativePortType port_,
+    int that,
+    String display_name,
+  );
+
   external void
   wire__crate__api__matrix_client__MatrixClient_start_sync_service(
     NativePortType port_,
@@ -3916,6 +4039,21 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
   wire__crate__api__matrix_client__MatrixClient_subscribe_to_all_room_updates(
     NativePortType port_,
     int that,
+    String stream,
+  );
+
+  external void
+  wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_list(
+    NativePortType port_,
+    int that,
+    String stream,
+  );
+
+  external void
+  wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_list(
+    NativePortType port_,
+    int that,
+    String room_id,
     String stream,
   );
 

@@ -19,10 +19,9 @@ class MatrixService {
   // ignore: unused_field
   late final RhttpClient _httpClient;
 
-  /// One active timeline subscription per room. Cancelling previous when a new
-  /// one is registered (avoids duplicates after app restart / multiple screens).
-  final Map<String, StreamSubscription<MessageUpdate>> _timelineSubscriptions =
-      <String, StreamSubscription<MessageUpdate>>{};
+  /// One active timeline subscription per room (timeline list or updates stream).
+  final Map<String, StreamSubscription<Object?>> _timelineSubscriptions =
+      <String, StreamSubscription<Object?>>{};
 
   /// Single active room-updates subscription. Cancelling previous when a new
   /// one is registered. Typed as Object? so we can store StreamSubscription<Chat>
@@ -89,11 +88,7 @@ class MatrixService {
 
     // Create rhttp client with interceptor so Matrix HTTP requests are logged (console + optional DevTools).
     try {
-      _httpClient = await RhttpClient.create(
-        interceptors: kDebugMode
-            ? [MatrixHttpLoggingInterceptor(enableDevTools: true)]
-            : null,
-      );
+      _httpClient = await RhttpClient.create();
     } catch (e) {
       LoggingService.error(
         'InitializationService',
@@ -107,6 +102,7 @@ class MatrixService {
       homeserverUrl: homeserverUrl.toString(),
       passphrase: 'password',
       rhttpClient: _httpClient.ref,
+      proxy: AppConfig.proxyEnabled ? AppConfig.proxyUrl : null,
     );
 
     try {
@@ -133,7 +129,7 @@ class MatrixService {
   /// before restart). Call [unregisterTimelineSubscription] when disposing.
   void registerTimelineSubscription(
     String roomId,
-    StreamSubscription<MessageUpdate> subscription,
+    StreamSubscription<Object?> subscription,
   ) {
     _timelineSubscriptions[roomId]?.cancel();
     _timelineSubscriptions[roomId] = subscription;
@@ -159,8 +155,19 @@ class MatrixService {
     _roomUpdatesSubscription = subscription;
   }
 
-  /// Unregisters the room-updates subscription. Call from WM dispose.
+  /// Unregisters the room-updates subscription and cancels it so the Rust stream
+  /// stops and no message is missed only while subscribed. Call from WM dispose.
   void unregisterRoomUpdatesSubscription() {
+    _roomUpdatesSubscription?.cancel();
     _roomUpdatesSubscription = null;
+  }
+
+  /// Cancels all active subscriptions (room updates and timeline per room).
+  /// Call on logout or app shutdown to avoid leaks and stop Rust streams.
+  void disposeAllSubscriptions() {
+    unregisterRoomUpdatesSubscription();
+    for (final roomId in _timelineSubscriptions.keys.toList()) {
+      unregisterTimelineSubscription(roomId);
+    }
   }
 }

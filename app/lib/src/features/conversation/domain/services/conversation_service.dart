@@ -22,6 +22,11 @@ class ConversationService {
     return matrixService.client.subscribeToTimelineUpdates(roomId: roomId);
   }
 
+  /// Canonical message list for the room from Rust (full list on every change).
+  Stream<List<Message>> subscribeToTimelineList(String roomId) {
+    return matrixService.client.subscribeToTimelineList(roomId: roomId);
+  }
+
   Future<ConversationInfo> loadRoomInfo() async {
     return ConversationInfo(
       id: '1',
@@ -71,7 +76,7 @@ class ConversationService {
 
   Future<Result<List<Message>>> fetchOlderMessages({
     required String roomId,
-    int count = 20,
+    int count = 50,
   }) async {
     try {
       final previousMessages = await matrixService.client.getOlderMessages(

@@ -15,9 +15,8 @@ flutter_rust_bridge = "=2.11.1"
 matrix-sdk = { path = "matrix-rust-sdk/crates/matrix-sdk" }
 # Shared reqwest client: set by rhttp when register_client is called, used by Matrix when rhttp-client feature is on.
 shared_http = { path = "shared_http" }
-matrix-sdk-sqlite = { path = "matrix-rust-sdk/crates/matrix-sdk-sqlite", features = [
-  "bundled",
-] }
+# SQLCipher everywhere. Vendored OpenSSL for Android/iOS/Windows; system OpenSSL for macOS/Linux.
+matrix-sdk-sqlite = { path = "matrix-rust-sdk/crates/matrix-sdk-sqlite", features = ["bundled-sqlcipher-vendored-openssl"] }
 matrix-sdk-ui = { path = "matrix-rust-sdk/crates/matrix-sdk-ui" }
 matrix-sdk-common = { path = "matrix-rust-sdk/crates/matrix-sdk-common" }
 tracing = { version = "0.1.40", default-features = false, features = ["std"] }
@@ -54,14 +53,23 @@ extension-trait = "1.0.2"
 syn = "2.0.104"
 quote = "1.0.40"
 proc-macro2 = "1.0.95"
-openssl = { version = "*", features = ["vendored"] }
+# Vendored OpenSSL: embedded with the app so it works on Windows without installing OpenSSL,
+# and on all platforms without relying on system OpenSSL version or presence.
+openssl = { version = "*", default-features = false, features = ["vendored"] }
 
 
 # rhttp
 async-trait = "0.1"
 futures-util = "0.3.31"
 chrono = "0.4.42"
-tokio = { version = "1.48.0", features = ["full"] }
+# Minimal features for faster builds (was "full" - 300–500s). Enable only what we use: runtime, sync, macros, fs, time.
+tokio = { version = "1.48.0", default-features = false, features = [
+  "rt-multi-thread",
+  "sync",
+  "macros",
+  "fs",
+  "time",
+] }
 tokio-util = "0.7.17"
 
 [dependencies.reqwest]
@@ -82,10 +90,18 @@ features = [
   "gzip",
 ]
 
+# macOS & Linux: SQLCipher with system OpenSSL (smaller binary, faster build).
+[target.'cfg(target_os = "macos")'.dependencies]
+matrix-sdk-sqlite = { path = "matrix-rust-sdk/crates/matrix-sdk-sqlite", features = ["bundled-sqlcipher"] }
 
-# Android-specific configuration
+[target.'cfg(target_os = "linux")'.dependencies]
+matrix-sdk-sqlite = { path = "matrix-rust-sdk/crates/matrix-sdk-sqlite", features = ["bundled-sqlcipher"] }
+
+# Android: SQLCipher + vendored OpenSSL (from default); android_logger; rustls platform verifier init.
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.15.1"
+rustls-platform-verifier = { version = "0.6", default-features = false }
+jni = { version = "0.21", default-features = false }
 
 [features]
 default = []
@@ -107,8 +123,11 @@ lto = true
 codegen-units = 1
 
 [profile.dev]
-opt-level = 3
+# Fast compile (was opt-level = 3). Use --release for production; use dev for quick iteration.
+opt-level = 0
+debug = true
 panic = "abort"
+incremental = true
 
 
 [patch.crates-io]

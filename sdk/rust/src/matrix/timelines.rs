@@ -8,13 +8,16 @@ use matrix_sdk_ui::Timeline as SdkTimeline;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::Mutex as StdMutex;
+use tokio::sync::Mutex as AsyncMutex;
 use tokio::sync::OnceCell;
 use tokio::task::JoinHandle;
+use tokio_util::sync::CancellationToken;
 
 use crate::frb_generated::StreamSink;
+use crate::matrix::rooms;
 use crate::matrix::status::StatusHandle;
-use tracing::{error, info};
+use tracing::{debug, error};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MessageType {
@@ -66,12 +69,12 @@ pub struct MessageUpdate {
 #[frb(ignore)]
 pub struct Timeline {
     pub timeline: Arc<SdkTimeline>,
-    pub items: Arc<Mutex<Vector<Arc<matrix_sdk_ui::timeline::TimelineItem>>>>,
+    pub items: Arc<StdMutex<Vector<Arc<matrix_sdk_ui::timeline::TimelineItem>>>>,
     pub task: JoinHandle<()>,
 }
 
 #[frb(ignore)]
-pub type Timelines = Arc<Mutex<HashMap<OwnedRoomId, Timeline>>>;
+pub type Timelines = Arc<StdMutex<HashMap<OwnedRoomId, Timeline>>>;
 
 #[frb(ignore)]
 pub enum TimelineKind {
@@ -86,7 +89,7 @@ pub enum TimelineKind {
         timeline: Arc<OnceCell<Arc<Timeline>>>,
         /// Items in the thread timeline (to avoid recomputing them every single
         /// time).
-        items: Arc<Mutex<Vector<Arc<matrix_sdk_ui::timeline::TimelineItem>>>>,
+        items: Arc<StdMutex<Vector<Arc<matrix_sdk_ui::timeline::TimelineItem>>>>,
         /// Task listening to updates from the threaded timeline, to maintain
         /// the `items` field over time.
         task: JoinHandle<()>,
@@ -103,7 +106,7 @@ pub struct RoomView {
 
     status_handle: StatusHandle,
 
-    current_pagination: Arc<Mutex<Option<JoinHandle<()>>>>,
+    current_pagination: Arc<StdMutex<Option<JoinHandle<()>>>>,
 
     kind: TimelineKind,
 }
@@ -122,7 +125,7 @@ impl Clone for TimelineKind {
                     room: room.clone(),
                     thread_root: thread_root.clone(),
                     timeline: Arc::new(OnceCell::new()),
-                    items: Arc::new(Mutex::new(Vector::new())),
+                    items: Arc::new(StdMutex::new(Vector::new())),
                     task: tokio::spawn(async {}), // Empty task as placeholder
                 }
             }
@@ -192,6 +195,185 @@ pub fn get_message_from_timeline_item(item: &TimelineItem) -> Message {
                     message_type: MessageType::TimelineStart,
                 },
             }
+        }
+    }
+}
+
+/// Runs the timeline diff stream for the room; applies each diff to the room's cache and pushes full list.
+/// When timeline list updates, also updates the room list with the last message so the listing shows it.
+/// Stops when [cancel] is triggered (e.g. when the client re-subscribes for this room).
+/// Caller must ensure cache_map and sinks_map contain an entry for room_id before spawning.
+pub(crate) async fn subscribe_to_timeline_list_loop(
+    client: Client,
+    room_id: String,
+    cache_map: Arc<AsyncMutex<HashMap<String, Vec<Message>>>>,
+    sinks_map: Arc<AsyncMutex<HashMap<String, Arc<StreamSink<Vec<Message>>>>>>,
+    room_list_cache: Arc<AsyncMutex<Vec<rooms::RoomUpdate>>>,
+    room_list_sink: Arc<AsyncMutex<Option<Arc<StreamSink<Vec<rooms::RoomUpdate>>>>>>,
+    cancel: CancellationToken,
+) {
+    let room_id_parsed: OwnedRoomId = match room_id.parse() {
+        Ok(id) => id,
+        Err(_) => {
+            error!("Failed to parse room ID for timeline list");
+            return;
+        }
+    };
+
+    let room = match client.get_room(room_id_parsed.as_ref()) {
+        Some(room) => room,
+        None => {
+            error!("Room not found for timeline list");
+            return;
+        }
+    };
+
+    let timeline = match room
+        .timeline_builder()
+        .with_focus(TimelineFocus::Live {
+            hide_threaded_events: true,
+        })
+        .build()
+        .await
+    {
+        Ok(t) => t,
+        Err(e) => {
+            error!("Failed to build timeline: {}", e);
+            return;
+        }
+    };
+
+    // Load up to 50 messages initially so the list fills the screen and is scrollable;
+    // if the room has fewer, we get all of them.
+    const INITIAL_TIMELINE_PAGE_SIZE: u16 = 50;
+    if let Err(e) = timeline.paginate_backwards(INITIAL_TIMELINE_PAGE_SIZE).await {
+        debug!("Initial timeline paginate_backwards failed (non-fatal): {}", e);
+    }
+
+    let (_events, mut diff_stream) = timeline.subscribe().await;
+
+    loop {
+        tokio::select! {
+            _ = cancel.cancelled() => {
+                debug!("Timeline list loop cancelled for room {}", room_id);
+                break;
+            }
+            next = diff_stream.next() => match next {
+            Some(diffs) => {
+                for diff in diffs {
+                    let list = {
+                        let mut cache_guard = cache_map.lock().await;
+                        let vec = cache_guard.entry(room_id.clone()).or_insert_with(Vec::new);
+                        apply_vector_diff_to_messages(vec, diff);
+                        vec.clone()
+                    };
+                    let sinks_guard = sinks_map.lock().await;
+                    if let Some(sink) = sinks_guard.get(&room_id) {
+                        let _ = sink.add(list.clone());
+                    }
+                    drop(sinks_guard);
+                    // Refresh room list with last message from timeline so listing shows it
+                    if let Some(last_msg) = list.last().cloned() {
+                        let mut update = rooms::get_room_update_data(&room).await;
+                        update.message = Some(last_msg);
+                        let mut cache = room_list_cache.lock().await;
+                        rooms::merge_room_update_into_list(&mut cache, update);
+                        rooms::sort_room_list_by_activity(&mut cache);
+                        let list_to_push = cache.clone();
+                        drop(cache);
+                        let sink_guard = room_list_sink.lock().await;
+                        if let Some(ref s) = *sink_guard {
+                            let _ = s.add(list_to_push);
+                        }
+                    }
+                }
+            }
+            None => {
+                debug!("Timeline list stream ended for room {}", room_id);
+                break;
+            }
+            }
+        }
+    }
+}
+
+/// Push message only if no message with the same event_id is already in the list.
+/// Avoids duplicates when send_message has already appended and the timeline diff also emits it.
+fn push_if_not_duplicate(vec: &mut Vec<Message>, msg: Message) {
+    let has = !msg.event_id.is_empty() && vec.iter().any(|m| m.event_id == msg.event_id);
+    if !has {
+        vec.push(msg);
+    }
+}
+
+/// Insert at front only if not duplicate by event_id.
+fn push_front_if_not_duplicate(vec: &mut Vec<Message>, msg: Message) {
+    let has = !msg.event_id.is_empty() && vec.iter().any(|m| m.event_id == msg.event_id);
+    if !has {
+        vec.insert(0, msg);
+    }
+}
+
+/// Insert at index only if not duplicate by event_id.
+fn insert_if_not_duplicate(vec: &mut Vec<Message>, index: usize, msg: Message) {
+    let has = !msg.event_id.is_empty() && vec.iter().any(|m| m.event_id == msg.event_id);
+    if !has && index <= vec.len() {
+        vec.insert(index, msg);
+    }
+}
+
+fn apply_vector_diff_to_messages(
+    vec: &mut Vec<Message>,
+    diff: matrix_sdk_ui::eyeball_im::VectorDiff<Arc<matrix_sdk_ui::timeline::TimelineItem>>,
+) {
+    use matrix_sdk_ui::eyeball_im::VectorDiff;
+    match diff {
+        VectorDiff::Reset { values } => {
+            *vec = values
+                .iter()
+                .map(|v| get_message_from_timeline_item(v.as_ref()))
+                .collect();
+        }
+        VectorDiff::Append { values } => {
+            for value in values {
+                push_if_not_duplicate(vec, get_message_from_timeline_item(value.as_ref()));
+            }
+        }
+        VectorDiff::Clear => vec.clear(),
+        VectorDiff::PushFront { value } => {
+            push_front_if_not_duplicate(
+                vec,
+                get_message_from_timeline_item(value.as_ref()),
+            );
+        }
+        VectorDiff::PushBack { value } => {
+            push_if_not_duplicate(vec, get_message_from_timeline_item(value.as_ref()));
+        }
+        VectorDiff::PopFront => {
+            if !vec.is_empty() {
+                vec.remove(0);
+            }
+        }
+        VectorDiff::PopBack => {
+            vec.pop();
+        }
+        VectorDiff::Insert { index, value } => {
+            let msg = get_message_from_timeline_item(value.as_ref());
+            insert_if_not_duplicate(vec, index, msg);
+        }
+        VectorDiff::Set { index, value } => {
+            let msg = get_message_from_timeline_item(value.as_ref());
+            if index < vec.len() {
+                vec[index] = msg;
+            }
+        }
+        VectorDiff::Remove { index } => {
+            if index < vec.len() {
+                vec.remove(index);
+            }
+        }
+        VectorDiff::Truncate { length } => {
+            vec.truncate(length);
         }
     }
 }
@@ -294,7 +476,7 @@ pub async fn subscribe_to_timeline_updates(
                 match diffs {
                     Some(diffs) => {
                         for diff in diffs {
-                            info!("Received timeline diff: {:?}", diff);
+                            debug!("Timeline diff: {:?}", diff);
                             match diff {
                                 matrix_sdk_ui::eyeball_im::VectorDiff::Append { values } => {
                                     let mut messages = Vec::new();
@@ -412,7 +594,7 @@ pub async fn subscribe_to_timeline_updates(
                         }
                     }
                     None => {
-                        info!("Timeline stream ended, exiting subscription loop");
+                        debug!("Timeline stream ended, exiting subscription loop");
                         break;
                     }
                 }
@@ -427,12 +609,12 @@ pub async fn subscribe_to_timeline_updates(
                     index: MESSAGE_UPDATE_NONE_INDEX,
                     length: MESSAGE_UPDATE_NONE_INDEX,
                 });
-                info!("Sent heartbeat to keep connection alive");
+                debug!("Timeline heartbeat sent");
             }
         }
     }
 
-    info!("Timeline subscription ended");
+    debug!("Timeline subscription ended for room {}", room_id);
 }
 
 /// Older messages for the given app (used by [crate::api::matrix_client::MatrixClient]).
@@ -450,22 +632,22 @@ pub async fn get_older_messages(
     };
 
     let room_id_ref = owned_room_id.as_ref();
-    let room = client.get_room(room_id_ref).unwrap();
-    let timeline = room.timeline().await.unwrap();
+    let room = client
+        .get_room(room_id_ref)
+        .ok_or_else(|| "Room not found".to_string())?;
+    let timeline = room
+        .timeline()
+        .await
+        .map_err(|e| format!("Failed to get timeline: {}", e))?;
 
-    let result = timeline.paginate_backwards(count).await;
-    match result {
-        Ok(_) => {
-            // Build messages from current timeline items without block_on (we're already on the runtime).
-            let items = timeline.items().await;
-            Ok(items
-                .iter()
-                .map(|item| get_message_from_timeline_item(item.as_ref()))
-                .collect())
-        }
-        Err(_) => {
-            error!("Failed to paginate backwards");
-            Err("Failed to paginate backwards".to_string())
-        }
-    }
+    timeline
+        .paginate_backwards(count)
+        .await
+        .map_err(|e| format!("Failed to paginate backwards: {}", e))?;
+
+    let items = timeline.items().await;
+    Ok(items
+        .iter()
+        .map(|item| get_message_from_timeline_item(item.as_ref()))
+        .collect())
 }

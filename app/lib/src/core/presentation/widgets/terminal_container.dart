@@ -25,33 +25,26 @@ class TerminalContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final border = borderColor ?? theme.colorScheme.primary;
     return Container(
       width: width,
       height: height,
       margin: margin,
       padding: padding ?? const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        border:
-            showBorder
-                ? Border.all(
-                  color: borderColor ?? MatrixTheme.matrixGreen,
-                  width: 1,
-                )
-                : null,
+        border: showBorder ? Border.all(color: border, width: 1) : null,
         borderRadius: BorderRadius.circular(4),
-        color: MatrixTheme.terminalBackground,
-        boxShadow:
-            showGlow
-                ? [
-                  BoxShadow(
-                    color: (borderColor ?? MatrixTheme.matrixGreen).withValues(
-                      alpha: 0.3,
-                    ),
-                    blurRadius: 10,
-                    spreadRadius: 1,
-                  ),
-                ]
-                : null,
+        color: theme.colorScheme.surfaceContainerHighest,
+        boxShadow: showGlow
+            ? [
+                BoxShadow(
+                  color: border.withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  spreadRadius: 1,
+                ),
+              ]
+            : null,
       ),
       child: child,
     );
@@ -74,16 +67,16 @@ class TerminalScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar:
-          showAppBar
-              ? AppBar(
-                title: Text(title ?? '', style: MatrixTheme.titleStyle),
-                actions: actions,
-                elevation: 0,
-              )
-              : null,
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: showAppBar
+          ? AppBar(
+              title: Text(title ?? '', style: theme.textTheme.titleLarge),
+              actions: actions,
+              elevation: 0,
+            )
+          : null,
       body: Container(
         height: MediaQuery.of(context).size.height,
         decoration: BoxDecoration(gradient: MatrixTheme.backgroundGradient),
@@ -111,54 +104,48 @@ class TerminalButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return SizedBox(
       height: 48,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor:
-              isPrimary ? MatrixTheme.matrixGreen : MatrixTheme.terminalBlack,
-          foregroundColor:
-              isPrimary ? MatrixTheme.terminalBlack : MatrixTheme.matrixGreen,
+          backgroundColor: isPrimary ? scheme.primary : scheme.surface,
+          foregroundColor: isPrimary ? scheme.onPrimary : scheme.primary,
           side: BorderSide(
-            color: MatrixTheme.matrixGreen,
+            color: scheme.primary,
             width: isPrimary ? 0 : 2,
           ),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           elevation: 0,
         ),
-        child:
-            isLoading
-                ? SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      isPrimary
-                          ? MatrixTheme.terminalBlack
-                          : MatrixTheme.matrixGreen,
-                    ),
-                    strokeWidth: 2,
+        child: isLoading
+            ? SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    isPrimary ? scheme.onPrimary : scheme.primary,
                   ),
-                )
-                : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (icon != null) ...[
-                      Icon(icon, size: 18),
-                      const SizedBox(width: 8),
-                    ],
-                    Text(
-                      text,
-                      style: MatrixTheme.buttonStyle.copyWith(
-                        color:
-                            isPrimary
-                                ? MatrixTheme.terminalBlack
-                                : MatrixTheme.matrixGreen,
-                      ),
-                    ),
-                  ],
+                  strokeWidth: 2,
                 ),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon, size: 18),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(
+                    text,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: isPrimary ? scheme.onPrimary : scheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -190,19 +177,23 @@ class TerminalTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: MatrixTheme.labelStyle),
+        Text(label, style: Theme.of(context).textTheme.labelLarge),
         const SizedBox(height: 8),
         TextFormField(
           enabled: enabled,
           controller: controller,
           obscureText: isPassword,
-          style: MatrixTheme.inputStyle,
-          decoration: MatrixTheme.inputDecoration(
+          style: Theme.of(context).textTheme.bodyLarge,
+          decoration: MatrixTheme.getInputDecoration(
             hintText: hint,
             prefixIcon: icon,
+            suffixIcon: suffixIcon,
+            onSuffixPressed: onSuffixPressed,
+            isDarkMode: isDark,
           ),
           validator: validator,
         ),
@@ -227,8 +218,9 @@ class TerminalStatusMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color color = MatrixTheme.matrixGreen;
-    if (isError) color = MatrixTheme.errorRed;
+    final scheme = Theme.of(context).colorScheme;
+    Color color = scheme.primary;
+    if (isError) color = scheme.error;
     if (isWarning) color = MatrixTheme.warningOrange;
     if (isSuccess) color = MatrixTheme.successGreen;
 
@@ -237,7 +229,7 @@ class TerminalStatusMessage extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border.all(color: color, width: 1),
         borderRadius: BorderRadius.circular(4),
-        color: MatrixTheme.terminalBlack.withValues(alpha: 0.8),
+        color: scheme.surface.withValues(alpha: 0.8),
       ),
       child: Row(
         children: [
@@ -245,10 +237,10 @@ class TerminalStatusMessage extends StatelessWidget {
             isError
                 ? Icons.error_outline
                 : isWarning
-                ? Icons.warning_outlined
-                : isSuccess
-                ? Icons.check_circle_outline
-                : Icons.info_outline,
+                    ? Icons.warning_outlined
+                    : isSuccess
+                        ? Icons.check_circle_outline
+                        : Icons.info_outline,
             color: color,
             size: 16,
           ),
@@ -256,7 +248,7 @@ class TerminalStatusMessage extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: MatrixTheme.statusStyle.copyWith(color: color),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: color),
             ),
           ),
         ],

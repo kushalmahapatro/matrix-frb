@@ -10,7 +10,6 @@ import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
 import 'package:matrix/src/features/splash/presentation/screen/splash_screen_wm.dart';
 import 'package:matrix/src/features/splash/presentation/widgets/matrix_rain_drawing_screen.dart';
 import 'package:matrix/src/features/splash/routes/splash_routes.dart';
-import 'package:matrix/src/theme/matrix_theme.dart';
 
 SplashScreenWM splashScreenWMFactory(BuildContext context) {
   return SplashScreenWM(SplashScreenModel(MatrixService(), FilePathService()));
@@ -22,15 +21,20 @@ class SplashScreen extends ElementaryWidget<SplashScreenWM>
 
   @override
   Widget build(SplashScreenWM wm) {
-    return SceneBuilderWidget(
-      builder: () => SceneController(
-        back: MatrixRainDrawingScene(
-          matrixCharacters,
-          backgroundColor: MatrixTheme.colors.onSurface,
-          textColor: MatrixTheme.colors.surface,
-        ),
-      ),
-      autoSize: true,
+    return Builder(
+      builder: (context) {
+        final theme = Theme.of(context);
+        return SceneBuilderWidget(
+          builder: () => SceneController(
+            back: MatrixRainDrawingScene(
+              matrixCharacters,
+              backgroundColor: theme.colorScheme.surface,
+              textColor: theme.colorScheme.surface,
+            ),
+          ),
+          autoSize: true,
+        );
+      },
     );
   }
 

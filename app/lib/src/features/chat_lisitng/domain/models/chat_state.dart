@@ -25,23 +25,28 @@ abstract class Chat with _$Chat {
     String? avatarUrl,
   }) = _Chat;
 
+  static const _weekdays = [
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+  ];
+
   String get formatTime {
-    if (lastActivity == null) {
-      return '';
-    }
+    if (lastActivity == null) return '';
 
+    final t = lastActivity!;
     final now = DateTime.now();
-    final difference = now.difference(lastActivity!);
+    final today = DateTime(now.year, now.month, now.day);
+    final activityDay = DateTime(t.year, t.month, t.day);
+    final daysDiff = today.difference(activityDay).inDays;
 
-    if (difference.inDays > 0) {
-      return '${difference.inDays}d';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m';
-    } else {
-      return 'now';
+    if (daysDiff == 0) {
+      final hour12 = t.hour == 0 ? 12 : (t.hour > 12 ? t.hour - 12 : t.hour);
+      final ampm = t.hour < 12 ? 'AM' : 'PM';
+      return '$hour12:${t.minute.toString().padLeft(2, '0')} $ampm';
     }
+    if (daysDiff > 0 && daysDiff < 7) {
+      return _weekdays[t.weekday - 1];
+    }
+    return '${t.day}/${t.month}/${t.year}';
   }
 }
 

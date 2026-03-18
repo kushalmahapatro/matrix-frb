@@ -32,6 +32,11 @@ abstract class MatrixClient implements RustOpaqueInterface {
   /// Fetch all rooms the user is in. Uses the app stored in this client (from [MatrixClient::start_sync_service]).
   Future<List<RoomUpdate>> getAllRooms();
 
+  /// Get the current user's display name (profile).
+  Future<String?> getDisplayName();
+
+  /// Load older messages (paginate backwards). Updates the timeline list cache and pushes to
+  /// subscribers so the UI receives the full list including newly loaded messages.
   Future<List<Message>> getOlderMessages({
     required String roomId,
     required int count,
@@ -53,7 +58,12 @@ abstract class MatrixClient implements RustOpaqueInterface {
   Future<bool> logout();
 
   /// Register a new account.
-  Future<bool> register({required String username, required String password});
+  Future<bool> register({
+    required String username,
+    required String password,
+    required String displayName,
+    String? token,
+  });
 
   Future<void> registerPusher({
     required String pushKey,
@@ -70,9 +80,11 @@ abstract class MatrixClient implements RustOpaqueInterface {
 
   Future<UserSearchResult> searchUsers({required String query});
 
-  /// Send a message. Returns the event_id. After success, call [MatrixClient::take_last_sent_room_update]
-  /// to get the room update with the sent message as last (for updating the room list immediately).
+  /// Send a message. Returns the event_id. Room list and timeline list caches are updated immediately.
   Future<String> sendMessage({required String roomId, required String content});
+
+  /// Set the current user's display name (profile).
+  Future<void> setDisplayName({required String displayName});
 
   /// Start the sync service (required for rooms and timeline to work).
   /// Stores the App in this client; rooms/timeline/sync state use it instead of global state.
@@ -81,10 +93,19 @@ abstract class MatrixClient implements RustOpaqueInterface {
   /// Subscribe to sync service state (Idle, Running, Terminated, Error, Offline).
   /// Call after [MatrixClient::start_sync_service]. When state changes, refresh rooms/timeline
   /// or show sync status; mirrors matrix-sdk-ffi SyncServiceStateObserver.
+  /// No-ops if sync was not started (no panic).
   Stream<SyncState> subscribeSyncState();
 
   /// Subscribe to room list updates (joined / invited / left). Uses the app stored in this client.
   Stream<RoomUpdate> subscribeToAllRoomUpdates();
+
+  /// Subscribe to the canonical room list. Emits the full list whenever it changes (sync or send_message).
+  /// Call after [MatrixClient::start_sync_service]. Initial snapshot is sent immediately.
+  Stream<List<RoomUpdate>> subscribeToRoomList();
+
+  /// Subscribe to the canonical message list for a room. Emits the full list whenever it changes (timeline updates or send_message).
+  /// Sends initial list immediately, then runs the timeline diff loop. Call after [MatrixClient::start_sync_service].
+  Stream<List<Message>> subscribeToTimelineList({required String roomId});
 
   Stream<MessageUpdate> subscribeToTimelineUpdates({required String roomId});
 

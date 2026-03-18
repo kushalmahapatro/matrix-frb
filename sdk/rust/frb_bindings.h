@@ -416,6 +416,9 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_create_grou
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_all_rooms(int64_t port_,
                                                                                    uintptr_t that);
 
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_display_name(int64_t port_,
+                                                                                      uintptr_t that);
+
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_older_messages(int64_t port_,
                                                                                         uintptr_t that,
                                                                                         struct wire_cst_list_prim_u_8_strict *room_id,
@@ -447,7 +450,9 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_logout(int6
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_register(int64_t port_,
                                                                               uintptr_t that,
                                                                               struct wire_cst_list_prim_u_8_strict *username,
-                                                                              struct wire_cst_list_prim_u_8_strict *password);
+                                                                              struct wire_cst_list_prim_u_8_strict *password,
+                                                                              struct wire_cst_list_prim_u_8_strict *display_name,
+                                                                              struct wire_cst_list_prim_u_8_strict *token);
 
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_register_pusher(int64_t port_,
                                                                                      uintptr_t that,
@@ -471,6 +476,10 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_messag
                                                                                   struct wire_cst_list_prim_u_8_strict *room_id,
                                                                                   struct wire_cst_list_prim_u_8_strict *content);
 
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_display_name(int64_t port_,
+                                                                                      uintptr_t that,
+                                                                                      struct wire_cst_list_prim_u_8_strict *display_name);
+
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_start_sync_service(int64_t port_,
                                                                                         uintptr_t that);
 
@@ -481,6 +490,15 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_s
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_all_room_updates(int64_t port_,
                                                                                                    uintptr_t that,
                                                                                                    struct wire_cst_list_prim_u_8_strict *stream);
+
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_list(int64_t port_,
+                                                                                            uintptr_t that,
+                                                                                            struct wire_cst_list_prim_u_8_strict *stream);
+
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_list(int64_t port_,
+                                                                                                uintptr_t that,
+                                                                                                struct wire_cst_list_prim_u_8_strict *room_id,
+                                                                                                struct wire_cst_list_prim_u_8_strict *stream);
 
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_updates(int64_t port_,
                                                                                                    uintptr_t that,
@@ -673,6 +691,14 @@ struct wire_cst_list_room_update *frbgen_matrix_sdk_cst_new_list_room_update(int
 struct wire_cst_list_trace_log_packs *frbgen_matrix_sdk_cst_new_list_trace_log_packs(int32_t len);
 
 struct wire_cst_list_user *frbgen_matrix_sdk_cst_new_list_user(int32_t len);
+
+/**
+ * JNI entry point: initializes rustls-platform-verifier with the Android context.
+ * Called from Kotlin `RustlsInit.initVerifier(context)` so TLS uses the system trust store.
+ *
+ * Symbol name must match exactly: Java_<package>_<Class>_<method>
+ */
+void Java_dev_inve_matrixchat_RustlsInit_initVerifier(JNIEnv *env, jclass _class, jobject context);
 static int64_t dummy_method_to_enforce_bundling(void) {
     int64_t dummy_var = 0;
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDart2RustStreamReceiver);
@@ -734,6 +760,7 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_create_direct_room);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_create_group_room);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_all_rooms);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_display_name);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_older_messages);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_timeline_items_by_room_id);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_is_client_authenticated);
@@ -746,9 +773,12 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_restart_sync_service);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_search_users);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_message);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_display_name);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_start_sync_service);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_sync_state);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_all_room_updates);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_list);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_list);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_updates);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_take_last_sent_room_update);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_unregister_pusher);

@@ -226,7 +226,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RustStreamSink<String> dco_decode_StreamSink_String_Dco(dynamic raw);
 
   @protected
+  RustStreamSink<List<Message>> dco_decode_StreamSink_list_message_Dco(
+    dynamic raw,
+  );
+
+  @protected
   RustStreamSink<Uint8List> dco_decode_StreamSink_list_prim_u_8_strict_Dco(
+    dynamic raw,
+  );
+
+  @protected
+  RustStreamSink<List<RoomUpdate>> dco_decode_StreamSink_list_room_update_Dco(
     dynamic raw,
   );
 
@@ -776,7 +786,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<List<Message>> sse_decode_StreamSink_list_message_Dco(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RustStreamSink<Uint8List> sse_decode_StreamSink_list_prim_u_8_strict_Dco(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RustStreamSink<List<RoomUpdate>> sse_decode_StreamSink_list_room_update_Dco(
     SseDeserializer deserializer,
   );
 
@@ -1300,6 +1320,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ffi.Pointer<wire_cst_list_prim_u_8_strict>
+  cst_encode_StreamSink_list_message_Dco(RustStreamSink<List<Message>> raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_String(
+      raw.setupAndSerialize(
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_message,
+          decodeErrorData: dco_decode_AnyhowException,
+        ),
+      ),
+    );
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_list_prim_u_8_strict>
   cst_encode_StreamSink_list_prim_u_8_strict_Dco(
     RustStreamSink<Uint8List> raw,
   ) {
@@ -1308,6 +1342,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       raw.setupAndSerialize(
         codec: DcoCodec(
           decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_AnyhowException,
+        ),
+      ),
+    );
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_list_prim_u_8_strict>
+  cst_encode_StreamSink_list_room_update_Dco(
+    RustStreamSink<List<RoomUpdate>> raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_String(
+      raw.setupAndSerialize(
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_room_update,
           decodeErrorData: dco_decode_AnyhowException,
         ),
       ),
@@ -3048,8 +3098,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_StreamSink_list_message_Dco(
+    RustStreamSink<List<Message>> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_StreamSink_list_prim_u_8_strict_Dco(
     RustStreamSink<Uint8List> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_list_room_update_Dco(
+    RustStreamSink<List<RoomUpdate>> self,
     SseSerializer serializer,
   );
 
@@ -3856,6 +3918,24 @@ class RustLibWire implements BaseWire {
       _wire__crate__api__matrix_client__MatrixClient_get_all_roomsPtr
           .asFunction<void Function(int, int)>();
 
+  void wire__crate__api__matrix_client__MatrixClient_get_display_name(
+    int port_,
+    int that,
+  ) {
+    return _wire__crate__api__matrix_client__MatrixClient_get_display_name(
+      port_,
+      that,
+    );
+  }
+
+  late final _wire__crate__api__matrix_client__MatrixClient_get_display_namePtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64, ffi.UintPtr)>>(
+        'frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_display_name',
+      );
+  late final _wire__crate__api__matrix_client__MatrixClient_get_display_name =
+      _wire__crate__api__matrix_client__MatrixClient_get_display_namePtr
+          .asFunction<void Function(int, int)>();
+
   void wire__crate__api__matrix_client__MatrixClient_get_older_messages(
     int port_,
     int that,
@@ -4061,12 +4141,16 @@ class RustLibWire implements BaseWire {
     int that,
     ffi.Pointer<wire_cst_list_prim_u_8_strict> username,
     ffi.Pointer<wire_cst_list_prim_u_8_strict> password,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> display_name,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> token,
   ) {
     return _wire__crate__api__matrix_client__MatrixClient_register(
       port_,
       that,
       username,
       password,
+      display_name,
+      token,
     );
   }
 
@@ -4076,6 +4160,8 @@ class RustLibWire implements BaseWire {
           ffi.Void Function(
             ffi.Int64,
             ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
             ffi.Pointer<wire_cst_list_prim_u_8_strict>,
             ffi.Pointer<wire_cst_list_prim_u_8_strict>,
           )
@@ -4089,6 +4175,8 @@ class RustLibWire implements BaseWire {
             void Function(
               int,
               int,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
               ffi.Pointer<wire_cst_list_prim_u_8_strict>,
               ffi.Pointer<wire_cst_list_prim_u_8_strict>,
             )
@@ -4238,6 +4326,36 @@ class RustLibWire implements BaseWire {
             )
           >();
 
+  void wire__crate__api__matrix_client__MatrixClient_set_display_name(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> display_name,
+  ) {
+    return _wire__crate__api__matrix_client__MatrixClient_set_display_name(
+      port_,
+      that,
+      display_name,
+    );
+  }
+
+  late final _wire__crate__api__matrix_client__MatrixClient_set_display_namePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+          )
+        >
+      >(
+        'frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_display_name',
+      );
+  late final _wire__crate__api__matrix_client__MatrixClient_set_display_name =
+      _wire__crate__api__matrix_client__MatrixClient_set_display_namePtr
+          .asFunction<
+            void Function(int, int, ffi.Pointer<wire_cst_list_prim_u_8_strict>)
+          >();
+
   void wire__crate__api__matrix_client__MatrixClient_start_sync_service(
     int port_,
     int that,
@@ -4315,6 +4433,74 @@ class RustLibWire implements BaseWire {
       _wire__crate__api__matrix_client__MatrixClient_subscribe_to_all_room_updatesPtr
           .asFunction<
             void Function(int, int, ffi.Pointer<wire_cst_list_prim_u_8_strict>)
+          >();
+
+  void wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_list(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> stream,
+  ) {
+    return _wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_list(
+      port_,
+      that,
+      stream,
+    );
+  }
+
+  late final _wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_listPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+          )
+        >
+      >(
+        'frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_list',
+      );
+  late final _wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_list =
+      _wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_listPtr
+          .asFunction<
+            void Function(int, int, ffi.Pointer<wire_cst_list_prim_u_8_strict>)
+          >();
+
+  void wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_list(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> room_id,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> stream,
+  ) {
+    return _wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_list(
+      port_,
+      that,
+      room_id,
+      stream,
+    );
+  }
+
+  late final _wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_listPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+          )
+        >
+      >(
+        'frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_list',
+      );
+  late final _wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_list =
+      _wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_listPtr
+          .asFunction<
+            void Function(
+              int,
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            )
           >();
 
   void
@@ -5689,6 +5875,29 @@ class RustLibWire implements BaseWire {
       >('frbgen_matrix_sdk_cst_new_list_user');
   late final _cst_new_list_user = _cst_new_list_userPtr
       .asFunction<ffi.Pointer<wire_cst_list_user> Function(int)>();
+
+  void Java_dev_inve_matrixchat_RustlsInit_initVerifier(
+    ffi.Pointer<ffi.Int> env,
+    int _class,
+    int context,
+  ) {
+    return _Java_dev_inve_matrixchat_RustlsInit_initVerifier(
+      env,
+      _class,
+      context,
+    );
+  }
+
+  late final _Java_dev_inve_matrixchat_RustlsInit_initVerifierPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<ffi.Int>, ffi.Int, ffi.Int)
+        >
+      >('Java_dev_inve_matrixchat_RustlsInit_initVerifier');
+  late final _Java_dev_inve_matrixchat_RustlsInit_initVerifier =
+      _Java_dev_inve_matrixchat_RustlsInit_initVerifierPtr.asFunction<
+        void Function(ffi.Pointer<ffi.Int>, int, int)
+      >();
 
   int dummy_method_to_enforce_bundling() {
     return _dummy_method_to_enforce_bundling();

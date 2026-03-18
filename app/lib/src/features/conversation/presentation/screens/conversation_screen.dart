@@ -11,7 +11,6 @@ import 'package:matrix/src/features/conversation/presentation/widgets/pagianted_
 import 'package:matrix/src/features/conversation/routes/conversation_routes.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
 import 'package:matrix_sdk/matrix_sdk.dart';
-import 'package:matrix/src/theme/matrix_theme.dart';
 
 ConversationScreenWM conversationScreenWMFactory(BuildContext context) {
   return ConversationScreenWM(
@@ -52,26 +51,27 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
             child: ValueListenableBuilder<ConversationState>(
               valueListenable: wm.roomState,
               builder: (context, state, child) {
+                final theme = Theme.of(context);
                 return state.when(
-                  waitingForInvite: () => const Center(
+                  waitingForInvite: () => Center(
                     child: Text(
                       'WAITING FOR INVITE TO BE ACCEPTED...',
-                      style: MatrixTheme.statusStyle,
+                      style: theme.textTheme.bodyLarge,
                     ),
                   ),
-                  loading: () => const Center(
+                  loading: () => Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         CircularProgressIndicator(
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            MatrixTheme.matrixGreen,
+                            theme.colorScheme.primary,
                           ),
                         ),
-                        SizedBox(height: 16),
+                        const SizedBox(height: 16),
                         Text(
                           'LOADING MESSAGES...',
-                          style: MatrixTheme.statusStyle,
+                          style: theme.textTheme.bodyLarge,
                         ),
                       ],
                     ),
@@ -80,8 +80,10 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                     return PaginatedMessageList(
                       initialMessages: messages,
                       loadOlder: (Message oldest) async {
-                        await wm.fetchOlderMessages(conversationId: roomId);
-                        return [];
+                        return await wm.fetchOlderMessages(
+                          conversationId: roomId,
+                          limit: 50,
+                        );
                       },
                       onVisibleRange:
                           (Message firstVisible, Message lastVisible) {},
@@ -92,22 +94,22 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.error_outline,
-                            color: MatrixTheme.errorRed,
+                            color: theme.colorScheme.error,
                             size: 48,
                           ),
                           const SizedBox(height: 16),
                           Text(
                             'ERROR',
-                            style: MatrixTheme.titleStyle.copyWith(
-                              color: MatrixTheme.errorRed,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: theme.colorScheme.error,
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             message,
-                            style: MatrixTheme.bodyStyle,
+                            style: theme.textTheme.bodyMedium,
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 16),
@@ -142,82 +144,92 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
   }
 
   Widget _buildMessageInput(ConversationScreenWM wm) {
-    return Row(
-      children: [
-        // Terminal prompt
-        const Text('> ', style: MatrixTheme.terminalPromptStyle),
-
-        // Message input field
-        Expanded(
-          child: TextField(
-            controller: wm.messageController,
-            style: MatrixTheme.inputStyle,
-            decoration: const InputDecoration(
-              hintText: 'Type your message...',
-              hintStyle: MatrixTheme.hintStyle,
-              border: InputBorder.none,
-              contentPadding: EdgeInsetsDirectional.only(start: 8),
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(
-                  color: MatrixTheme.matrixGreen,
-                  width: 0.5,
+    return Builder(
+      builder: (context) {
+        final theme = Theme.of(context);
+        return Row(
+          children: [
+            Text('> ', style: theme.textTheme.bodyLarge?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.bold,
+            )),
+            Expanded(
+              child: TextField(
+                controller: wm.messageController,
+                style: theme.textTheme.bodyLarge,
+                decoration: InputDecoration(
+                  hintText: 'Type your message...',
+                  hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsetsDirectional.only(start: 8),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: theme.colorScheme.primary,
+                      width: 0.5,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: theme.colorScheme.primary,
+                      width: 1,
+                    ),
+                  ),
                 ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(
-                  color: MatrixTheme.matrixGreen,
-                  width: 1,
-                ),
+                onSubmitted: (_) => wm.sendMessage(),
+                maxLines: null,
               ),
             ),
-            onSubmitted: (text) => wm.sendMessage(),
-            maxLines: null,
-          ),
-        ),
-
-        // Send button
-        IconButton(
-          icon: const Icon(Icons.send, color: MatrixTheme.matrixGreen),
-          onPressed: wm.sendMessage,
-          tooltip: 'Send Message',
-        ),
-      ],
+            IconButton(
+              icon: Icon(Icons.send, color: theme.colorScheme.primary),
+              onPressed: wm.sendMessage,
+              tooltip: 'Send Message',
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _acceptInviteWidget(ConversationScreenWM wm) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: MatrixTheme.matrixGreen.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          Text(
-            'You have been invited to this room',
-            style: MatrixTheme.messageStyle,
-            textAlign: TextAlign.center,
+    return Builder(
+      builder: (context) {
+        final theme = Theme.of(context);
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(16),
           ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          child: Column(
             children: [
-              TerminalButton(
-                text: 'ACCEPT',
-                onPressed: wm.acceptInvite,
-                icon: Icons.check,
+              Text(
+                'You have been invited to this room',
+                style: theme.textTheme.bodyMedium,
+                textAlign: TextAlign.center,
               ),
-              TerminalButton(
-                text: 'REJECT',
-                onPressed: wm.rejectInvite,
-                icon: Icons.close,
-                isPrimary: false,
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  TerminalButton(
+                    text: 'ACCEPT',
+                    onPressed: wm.acceptInvite,
+                    icon: Icons.check,
+                  ),
+                  TerminalButton(
+                    text: 'REJECT',
+                    onPressed: wm.rejectInvite,
+                    icon: Icons.close,
+                    isPrimary: false,
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -228,20 +240,21 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
 
   @override
   void showRoomInfo(BuildContext context) {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: MatrixTheme.terminalBackground,
-        title: const Text('ROOM INFO', style: MatrixTheme.titleStyle),
-        content: const Column(
+        backgroundColor: theme.colorScheme.surfaceContainerHighest,
+        title: Text('ROOM INFO', style: theme.textTheme.titleLarge),
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Room: General Discussion', style: MatrixTheme.bodyStyle),
-            SizedBox(height: 8),
-            Text('Members: 42', style: MatrixTheme.bodyStyle),
-            SizedBox(height: 8),
-            Text('Topic: Welcome to the Matrix', style: MatrixTheme.bodyStyle),
+            Text('Room: General Discussion', style: theme.textTheme.bodyMedium),
+            const SizedBox(height: 8),
+            Text('Members: 42', style: theme.textTheme.bodyMedium),
+            const SizedBox(height: 8),
+            Text('Topic: Welcome to the Matrix', style: theme.textTheme.bodyMedium),
           ],
         ),
         actions: [

@@ -4,9 +4,10 @@ import 'package:matrix/src/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
 
 class MatrixTheme {
-  static bool _isDarkMode = false;
+  static bool _isDarkMode = true;
+  // ignore: unused_element
   static void updateThemeMode(bool isDarkMode) {
-    _isDarkMode = isDarkMode;
+    // _isDarkMode = isDarkMode;
   }
 
   // Font family
@@ -265,29 +266,54 @@ class MatrixTheme {
 
   static get colors => getTheme(_isDarkMode).colorScheme;
 
-  // App theme
+  // App theme - all colors from theme for dark/light adaptation
   static ThemeData getTheme(bool isDarkMode) {
+    final bg = getBackgroundColor(isDarkMode);
+    final text = getTextColor(isDarkMode);
+    final container = getContainerColor(isDarkMode);
+    final colorScheme = isDarkMode
+        ? ColorScheme.dark(
+            primary: matrixGreen,
+            onPrimary: terminalBlack,
+            surface: terminalBlack,
+            onSurface: matrixGreen,
+            surfaceContainerHighest: terminalBackground,
+            error: errorRed,
+            onError: terminalBlack,
+            outline: matrixGreen,
+          )
+        : ColorScheme.light(
+            primary: darkGreen,
+            onPrimary: backgroundWhite,
+            surface: backgroundWhite,
+            onSurface: darkGreen,
+            surfaceContainerHighest: lightBackground,
+            error: errorRed,
+            onError: backgroundWhite,
+            outline: darkGreen,
+          );
+
     return ThemeData(
-      primarySwatch: Colors.green,
       useMaterial3: true,
-      scaffoldBackgroundColor: getBackgroundColor(isDarkMode),
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: bg,
       fontFamily: fontFamily,
       brightness: isDarkMode ? Brightness.dark : Brightness.light,
 
       // App bar theme
       appBarTheme: AppBarTheme(
-        backgroundColor: getBackgroundColor(isDarkMode),
-        foregroundColor: getTextColor(isDarkMode),
+        backgroundColor: bg,
+        foregroundColor: text,
         elevation: 0,
         titleTextStyle: TextStyle(
-          color: getTextColor(isDarkMode),
+          color: text,
           fontSize: 20,
           fontWeight: FontWeight.bold,
           fontFamily: fontFamily,
           letterSpacing: 2,
         ),
-        iconTheme: IconThemeData(color: getTextColor(isDarkMode)),
-        actionsIconTheme: IconThemeData(color: getTextColor(isDarkMode)),
+        iconTheme: IconThemeData(color: text),
+        actionsIconTheme: IconThemeData(color: text),
       ),
 
       // Elevated button theme
@@ -297,23 +323,23 @@ class MatrixTheme {
 
       // Floating action button theme
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: getTextColor(isDarkMode),
-        foregroundColor: getBackgroundColor(isDarkMode),
+        backgroundColor: text,
+        foregroundColor: bg,
       ),
 
       // Input decoration theme
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(4),
-          borderSide: BorderSide(color: getTextColor(isDarkMode), width: 2),
+          borderSide: BorderSide(color: text, width: 2),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(4),
-          borderSide: BorderSide(color: getTextColor(isDarkMode), width: 2),
+          borderSide: BorderSide(color: text, width: 2),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(4),
-          borderSide: BorderSide(color: getTextColor(isDarkMode), width: 3),
+          borderSide: BorderSide(color: text, width: 3),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(4),
@@ -324,51 +350,45 @@ class MatrixTheme {
           borderSide: const BorderSide(color: errorRed, width: 3),
         ),
         filled: true,
-        fillColor: getContainerColor(isDarkMode),
-        hintStyle: hintStyle.copyWith(
-          color: getTextColor(isDarkMode).withValues(alpha: 0.5),
-        ),
-        prefixIconColor: getTextColor(isDarkMode),
-        suffixIconColor: getTextColor(isDarkMode),
+        fillColor: container,
+        hintStyle: hintStyle.copyWith(color: text.withValues(alpha: 0.5)),
+        prefixIconColor: text,
+        suffixIconColor: text,
       ),
 
       // Text theme
       textTheme: TextTheme(
-        displayLarge: logoStyle.copyWith(color: getTextColor(isDarkMode)),
-        displayMedium: titleStyle.copyWith(color: getTextColor(isDarkMode)),
-        displaySmall: subtitleStyle.copyWith(color: getTextColor(isDarkMode)),
-        bodyLarge: bodyStyle.copyWith(color: getTextColor(isDarkMode)),
-        bodyMedium: bodyStyle.copyWith(color: getTextColor(isDarkMode)),
-        bodySmall: captionStyle.copyWith(color: getTextColor(isDarkMode)),
-        labelLarge: labelStyle.copyWith(color: getTextColor(isDarkMode)),
-        labelMedium: labelStyle.copyWith(color: getTextColor(isDarkMode)),
-        labelSmall: captionStyle.copyWith(color: getTextColor(isDarkMode)),
+        displayLarge: logoStyle.copyWith(color: text),
+        displayMedium: titleStyle.copyWith(color: text),
+        displaySmall: subtitleStyle.copyWith(color: text),
+        bodyLarge: bodyStyle.copyWith(color: text),
+        bodyMedium: bodyStyle.copyWith(color: text),
+        bodySmall: captionStyle.copyWith(color: text),
+        labelLarge: labelStyle.copyWith(color: text),
+        labelMedium: labelStyle.copyWith(color: text),
+        labelSmall: captionStyle.copyWith(color: text),
       ),
 
       // Icon theme
-      iconTheme: IconThemeData(color: getTextColor(isDarkMode)),
+      iconTheme: IconThemeData(color: text),
 
       // Card theme
       cardTheme: CardThemeData(
-        color: getContainerColor(isDarkMode),
+        color: container,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: getTextColor(isDarkMode), width: 1),
+          side: BorderSide(color: text, width: 1),
         ),
       ),
 
       // Divider theme
-      dividerTheme: DividerThemeData(
-        color: getTextColor(isDarkMode).withValues(alpha: 0.3),
-      ),
+      dividerTheme: DividerThemeData(color: text.withValues(alpha: 0.3)),
 
       // Snackbar theme
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: getTextColor(isDarkMode),
-        contentTextStyle: bodyStyle.copyWith(
-          color: getBackgroundColor(isDarkMode),
-        ),
+        backgroundColor: text,
+        contentTextStyle: bodyStyle.copyWith(color: bg),
       ),
     );
   }

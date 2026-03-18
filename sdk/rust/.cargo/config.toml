@@ -1,0 +1,18 @@
+# Optional: faster linker on macOS (install: cargo install zld). Uncomment if you have zld.
+# [target.x86_64-apple-darwin]
+# linker = "zld"
+# [target.aarch64-apple-darwin]
+# linker = "zld"
+
+# Android 16 KB page size compatibility (required for Android 15+ on 16 KB devices).
+# See https://source.android.com/docs/core/architecture/16kb-page-size/16kb
+[target.aarch64-linux-android]
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
+[target.armv7-linux-androideabi]
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
+[target.x86_64-linux-android]
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
+[target.i686-linux-android]
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
+
+# Optional: use sccache for repeated builds (install sccache, set RUSTC_WRAPPER=sccache)

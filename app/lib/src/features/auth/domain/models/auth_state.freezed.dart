@@ -388,7 +388,7 @@ as String,
 /// @nodoc
 mixin _$LoginFormData {
 
- String get username; String get password; bool get isRegistration; bool get showPassword;
+ String get username; String get password; String get displayName; bool get isRegistration; bool get showPassword;
 /// Create a copy of LoginFormData
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -399,16 +399,16 @@ $LoginFormDataCopyWith<LoginFormData> get copyWith => _$LoginFormDataCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is LoginFormData&&(identical(other.username, username) || other.username == username)&&(identical(other.password, password) || other.password == password)&&(identical(other.isRegistration, isRegistration) || other.isRegistration == isRegistration)&&(identical(other.showPassword, showPassword) || other.showPassword == showPassword));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is LoginFormData&&(identical(other.username, username) || other.username == username)&&(identical(other.password, password) || other.password == password)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.isRegistration, isRegistration) || other.isRegistration == isRegistration)&&(identical(other.showPassword, showPassword) || other.showPassword == showPassword));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,username,password,isRegistration,showPassword);
+int get hashCode => Object.hash(runtimeType,username,password,displayName,isRegistration,showPassword);
 
 @override
 String toString() {
-  return 'LoginFormData(username: $username, password: $password, isRegistration: $isRegistration, showPassword: $showPassword)';
+  return 'LoginFormData(username: $username, password: $password, displayName: $displayName, isRegistration: $isRegistration, showPassword: $showPassword)';
 }
 
 
@@ -419,7 +419,7 @@ abstract mixin class $LoginFormDataCopyWith<$Res>  {
   factory $LoginFormDataCopyWith(LoginFormData value, $Res Function(LoginFormData) _then) = _$LoginFormDataCopyWithImpl;
 @useResult
 $Res call({
- String username, String password, bool isRegistration, bool showPassword
+ String username, String password, String displayName, bool isRegistration, bool showPassword
 });
 
 
@@ -436,10 +436,11 @@ class _$LoginFormDataCopyWithImpl<$Res>
 
 /// Create a copy of LoginFormData
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? username = null,Object? password = null,Object? isRegistration = null,Object? showPassword = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? username = null,Object? password = null,Object? displayName = null,Object? isRegistration = null,Object? showPassword = null,}) {
   return _then(_self.copyWith(
 username: null == username ? _self.username : username // ignore: cast_nullable_to_non_nullable
 as String,password: null == password ? _self.password : password // ignore: cast_nullable_to_non_nullable
+as String,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
 as String,isRegistration: null == isRegistration ? _self.isRegistration : isRegistration // ignore: cast_nullable_to_non_nullable
 as bool,showPassword: null == showPassword ? _self.showPassword : showPassword // ignore: cast_nullable_to_non_nullable
 as bool,
@@ -527,10 +528,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String username,  String password,  bool isRegistration,  bool showPassword)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String username,  String password,  String displayName,  bool isRegistration,  bool showPassword)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _LoginFormData() when $default != null:
-return $default(_that.username,_that.password,_that.isRegistration,_that.showPassword);case _:
+return $default(_that.username,_that.password,_that.displayName,_that.isRegistration,_that.showPassword);case _:
   return orElse();
 
 }
@@ -548,10 +549,10 @@ return $default(_that.username,_that.password,_that.isRegistration,_that.showPas
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String username,  String password,  bool isRegistration,  bool showPassword)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String username,  String password,  String displayName,  bool isRegistration,  bool showPassword)  $default,) {final _that = this;
 switch (_that) {
 case _LoginFormData():
-return $default(_that.username,_that.password,_that.isRegistration,_that.showPassword);case _:
+return $default(_that.username,_that.password,_that.displayName,_that.isRegistration,_that.showPassword);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -568,10 +569,10 @@ return $default(_that.username,_that.password,_that.isRegistration,_that.showPas
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String username,  String password,  bool isRegistration,  bool showPassword)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String username,  String password,  String displayName,  bool isRegistration,  bool showPassword)?  $default,) {final _that = this;
 switch (_that) {
 case _LoginFormData() when $default != null:
-return $default(_that.username,_that.password,_that.isRegistration,_that.showPassword);case _:
+return $default(_that.username,_that.password,_that.displayName,_that.isRegistration,_that.showPassword);case _:
   return null;
 
 }
@@ -583,11 +584,12 @@ return $default(_that.username,_that.password,_that.isRegistration,_that.showPas
 
 
 class _LoginFormData implements LoginFormData {
-  const _LoginFormData({this.username = '', this.password = '', this.isRegistration = false, this.showPassword = false});
+  const _LoginFormData({this.username = '', this.password = '', this.displayName = '', this.isRegistration = false, this.showPassword = false});
   
 
 @override@JsonKey() final  String username;
 @override@JsonKey() final  String password;
+@override@JsonKey() final  String displayName;
 @override@JsonKey() final  bool isRegistration;
 @override@JsonKey() final  bool showPassword;
 
@@ -601,16 +603,16 @@ _$LoginFormDataCopyWith<_LoginFormData> get copyWith => __$LoginFormDataCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _LoginFormData&&(identical(other.username, username) || other.username == username)&&(identical(other.password, password) || other.password == password)&&(identical(other.isRegistration, isRegistration) || other.isRegistration == isRegistration)&&(identical(other.showPassword, showPassword) || other.showPassword == showPassword));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _LoginFormData&&(identical(other.username, username) || other.username == username)&&(identical(other.password, password) || other.password == password)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.isRegistration, isRegistration) || other.isRegistration == isRegistration)&&(identical(other.showPassword, showPassword) || other.showPassword == showPassword));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,username,password,isRegistration,showPassword);
+int get hashCode => Object.hash(runtimeType,username,password,displayName,isRegistration,showPassword);
 
 @override
 String toString() {
-  return 'LoginFormData(username: $username, password: $password, isRegistration: $isRegistration, showPassword: $showPassword)';
+  return 'LoginFormData(username: $username, password: $password, displayName: $displayName, isRegistration: $isRegistration, showPassword: $showPassword)';
 }
 
 
@@ -621,7 +623,7 @@ abstract mixin class _$LoginFormDataCopyWith<$Res> implements $LoginFormDataCopy
   factory _$LoginFormDataCopyWith(_LoginFormData value, $Res Function(_LoginFormData) _then) = __$LoginFormDataCopyWithImpl;
 @override @useResult
 $Res call({
- String username, String password, bool isRegistration, bool showPassword
+ String username, String password, String displayName, bool isRegistration, bool showPassword
 });
 
 
@@ -638,10 +640,11 @@ class __$LoginFormDataCopyWithImpl<$Res>
 
 /// Create a copy of LoginFormData
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? username = null,Object? password = null,Object? isRegistration = null,Object? showPassword = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? username = null,Object? password = null,Object? displayName = null,Object? isRegistration = null,Object? showPassword = null,}) {
   return _then(_LoginFormData(
 username: null == username ? _self.username : username // ignore: cast_nullable_to_non_nullable
 as String,password: null == password ? _self.password : password // ignore: cast_nullable_to_non_nullable
+as String,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
 as String,isRegistration: null == isRegistration ? _self.isRegistration : isRegistration // ignore: cast_nullable_to_non_nullable
 as bool,showPassword: null == showPassword ? _self.showPassword : showPassword // ignore: cast_nullable_to_non_nullable
 as bool,

@@ -22,6 +22,7 @@ class MyApp extends StatelessWidget {
       create: (context) => ThemeProvider(),
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
+          MatrixTheme.updateThemeMode(themeProvider.isDarkMode);
           return LifeCycleAwareWidget(
             service: MatrixService(),
             child: MaterialApp(

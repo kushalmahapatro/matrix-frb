@@ -76,7 +76,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => 152303127;
+  int get rustContentHash => -863695137;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -115,6 +115,10 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<List<RoomUpdate>> crateApiMatrixClientMatrixClientGetAllRooms({
+    required MatrixClient that,
+  });
+
+  Future<String?> crateApiMatrixClientMatrixClientGetDisplayName({
     required MatrixClient that,
   });
 
@@ -158,6 +162,8 @@ abstract class RustLibApi extends BaseApi {
     required MatrixClient that,
     required String username,
     required String password,
+    required String displayName,
+    String? token,
   });
 
   Future<void> crateApiMatrixClientMatrixClientRegisterPusher({
@@ -186,6 +192,11 @@ abstract class RustLibApi extends BaseApi {
     required String content,
   });
 
+  Future<void> crateApiMatrixClientMatrixClientSetDisplayName({
+    required MatrixClient that,
+    required String displayName,
+  });
+
   Future<bool> crateApiMatrixClientMatrixClientStartSyncService({
     required MatrixClient that,
   });
@@ -196,6 +207,16 @@ abstract class RustLibApi extends BaseApi {
 
   Stream<RoomUpdate> crateApiMatrixClientMatrixClientSubscribeToAllRoomUpdates({
     required MatrixClient that,
+  });
+
+  Stream<List<RoomUpdate>> crateApiMatrixClientMatrixClientSubscribeToRoomList({
+    required MatrixClient that,
+  });
+
+  Stream<List<Message>>
+  crateApiMatrixClientMatrixClientSubscribeToTimelineList({
+    required MatrixClient that,
+    required String roomId,
   });
 
   Stream<MessageUpdate>
@@ -617,6 +638,40 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<String?> crateApiMatrixClientMatrixClientGetDisplayName({
+    required MatrixClient that,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_get_display_name(
+                port_,
+                arg0,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_opt_String,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiMatrixClientMatrixClientGetDisplayNameConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMatrixClientMatrixClientGetDisplayNameConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_get_display_name",
+        argNames: ["that"],
+      );
+
+  @override
   Future<List<Message>> crateApiMatrixClientMatrixClientGetOlderMessages({
     required MatrixClient that,
     required String roomId,
@@ -879,6 +934,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required MatrixClient that,
     required String username,
     required String password,
+    required String displayName,
+    String? token,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -889,11 +946,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
               );
           var arg1 = cst_encode_String(username);
           var arg2 = cst_encode_String(password);
+          var arg3 = cst_encode_String(displayName);
+          var arg4 = cst_encode_opt_String(token);
           return wire.wire__crate__api__matrix_client__MatrixClient_register(
             port_,
             arg0,
             arg1,
             arg2,
+            arg3,
+            arg4,
           );
         },
         codec: DcoCodec(
@@ -901,7 +962,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: dco_decode_String,
         ),
         constMeta: kCrateApiMatrixClientMatrixClientRegisterConstMeta,
-        argValues: [that, username, password],
+        argValues: [that, username, password, displayName, token],
         apiImpl: this,
       ),
     );
@@ -910,7 +971,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiMatrixClientMatrixClientRegisterConstMeta =>
       const TaskConstMeta(
         debugName: "MatrixClient_register",
-        argNames: ["that", "username", "password"],
+        argNames: ["that", "username", "password", "displayName", "token"],
       );
 
   @override
@@ -1099,6 +1160,43 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiMatrixClientMatrixClientSetDisplayName({
+    required MatrixClient that,
+    required String displayName,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          var arg1 = cst_encode_String(displayName);
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_set_display_name(
+                port_,
+                arg0,
+                arg1,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiMatrixClientMatrixClientSetDisplayNameConstMeta,
+        argValues: [that, displayName],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMatrixClientMatrixClientSetDisplayNameConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_set_display_name",
+        argNames: ["that", "displayName"],
+      );
+
+  @override
   Future<bool> crateApiMatrixClientMatrixClientStartSyncService({
     required MatrixClient that,
   }) {
@@ -1215,6 +1313,94 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "MatrixClient_subscribe_to_all_room_updates",
         argNames: ["that", "stream"],
+      );
+
+  @override
+  Stream<List<RoomUpdate>> crateApiMatrixClientMatrixClientSubscribeToRoomList({
+    required MatrixClient that,
+  }) {
+    final stream = RustStreamSink<List<RoomUpdate>>();
+    unawaited(
+      handler.executeNormal(
+        NormalTask(
+          callFfi: (port_) {
+            var arg0 =
+                cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                  that,
+                );
+            var arg1 = cst_encode_StreamSink_list_room_update_Dco(stream);
+            return wire
+                .wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_list(
+                  port_,
+                  arg0,
+                  arg1,
+                );
+          },
+          codec: DcoCodec(
+            decodeSuccessData: dco_decode_unit,
+            decodeErrorData: null,
+          ),
+          constMeta:
+              kCrateApiMatrixClientMatrixClientSubscribeToRoomListConstMeta,
+          argValues: [that, stream],
+          apiImpl: this,
+        ),
+      ),
+    );
+    return stream.stream;
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientSubscribeToRoomListConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_subscribe_to_room_list",
+        argNames: ["that", "stream"],
+      );
+
+  @override
+  Stream<List<Message>>
+  crateApiMatrixClientMatrixClientSubscribeToTimelineList({
+    required MatrixClient that,
+    required String roomId,
+  }) {
+    final stream = RustStreamSink<List<Message>>();
+    unawaited(
+      handler.executeNormal(
+        NormalTask(
+          callFfi: (port_) {
+            var arg0 =
+                cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                  that,
+                );
+            var arg1 = cst_encode_String(roomId);
+            var arg2 = cst_encode_StreamSink_list_message_Dco(stream);
+            return wire
+                .wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_list(
+                  port_,
+                  arg0,
+                  arg1,
+                  arg2,
+                );
+          },
+          codec: DcoCodec(
+            decodeSuccessData: dco_decode_unit,
+            decodeErrorData: null,
+          ),
+          constMeta:
+              kCrateApiMatrixClientMatrixClientSubscribeToTimelineListConstMeta,
+          argValues: [that, roomId, stream],
+          apiImpl: this,
+        ),
+      ),
+    );
+    return stream.stream;
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientSubscribeToTimelineListConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_subscribe_to_timeline_list",
+        argNames: ["that", "roomId", "stream"],
       );
 
   @override
@@ -2455,7 +2641,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  RustStreamSink<List<Message>> dco_decode_StreamSink_list_message_Dco(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError();
+  }
+
+  @protected
   RustStreamSink<Uint8List> dco_decode_StreamSink_list_prim_u_8_strict_Dco(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError();
+  }
+
+  @protected
+  RustStreamSink<List<RoomUpdate>> dco_decode_StreamSink_list_room_update_Dco(
     dynamic raw,
   ) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
@@ -3822,7 +4024,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  RustStreamSink<List<Message>> sse_decode_StreamSink_list_message_Dco(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    throw UnimplementedError('Unreachable ()');
+  }
+
+  @protected
   RustStreamSink<Uint8List> sse_decode_StreamSink_list_prim_u_8_strict_Dco(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    throw UnimplementedError('Unreachable ()');
+  }
+
+  @protected
+  RustStreamSink<List<RoomUpdate>> sse_decode_StreamSink_list_room_update_Dco(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -5952,6 +6170,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_StreamSink_list_message_Dco(
+    RustStreamSink<List<Message>> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(
+      self.setupAndSerialize(
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_message,
+          decodeErrorData: dco_decode_AnyhowException,
+        ),
+      ),
+      serializer,
+    );
+  }
+
+  @protected
   void sse_encode_StreamSink_list_prim_u_8_strict_Dco(
     RustStreamSink<Uint8List> self,
     SseSerializer serializer,
@@ -5961,6 +6196,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       self.setupAndSerialize(
         codec: DcoCodec(
           decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_AnyhowException,
+        ),
+      ),
+      serializer,
+    );
+  }
+
+  @protected
+  void sse_encode_StreamSink_list_room_update_Dco(
+    RustStreamSink<List<RoomUpdate>> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(
+      self.setupAndSerialize(
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_room_update,
           decodeErrorData: dco_decode_AnyhowException,
         ),
       ),
@@ -7476,6 +7728,12 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
   Future<List<RoomUpdate>> getAllRooms() => RustLib.instance.api
       .crateApiMatrixClientMatrixClientGetAllRooms(that: this);
 
+  /// Get the current user's display name (profile).
+  Future<String?> getDisplayName() => RustLib.instance.api
+      .crateApiMatrixClientMatrixClientGetDisplayName(that: this);
+
+  /// Load older messages (paginate backwards). Updates the timeline list cache and pushes to
+  /// subscribers so the UI receives the full list including newly loaded messages.
   Future<List<Message>> getOlderMessages({
     required String roomId,
     required int count,
@@ -7515,12 +7773,18 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
       RustLib.instance.api.crateApiMatrixClientMatrixClientLogout(that: this);
 
   /// Register a new account.
-  Future<bool> register({required String username, required String password}) =>
-      RustLib.instance.api.crateApiMatrixClientMatrixClientRegister(
-        that: this,
-        username: username,
-        password: password,
-      );
+  Future<bool> register({
+    required String username,
+    required String password,
+    required String displayName,
+    String? token,
+  }) => RustLib.instance.api.crateApiMatrixClientMatrixClientRegister(
+    that: this,
+    username: username,
+    password: password,
+    displayName: displayName,
+    token: token,
+  );
 
   Future<void> registerPusher({
     required String pushKey,
@@ -7550,8 +7814,7 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
       .api
       .crateApiMatrixClientMatrixClientSearchUsers(that: this, query: query);
 
-  /// Send a message. Returns the event_id. After success, call [MatrixClient::take_last_sent_room_update]
-  /// to get the room update with the sent message as last (for updating the room list immediately).
+  /// Send a message. Returns the event_id. Room list and timeline list caches are updated immediately.
   Future<String> sendMessage({
     required String roomId,
     required String content,
@@ -7561,6 +7824,13 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
     content: content,
   );
 
+  /// Set the current user's display name (profile).
+  Future<void> setDisplayName({required String displayName}) =>
+      RustLib.instance.api.crateApiMatrixClientMatrixClientSetDisplayName(
+        that: this,
+        displayName: displayName,
+      );
+
   /// Start the sync service (required for rooms and timeline to work).
   /// Stores the App in this client; rooms/timeline/sync state use it instead of global state.
   Future<bool> startSyncService() => RustLib.instance.api
@@ -7569,12 +7839,27 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
   /// Subscribe to sync service state (Idle, Running, Terminated, Error, Offline).
   /// Call after [MatrixClient::start_sync_service]. When state changes, refresh rooms/timeline
   /// or show sync status; mirrors matrix-sdk-ffi SyncServiceStateObserver.
+  /// No-ops if sync was not started (no panic).
   Stream<SyncState> subscribeSyncState() => RustLib.instance.api
       .crateApiMatrixClientMatrixClientSubscribeSyncState(that: this);
 
   /// Subscribe to room list updates (joined / invited / left). Uses the app stored in this client.
   Stream<RoomUpdate> subscribeToAllRoomUpdates() => RustLib.instance.api
       .crateApiMatrixClientMatrixClientSubscribeToAllRoomUpdates(that: this);
+
+  /// Subscribe to the canonical room list. Emits the full list whenever it changes (sync or send_message).
+  /// Call after [MatrixClient::start_sync_service]. Initial snapshot is sent immediately.
+  Stream<List<RoomUpdate>> subscribeToRoomList() => RustLib.instance.api
+      .crateApiMatrixClientMatrixClientSubscribeToRoomList(that: this);
+
+  /// Subscribe to the canonical message list for a room. Emits the full list whenever it changes (timeline updates or send_message).
+  /// Sends initial list immediately, then runs the timeline diff loop. Call after [MatrixClient::start_sync_service].
+  Stream<List<Message>> subscribeToTimelineList({required String roomId}) =>
+      RustLib.instance.api
+          .crateApiMatrixClientMatrixClientSubscribeToTimelineList(
+            that: this,
+            roomId: roomId,
+          );
 
   Stream<MessageUpdate> subscribeToTimelineUpdates({required String roomId}) =>
       RustLib.instance.api

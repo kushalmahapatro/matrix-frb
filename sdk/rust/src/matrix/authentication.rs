@@ -2,7 +2,7 @@ use matrix_sdk::{
     ruma::{
         api::client::{
             account::register,
-            uiaa::{AuthData, Dummy},
+            uiaa::{AuthData, Dummy, RegistrationToken},
         },
         assign,
     },
@@ -24,15 +24,22 @@ pub(crate) async fn register(
     session_path: &str,
     username: String,
     password: String,
+    display_name: String,
+    token: Option<String>,
 ) -> Result<bool, String> {
     info!("Attempting to register user: {}", username);
 
     info!("Attempting Matrix authentication...");
+    let mut auth = AuthData::Dummy(Dummy::new());
+
+    if let Some(token) = token {
+        auth = AuthData::RegistrationToken(RegistrationToken::new(token));
+    }
 
     let req = assign!(register::v3::Request::new(), {
         username: Some(username.to_owned()),
         password: Some(password.to_owned()),
-        auth: Some(AuthData::Dummy(Dummy::new())),
+        auth: Some(auth),
         refresh_token: true,
     });
 
@@ -59,6 +66,16 @@ pub(crate) async fn register(
     let _ = std::fs::write(session_path, serialized_session);
 
     info!("Registration completed successfully for user: {}", username);
+
+    client
+        .account()
+        .set_display_name(Some(&display_name))
+        .await
+        .map_err(|e| {
+            error!("Failed to set display name: {}", e);
+            e.to_string()
+        })?;
+
     Ok(true)
 }
 

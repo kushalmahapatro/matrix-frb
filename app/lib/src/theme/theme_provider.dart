@@ -7,8 +7,8 @@ enum MatrixThemeMode { system, light, dark }
 class ThemeProvider extends ChangeNotifier {
   static const String _themeKey = 'matrix_theme_mode';
 
-  MatrixThemeMode _themeMode = MatrixThemeMode.system;
-  bool _isDarkMode = false;
+  MatrixThemeMode _themeMode = MatrixThemeMode.dark;
+  bool _isDarkMode = true;
 
   MatrixThemeMode get themeMode => _themeMode;
   bool get isDarkMode => _isDarkMode;
@@ -37,7 +37,7 @@ class ThemeProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final themeIndex = prefs.getInt(_themeKey) ?? -1;
     if (themeIndex == -1) {
-      _themeMode = MatrixThemeMode.system;
+      _themeMode = MatrixThemeMode.dark;
       setThemeMode(_themeMode);
     } else {
       _themeMode = MatrixThemeMode.values[themeIndex];

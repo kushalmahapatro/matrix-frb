@@ -10,13 +10,11 @@ use futures::{pin_mut, StreamExt};
 use matrix_sdk::Client;
 use matrix_sdk::Room;
 use matrix_sdk_ui::sync_service::{State as MatrixSyncState, SyncService};
-use matrix_sdk_ui::timeline::{EventTimelineItem, RoomExt, TimelineFocus, VirtualTimelineItem};
-use once_cell::sync::OnceCell;
-pub use std::collections::HashMap;
+use matrix_sdk_ui::timeline::{RoomExt, TimelineFocus};
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::Mutex as StdMutex;
-use std::time::Instant;
 use tokio::spawn;
 
 /// Sync service state, mirroring the matrix-sdk-ffi SyncServiceState.
@@ -43,42 +41,7 @@ impl From<MatrixSyncState> for SyncState {
 }
 
 #[frb(ignore)]
-pub static GLOBAL_SYNC_SERVICE: OnceCell<Option<Arc<SyncService>>> = OnceCell::new();
-
-#[frb(ignore)]
 pub type Rooms = Arc<StdMutex<Vector<Room>>>;
-
-pub struct RoomUpdate {
-    pub room_id: String,
-    pub raw_name: Option<String>,
-    pub display_name: Option<String>,
-    pub is_dm: Option<bool>,
-}
-#[frb(ignore)]
-pub struct TimelineUpdate {
-    pub room_id: String,
-    // pub room_event_cache: RoomEventCache,
-    pub items: Vec<TimelineItems>, // Changed from Vector<Arc<TimelineItems>> to Vec<TimelineItems> for serialization
-}
-
-#[derive(Clone, Debug)]
-#[allow(clippy::large_enum_variant)]
-#[frb(ignore)]
-pub enum TimelineItemType {
-    /// An event or aggregation of multiple events.
-    Event(EventTimelineItem),
-    /// An item that doesn't correspond to an event, for example the user's
-    /// own read marker, or a date divider.
-    Virtual(VirtualTimelineItem),
-}
-
-/// A single entry in timeline.
-#[derive(Clone, Debug)]
-#[frb(ignore)]
-pub struct TimelineItems {
-    pub kind: TimelineItemType,
-    pub internal_id: String, // Changed from TimelineUniqueId to String for serialization
-}
 
 #[frb(ignore)]
 #[derive(Clone)]
@@ -98,8 +61,6 @@ pub struct App {
 
     /// The status widget at the bottom of the screen.
     pub status: Status,
-
-    pub last_tick: Instant,
 }
 
 #[frb(ignore)]
@@ -120,7 +81,7 @@ impl App {
         ));
 
         let status = Status::new();
-        let room_list = RoomList::new(rooms, room_infos, sync_service.clone(), status.handle());
+        let room_list = RoomList::new(rooms, room_infos, status.handle());
 
         let room_view = RoomView::new(client.clone(), timelines.clone(), status.handle());
 
@@ -130,7 +91,6 @@ impl App {
             room_list,
             room_view,
             status,
-            last_tick: Instant::now(),
         })
     }
 

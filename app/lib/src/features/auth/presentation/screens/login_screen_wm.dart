@@ -1,5 +1,6 @@
 import 'package:elementary/elementary.dart';
 import 'package:flutter/material.dart';
+import 'package:matrix/src/core/domain/services/app_config.dart';
 import 'package:matrix/src/core/state_management/base_state_widget_model.dart';
 import 'package:matrix/src/features/auth/domain/models/auth_state.dart';
 
@@ -31,11 +32,14 @@ class LoginScreenModel extends ElementaryModel {
   Future<Result<bool>> register({
     required String username,
     required String password,
+    required String displayName,
   }) async {
     try {
       final result = await _matrixService.client.register(
         username: username,
         password: password,
+        displayName: displayName,
+        token: AppConfig.registrationToken,
       );
       return Success(result);
     } catch (e) {
@@ -53,6 +57,7 @@ class LoginScreenWM extends BaseWidgetModel<LoginScreen, LoginScreenModel> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _usernameController;
   late final TextEditingController _passwordController;
+  late final TextEditingController _displayNameController;
 
   final ValueNotifier<AuthState> _authState = ValueNotifier(
     const AuthState.initial(),
@@ -65,6 +70,7 @@ class LoginScreenWM extends BaseWidgetModel<LoginScreen, LoginScreenModel> {
   GlobalKey<FormState> get formKey => _formKey;
   TextEditingController get usernameController => _usernameController;
   TextEditingController get passwordController => _passwordController;
+  TextEditingController get displayNameController => _displayNameController;
   ValueNotifier<AuthState> get authState => _authState;
   ValueNotifier<LoginFormData> get formData => _formData;
 
@@ -73,12 +79,14 @@ class LoginScreenWM extends BaseWidgetModel<LoginScreen, LoginScreenModel> {
     super.initWidgetModel();
     _usernameController = TextEditingController();
     _passwordController = TextEditingController();
+    _displayNameController = TextEditingController();
   }
 
   @override
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
+    _displayNameController.dispose();
     _authState.dispose();
     _formData.dispose();
     super.dispose();
@@ -111,7 +119,13 @@ class LoginScreenWM extends BaseWidgetModel<LoginScreen, LoginScreenModel> {
 
     try {
       final result = isRegistration
-          ? await model.register(username: username, password: password)
+          ? await model.register(
+                username: username,
+                password: password,
+                displayName: _displayNameController.text.trim().isNotEmpty
+                    ? _displayNameController.text.trim()
+                    : username,
+              )
           : await model.login(username: username, password: password);
 
       result.fold(
@@ -146,6 +160,13 @@ class LoginScreenWM extends BaseWidgetModel<LoginScreen, LoginScreenModel> {
   String? validatePassword(String? value) {
     if (value == null || value.isEmpty) {
       return 'Password is required';
+    }
+    return null;
+  }
+
+  String? validateDisplayName(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Display name is required';
     }
     return null;
   }
