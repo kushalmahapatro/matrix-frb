@@ -6,15 +6,19 @@
 import '../frb_generated.dart';
 import '../lib.dart';
 import '../matrix/client.dart';
+import '../matrix/file_send_progress.dart';
+import '../matrix/room_info.dart';
 import '../matrix/rooms.dart';
 import '../matrix/sync_service.dart';
 import '../matrix/timelines.dart';
 import '../matrix/user_serach.dart';
-import '../rhttp/api/client.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // Rust type: RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>
 abstract class MatrixClient implements RustOpaqueInterface {
+  /// Cancels an in-progress [MatrixClient::send_timeline_file_with_progress] (upload / send).
+  Future<void> cancelTimelineFileSend();
+
   /// Initialize the client with the given config. Returns a [MatrixClient] instance to use for
   /// all further operations (login, register, get_all_rooms, etc.).
   static Future<MatrixClient> configure({required ClientConfig config}) =>
@@ -29,11 +33,24 @@ abstract class MatrixClient implements RustOpaqueInterface {
     required List<String> userIds,
   });
 
+  /// Fetches decrypted media bytes for a timeline message (image/video/file/audio).
+  /// `event_id` may be a server event id or a **local transaction id** for pending echoes.
+  /// Set [thumbnail] to request a server-generated thumbnail when available (smaller for grid UI).
+  Future<Uint8List> fetchRoomMessageMedia({
+    required String roomId,
+    required String eventId,
+    required bool thumbnail,
+  });
+
   /// Fetch all rooms the user is in. Uses the app stored in this client (from [MatrixClient::start_sync_service]).
   Future<List<RoomUpdate>> getAllRooms();
 
   /// Get the current user's display name (profile).
   Future<String?> getDisplayName();
+
+  /// Returns the joined DM room id if a 1:1 direct room with this user already exists
+  /// ([`matrix_sdk::Client::get_dm_room`]).
+  Future<String?> getExistingDmRoomId({required String userId});
 
   /// Load older messages (paginate backwards). Updates the timeline list cache and pushes to
   /// subscribers so the UI receives the full list including newly loaded messages.
@@ -42,6 +59,9 @@ abstract class MatrixClient implements RustOpaqueInterface {
     required int count,
   });
 
+  /// Room summary, joined members (empty for DMs), and moderation flags for the current user.
+  Future<RoomDetails> getRoomDetails({required String roomId});
+
   Future<List<Message>> getTimelineItemsByRoomId({required String roomId});
 
   /// Whether the client has an active session.
@@ -49,7 +69,20 @@ abstract class MatrixClient implements RustOpaqueInterface {
 
   Future<String> joinRoom({required String roomId});
 
+  /// Remove a member from the room (kick). Requires sufficient power level.
+  Future<void> kickRoomMember({required String roomId, required String userId});
+
+  /// Leave the room and call `/forget` so it disappears from the client room list.
+  Future<String> leaveAndForgetRoom({required String roomId});
+
   Future<String> leaveRoom({required String roomId});
+
+  /// `m.room.message` events with `msgtype` **m.file** from the **event cache SQLite DB**
+  /// (`get_room_events` / timeline persistence). Sent vs received uses sender vs logged-in user.
+  Future<List<RoomFileItem>> listRoomFiles({
+    required String roomId,
+    required RoomFileFilter filter,
+  });
 
   /// Log in with username and password.
   Future<bool> login({required String username, required String password});
@@ -78,13 +111,60 @@ abstract class MatrixClient implements RustOpaqueInterface {
   /// Restart the sync service after it has stopped (e.g. after long background). Safe to call repeatedly.
   Future<bool> restartSyncService();
 
+  /// Retry sending after a recoverable failure ([Message::send_recoverable]).
+  Future<void> retryFailedSend({
+    required String roomId,
+    required String transactionId,
+  });
+
+  /// Subscribe the sliding-sync room list to one room (latest events, required state).
+  /// Call when the user opens a conversation (same as multiverse `subscribe_to_rooms` on focus).
+  Future<void> roomListSubscribeToRooms({required String roomId});
+
   Future<UserSearchResult> searchUsers({required String query});
 
-  /// Send a message. Returns the event_id. Room list and timeline list caches are updated immediately.
+  /// Send a message through the UI timeline (local echo, offline errors, retry via [Self::retry_failed_send]).
+  /// Returns the server event id once echoed; often empty immediately—UI should follow the timeline stream.
   Future<String> sendMessage({required String roomId, required String content});
+
+  /// Send a file from a local path on the UI timeline.
+  ///
+  /// Sidecar DB: **`{session_path}/app/app_db.sqlite3`** (SQLCipher; same passphrase as Matrix stores).
+  /// Table **`file_upload_cache`**: keyed by **SHA-256 of plaintext file bytes**. Plain rooms store
+  /// reusable plain MXC URIs; encrypted rooms store a serialized `m.room.message` template after send
+  /// so the same ciphertext/media can be resent with an updated caption without re-uploading.
+  ///
+  /// Plain reuse probes both MXCs on the server; E2EE reuse matches thumbnail JPEG bytes (when present)
+  /// the same way. Timeline thumbnails for **images** and **videos** must come from the app: pass a JPEG
+  /// path from the Dart `media` package as [`app_thumbnail_jpeg_path`]. PDF / office embedded thumbnails
+  /// are still extracted in Rust when Pdfium / zip paths apply. Video compression is done in the app
+  /// before send. **Encrypted** uploads use the SDK **send queue**; a fixed transaction id correlates
+  /// queue updates, and the server `event_id` from `RoomSendQueueUpdate::SentEvent` loads the message
+  /// into the cache when possible.
+  Future<String> sendTimelineFile({
+    required String roomId,
+    required String filePath,
+    String? caption,
+    String? appThumbnailJpegPath,
+  });
+
+  /// Like [MatrixClient::send_timeline_file] but reports byte progress on `progress` and honours [MatrixClient::cancel_timeline_file_send].
+  Stream<FileSendProgress> sendTimelineFileWithProgress({
+    required String roomId,
+    required String filePath,
+    String? caption,
+    String? appThumbnailJpegPath,
+  });
 
   /// Set the current user's display name (profile).
   Future<void> setDisplayName({required String displayName});
+
+  /// Change a member's power level (e.g. 50 = moderator, 100 = admin).
+  Future<void> setRoomMemberPowerLevel({
+    required String roomId,
+    required String userId,
+    required PlatformInt64 powerLevel,
+  });
 
   /// Start the sync service (required for rooms and timeline to work).
   /// Stores the App in this client; rooms/timeline/sync state use it instead of global state.

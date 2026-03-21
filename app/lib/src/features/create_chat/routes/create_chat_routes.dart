@@ -9,4 +9,11 @@ abstract class CreateChatRoutes {
   );
 
   void goBack(BuildContext context, String chatId);
+
+  /// User chose to open existing DM ([true]), stay ([false]), or dismissed ([null]).
+  Future<bool?> showExistingDmDialog(
+    BuildContext context, {
+    required String otherUserId,
+    required String existingRoomId,
+  });
 }

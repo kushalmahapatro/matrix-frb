@@ -4,6 +4,10 @@ import 'package:hooks/hooks.dart';
 import 'package:logging/logging.dart';
 import 'package:native_toolchain_rust/native_toolchain_rust.dart';
 
+import 'matrix_native_media_env.dart';
+import 'native_media_bootstrap.dart';
+import 'pdfium_code_asset.dart';
+
 void main(List<String> args) async {
   await build(args, (BuildInput input, BuildOutputBuilder output) async {
     final String assetName = 'src/bindings/frb_generated.io.dart';
@@ -16,13 +20,20 @@ Future<void> runLocalBuild(
   BuildOutputBuilder output,
   String assetName,
 ) async {
-  // Build environment variables map
-  final envVars = <String, String>{};
+  await ensureMatrixNativeMediaArtifacts(
+    packageRoot: input.packageRoot,
+    log: (m) => developer.log(m, name: 'MatrixNativeMedia'),
+  );
+
+  // Pdfium / FFmpeg for `cargo`: env + `.matrix-sdk/native/` under this package.
+  final envVars = matrixNativeMediaCargoEnv(packageRoot: input.packageRoot);
 
   final rustBuilder = RustBuilder(
     assetName: assetName,
     cratePath: 'rust',
-    buildMode: BuildMode.release,
+    buildMode: input.config.linkingEnabled
+        ? BuildMode.release
+        : BuildMode.debug,
     enableDefaultFeatures: true,
     extraCargoEnvironmentVariables: envVars,
   );
@@ -36,4 +47,10 @@ Future<void> runLocalBuild(
   );
 
   await rustBuilder.run(input: input, output: output, logger: logger);
+
+  await addPdfiumNativeCodeAsset(
+    input: input,
+    output: output,
+    log: (m) => developer.log(m, name: 'MatrixNativeMedia'),
+  );
 }

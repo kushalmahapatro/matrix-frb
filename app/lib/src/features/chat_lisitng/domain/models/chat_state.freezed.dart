@@ -380,7 +380,8 @@ as String,
 /// @nodoc
 mixin _$Chat implements DiagnosticableTreeMixin {
 
- String get id; String get name; String get lastMessage; ChatRoomStatus get status; DateTime? get lastActivity; int get unreadCount; bool get isDirect; String? get avatarUrl;
+ String get id; String get name; String get lastMessage; ChatRoomStatus get status; DateTime? get lastActivity; int get unreadCount; bool get isDirect; String? get avatarUrl;/// Last timeline message from Rust (media kind, event id for thumbnails, mimetype).
+ Message? get lastPreview;
 /// Create a copy of Chat
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -392,21 +393,21 @@ $ChatCopyWith<Chat> get copyWith => _$ChatCopyWithImpl<Chat>(this as Chat, _$ide
 void debugFillProperties(DiagnosticPropertiesBuilder properties) {
   properties
     ..add(DiagnosticsProperty('type', 'Chat'))
-    ..add(DiagnosticsProperty('id', id))..add(DiagnosticsProperty('name', name))..add(DiagnosticsProperty('lastMessage', lastMessage))..add(DiagnosticsProperty('status', status))..add(DiagnosticsProperty('lastActivity', lastActivity))..add(DiagnosticsProperty('unreadCount', unreadCount))..add(DiagnosticsProperty('isDirect', isDirect))..add(DiagnosticsProperty('avatarUrl', avatarUrl));
+    ..add(DiagnosticsProperty('id', id))..add(DiagnosticsProperty('name', name))..add(DiagnosticsProperty('lastMessage', lastMessage))..add(DiagnosticsProperty('status', status))..add(DiagnosticsProperty('lastActivity', lastActivity))..add(DiagnosticsProperty('unreadCount', unreadCount))..add(DiagnosticsProperty('isDirect', isDirect))..add(DiagnosticsProperty('avatarUrl', avatarUrl))..add(DiagnosticsProperty('lastPreview', lastPreview));
 }
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Chat&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.lastMessage, lastMessage) || other.lastMessage == lastMessage)&&(identical(other.status, status) || other.status == status)&&(identical(other.lastActivity, lastActivity) || other.lastActivity == lastActivity)&&(identical(other.unreadCount, unreadCount) || other.unreadCount == unreadCount)&&(identical(other.isDirect, isDirect) || other.isDirect == isDirect)&&(identical(other.avatarUrl, avatarUrl) || other.avatarUrl == avatarUrl));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Chat&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.lastMessage, lastMessage) || other.lastMessage == lastMessage)&&(identical(other.status, status) || other.status == status)&&(identical(other.lastActivity, lastActivity) || other.lastActivity == lastActivity)&&(identical(other.unreadCount, unreadCount) || other.unreadCount == unreadCount)&&(identical(other.isDirect, isDirect) || other.isDirect == isDirect)&&(identical(other.avatarUrl, avatarUrl) || other.avatarUrl == avatarUrl)&&(identical(other.lastPreview, lastPreview) || other.lastPreview == lastPreview));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,id,name,lastMessage,status,lastActivity,unreadCount,isDirect,avatarUrl);
+int get hashCode => Object.hash(runtimeType,id,name,lastMessage,status,lastActivity,unreadCount,isDirect,avatarUrl,lastPreview);
 
 @override
 String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
-  return 'Chat(id: $id, name: $name, lastMessage: $lastMessage, status: $status, lastActivity: $lastActivity, unreadCount: $unreadCount, isDirect: $isDirect, avatarUrl: $avatarUrl)';
+  return 'Chat(id: $id, name: $name, lastMessage: $lastMessage, status: $status, lastActivity: $lastActivity, unreadCount: $unreadCount, isDirect: $isDirect, avatarUrl: $avatarUrl, lastPreview: $lastPreview)';
 }
 
 
@@ -417,7 +418,7 @@ abstract mixin class $ChatCopyWith<$Res>  {
   factory $ChatCopyWith(Chat value, $Res Function(Chat) _then) = _$ChatCopyWithImpl;
 @useResult
 $Res call({
- String id, String name, String lastMessage, ChatRoomStatus status, DateTime? lastActivity, int unreadCount, bool isDirect, String? avatarUrl
+ String id, String name, String lastMessage, ChatRoomStatus status, DateTime? lastActivity, int unreadCount, bool isDirect, String? avatarUrl, Message? lastPreview
 });
 
 
@@ -434,7 +435,7 @@ class _$ChatCopyWithImpl<$Res>
 
 /// Create a copy of Chat
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? lastMessage = null,Object? status = null,Object? lastActivity = freezed,Object? unreadCount = null,Object? isDirect = null,Object? avatarUrl = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? lastMessage = null,Object? status = null,Object? lastActivity = freezed,Object? unreadCount = null,Object? isDirect = null,Object? avatarUrl = freezed,Object? lastPreview = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -444,7 +445,8 @@ as ChatRoomStatus,lastActivity: freezed == lastActivity ? _self.lastActivity : l
 as DateTime?,unreadCount: null == unreadCount ? _self.unreadCount : unreadCount // ignore: cast_nullable_to_non_nullable
 as int,isDirect: null == isDirect ? _self.isDirect : isDirect // ignore: cast_nullable_to_non_nullable
 as bool,avatarUrl: freezed == avatarUrl ? _self.avatarUrl : avatarUrl // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,lastPreview: freezed == lastPreview ? _self.lastPreview : lastPreview // ignore: cast_nullable_to_non_nullable
+as Message?,
   ));
 }
 
@@ -529,10 +531,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String lastMessage,  ChatRoomStatus status,  DateTime? lastActivity,  int unreadCount,  bool isDirect,  String? avatarUrl)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String lastMessage,  ChatRoomStatus status,  DateTime? lastActivity,  int unreadCount,  bool isDirect,  String? avatarUrl,  Message? lastPreview)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Chat() when $default != null:
-return $default(_that.id,_that.name,_that.lastMessage,_that.status,_that.lastActivity,_that.unreadCount,_that.isDirect,_that.avatarUrl);case _:
+return $default(_that.id,_that.name,_that.lastMessage,_that.status,_that.lastActivity,_that.unreadCount,_that.isDirect,_that.avatarUrl,_that.lastPreview);case _:
   return orElse();
 
 }
@@ -550,10 +552,10 @@ return $default(_that.id,_that.name,_that.lastMessage,_that.status,_that.lastAct
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String lastMessage,  ChatRoomStatus status,  DateTime? lastActivity,  int unreadCount,  bool isDirect,  String? avatarUrl)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String lastMessage,  ChatRoomStatus status,  DateTime? lastActivity,  int unreadCount,  bool isDirect,  String? avatarUrl,  Message? lastPreview)  $default,) {final _that = this;
 switch (_that) {
 case _Chat():
-return $default(_that.id,_that.name,_that.lastMessage,_that.status,_that.lastActivity,_that.unreadCount,_that.isDirect,_that.avatarUrl);case _:
+return $default(_that.id,_that.name,_that.lastMessage,_that.status,_that.lastActivity,_that.unreadCount,_that.isDirect,_that.avatarUrl,_that.lastPreview);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -570,10 +572,10 @@ return $default(_that.id,_that.name,_that.lastMessage,_that.status,_that.lastAct
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String lastMessage,  ChatRoomStatus status,  DateTime? lastActivity,  int unreadCount,  bool isDirect,  String? avatarUrl)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String lastMessage,  ChatRoomStatus status,  DateTime? lastActivity,  int unreadCount,  bool isDirect,  String? avatarUrl,  Message? lastPreview)?  $default,) {final _that = this;
 switch (_that) {
 case _Chat() when $default != null:
-return $default(_that.id,_that.name,_that.lastMessage,_that.status,_that.lastActivity,_that.unreadCount,_that.isDirect,_that.avatarUrl);case _:
+return $default(_that.id,_that.name,_that.lastMessage,_that.status,_that.lastActivity,_that.unreadCount,_that.isDirect,_that.avatarUrl,_that.lastPreview);case _:
   return null;
 
 }
@@ -585,7 +587,7 @@ return $default(_that.id,_that.name,_that.lastMessage,_that.status,_that.lastAct
 
 
 class _Chat extends Chat with DiagnosticableTreeMixin {
-  const _Chat({required this.id, required this.name, required this.lastMessage, required this.status, this.lastActivity, this.unreadCount = 0, this.isDirect = false, this.avatarUrl}): super._();
+  const _Chat({required this.id, required this.name, required this.lastMessage, required this.status, this.lastActivity, this.unreadCount = 0, this.isDirect = false, this.avatarUrl, this.lastPreview = null}): super._();
   
 
 @override final  String id;
@@ -596,6 +598,8 @@ class _Chat extends Chat with DiagnosticableTreeMixin {
 @override@JsonKey() final  int unreadCount;
 @override@JsonKey() final  bool isDirect;
 @override final  String? avatarUrl;
+/// Last timeline message from Rust (media kind, event id for thumbnails, mimetype).
+@override@JsonKey() final  Message? lastPreview;
 
 /// Create a copy of Chat
 /// with the given fields replaced by the non-null parameter values.
@@ -608,21 +612,21 @@ _$ChatCopyWith<_Chat> get copyWith => __$ChatCopyWithImpl<_Chat>(this, _$identit
 void debugFillProperties(DiagnosticPropertiesBuilder properties) {
   properties
     ..add(DiagnosticsProperty('type', 'Chat'))
-    ..add(DiagnosticsProperty('id', id))..add(DiagnosticsProperty('name', name))..add(DiagnosticsProperty('lastMessage', lastMessage))..add(DiagnosticsProperty('status', status))..add(DiagnosticsProperty('lastActivity', lastActivity))..add(DiagnosticsProperty('unreadCount', unreadCount))..add(DiagnosticsProperty('isDirect', isDirect))..add(DiagnosticsProperty('avatarUrl', avatarUrl));
+    ..add(DiagnosticsProperty('id', id))..add(DiagnosticsProperty('name', name))..add(DiagnosticsProperty('lastMessage', lastMessage))..add(DiagnosticsProperty('status', status))..add(DiagnosticsProperty('lastActivity', lastActivity))..add(DiagnosticsProperty('unreadCount', unreadCount))..add(DiagnosticsProperty('isDirect', isDirect))..add(DiagnosticsProperty('avatarUrl', avatarUrl))..add(DiagnosticsProperty('lastPreview', lastPreview));
 }
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Chat&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.lastMessage, lastMessage) || other.lastMessage == lastMessage)&&(identical(other.status, status) || other.status == status)&&(identical(other.lastActivity, lastActivity) || other.lastActivity == lastActivity)&&(identical(other.unreadCount, unreadCount) || other.unreadCount == unreadCount)&&(identical(other.isDirect, isDirect) || other.isDirect == isDirect)&&(identical(other.avatarUrl, avatarUrl) || other.avatarUrl == avatarUrl));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Chat&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.lastMessage, lastMessage) || other.lastMessage == lastMessage)&&(identical(other.status, status) || other.status == status)&&(identical(other.lastActivity, lastActivity) || other.lastActivity == lastActivity)&&(identical(other.unreadCount, unreadCount) || other.unreadCount == unreadCount)&&(identical(other.isDirect, isDirect) || other.isDirect == isDirect)&&(identical(other.avatarUrl, avatarUrl) || other.avatarUrl == avatarUrl)&&(identical(other.lastPreview, lastPreview) || other.lastPreview == lastPreview));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,id,name,lastMessage,status,lastActivity,unreadCount,isDirect,avatarUrl);
+int get hashCode => Object.hash(runtimeType,id,name,lastMessage,status,lastActivity,unreadCount,isDirect,avatarUrl,lastPreview);
 
 @override
 String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
-  return 'Chat(id: $id, name: $name, lastMessage: $lastMessage, status: $status, lastActivity: $lastActivity, unreadCount: $unreadCount, isDirect: $isDirect, avatarUrl: $avatarUrl)';
+  return 'Chat(id: $id, name: $name, lastMessage: $lastMessage, status: $status, lastActivity: $lastActivity, unreadCount: $unreadCount, isDirect: $isDirect, avatarUrl: $avatarUrl, lastPreview: $lastPreview)';
 }
 
 
@@ -633,7 +637,7 @@ abstract mixin class _$ChatCopyWith<$Res> implements $ChatCopyWith<$Res> {
   factory _$ChatCopyWith(_Chat value, $Res Function(_Chat) _then) = __$ChatCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name, String lastMessage, ChatRoomStatus status, DateTime? lastActivity, int unreadCount, bool isDirect, String? avatarUrl
+ String id, String name, String lastMessage, ChatRoomStatus status, DateTime? lastActivity, int unreadCount, bool isDirect, String? avatarUrl, Message? lastPreview
 });
 
 
@@ -650,7 +654,7 @@ class __$ChatCopyWithImpl<$Res>
 
 /// Create a copy of Chat
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? lastMessage = null,Object? status = null,Object? lastActivity = freezed,Object? unreadCount = null,Object? isDirect = null,Object? avatarUrl = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? lastMessage = null,Object? status = null,Object? lastActivity = freezed,Object? unreadCount = null,Object? isDirect = null,Object? avatarUrl = freezed,Object? lastPreview = freezed,}) {
   return _then(_Chat(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -660,7 +664,8 @@ as ChatRoomStatus,lastActivity: freezed == lastActivity ? _self.lastActivity : l
 as DateTime?,unreadCount: null == unreadCount ? _self.unreadCount : unreadCount // ignore: cast_nullable_to_non_nullable
 as int,isDirect: null == isDirect ? _self.isDirect : isDirect // ignore: cast_nullable_to_non_nullable
 as bool,avatarUrl: freezed == avatarUrl ? _self.avatarUrl : avatarUrl // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,lastPreview: freezed == lastPreview ? _self.lastPreview : lastPreview // ignore: cast_nullable_to_non_nullable
+as Message?,
   ));
 }
 

@@ -23,8 +23,21 @@ dependencies:
   # local package
   matrix_sdk:
     path: ../sdk/
+  # Video thumbnail + transcode before Matrix send ([media-rs](https://github.com/kushalmahapatro/media-rs)).
+  # Adjust path if your checkout layout differs (target: `media` package root with `pubspec.yaml`).
+  media:
+    path: ../../../media-rs/media
   path_provider: ^2.1.5
+  file_picker: ^8.1.4
   freezed_annotation: ^3.1.0
+  media_kit: ^1.2.6
+  media_kit_video: ^2.0.1
+  media_kit_libs_video: ^1.0.7
+  pdfx: ^2.9.2
+  open_filex: ^4.7.0
+  photo_view: ^0.15.0
+  flutter_markdown: ^0.7.7+1
+  image_picker: ^1.2.1
 
 dev_dependencies:
   flutter_test:
@@ -48,3 +61,8 @@ flutter:
         - asset: fonts/JetBrainsMono-BoldItalic.ttf
           weight: 700
           style: italic
+
+hooks:
+  user_defines:
+    media:
+      localBuild: false

@@ -1,0 +1,6 @@
+# Populated by hook/build.dart — keep only .gitkeep tracked (see patterns below).
+.matrix-sdk/native/pdfium/lib/*
+!.matrix-sdk/native/pdfium/lib/.gitkeep
+.matrix-sdk/native/bin/*
+!.matrix-sdk/native/bin/.gitkeep
+.matrix-sdk/cache/

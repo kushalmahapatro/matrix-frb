@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:matrix/src/features/splash/presentation/screen/splash_screen.dart';
 import 'package:matrix/src/theme/matrix_theme.dart';
 import 'package:matrix/src/theme/theme_provider.dart';
@@ -8,6 +9,7 @@ import 'package:provider/provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  MediaKit.ensureInitialized();
   await MatrixSdk.init();
 
   runApp(const MyApp());

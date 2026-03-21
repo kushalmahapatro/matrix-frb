@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:elementary/elementary.dart';
 import 'package:flutter/material.dart';
@@ -7,12 +8,29 @@ import 'package:matrix/src/core/logging_service.dart';
 import 'package:matrix/src/core/state_management/base_state_widget_model.dart';
 import 'package:matrix/src/features/chat_lisitng/domain/models/chat_state.dart';
 import 'package:matrix/src/features/chat_lisitng/presentation/screens/chat_listing_screen.dart';
-import 'package:matrix_sdk/matrix_sdk.dart';
+import 'package:matrix_sdk/matrix_sdk.dart' show Message, RoomUpdate;
 import 'package:result_dart/result_dart.dart';
 
 class ChatListingScreenModel extends ElementaryModel {
   ChatListingScreenModel(this._matrixService) : super();
   final MatrixService _matrixService;
+
+  /// Server-generated thumbnail bytes for the room list (see [Chat.lastPreview]).
+  Future<Uint8List?> loadListingThumbnail(String roomId, Message message) async {
+    final id = message.eventId.isNotEmpty
+        ? message.eventId
+        : message.transactionId;
+    if (id.isEmpty) return null;
+    try {
+      return await _matrixService.client.fetchRoomMessageMedia(
+        roomId: roomId,
+        eventId: id,
+        thumbnail: true,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<List<Chat>> loadRooms() async {
     Result<List<RoomUpdate>> result;
@@ -40,6 +58,7 @@ class ChatListingScreenModel extends ElementaryModel {
               status: ChatRoomStatus.values.firstWhere(
                 (status) => status.name == room.updateType.name,
               ),
+              lastPreview: room.message,
             ),
           )
           .toList(),
@@ -78,6 +97,7 @@ class ChatListingScreenModel extends ElementaryModel {
       status: ChatRoomStatus.values.firstWhere(
         (status) => status.name == roomUpdate.updateType.name,
       ),
+      lastPreview: roomUpdate.message,
     );
   }
 }
@@ -106,6 +126,11 @@ class ChatListingScreenWM
   static const Duration _maxReconnectionDelay = Duration(seconds: 30);
   static const Duration _healthCheckInterval = Duration(seconds: 30);
 
+  /// While sync starts, the room list stream can emit `[]` before rooms arrive.
+  /// Keep the loading UI briefly instead of flashing "no rooms".
+  Timer? _emptyRoomListSettleTimer;
+  static const Duration _emptyListSettleDuration = Duration(milliseconds: 1200);
+
   @override
   void initWidgetModel() {
     super.initWidgetModel();
@@ -128,6 +153,7 @@ class ChatListingScreenWM
 
   @override
   void dispose() {
+    _emptyRoomListSettleTimer?.cancel();
     _isSubscribed = false;
     MatrixService().unregisterRoomUpdatesSubscription();
     _roomListSubscription?.cancel();
@@ -180,6 +206,29 @@ class ChatListingScreenWM
       'CHAT_LISTING_SCREEN',
       'Received room list: ${list.length} rooms',
     );
+    _emptyRoomListSettleTimer?.cancel();
+
+    if (list.isEmpty) {
+      final hadRooms = _chatState.value.maybeWhen(
+        loaded: (rooms) => rooms.isNotEmpty,
+        orElse: () => false,
+      );
+      if (hadRooms) {
+        _chatState.value = const ChatState.loaded(rooms: []);
+        _selectedChatType.value = _selectedChatType.value;
+        _lastUpdateTime = DateTime.now();
+        return;
+      }
+      _chatState.value = const ChatState.loading();
+      _emptyRoomListSettleTimer = Timer(_emptyListSettleDuration, () {
+        if (!_isSubscribed || !context.mounted) return;
+        _chatState.value = const ChatState.loaded(rooms: []);
+        _selectedChatType.value = _selectedChatType.value;
+      });
+      _lastUpdateTime = DateTime.now();
+      return;
+    }
+
     _chatState.value = ChatState.loaded(rooms: list);
     _selectedChatType.value = _selectedChatType.value;
     _lastUpdateTime = DateTime.now();
@@ -234,6 +283,9 @@ class ChatListingScreenWM
   void setSelectedChatType(ChatType type) {
     _selectedChatType.value = type;
   }
+
+  Future<Uint8List?> loadListingThumbnail(String roomId, Message message) =>
+      model.loadListingThumbnail(roomId, message);
 
   /// Pause room updates subscription when app goes to background
   void pauseRoomUpdates() {

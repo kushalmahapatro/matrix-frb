@@ -5,7 +5,6 @@
 
 import '../frb_generated.dart';
 import '../lib.dart';
-import '../rhttp/api/client.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 class ClientConfig {
@@ -14,7 +13,6 @@ class ClientConfig {
   final List<Certificate>? rootCertificates;
   final String? proxy;
   final String? passphrase;
-  final RequestClient? rhttpClient;
 
   const ClientConfig({
     required this.sessionPath,
@@ -22,7 +20,6 @@ class ClientConfig {
     this.rootCertificates,
     this.proxy,
     this.passphrase,
-    this.rhttpClient,
   });
 
   @override
@@ -31,8 +28,7 @@ class ClientConfig {
       homeserverUrl.hashCode ^
       rootCertificates.hashCode ^
       proxy.hashCode ^
-      passphrase.hashCode ^
-      rhttpClient.hashCode;
+      passphrase.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -43,6 +39,5 @@ class ClientConfig {
           homeserverUrl == other.homeserverUrl &&
           rootCertificates == other.rootCertificates &&
           proxy == other.proxy &&
-          passphrase == other.passphrase &&
-          rhttpClient == other.rhttpClient;
+          passphrase == other.passphrase;
 }

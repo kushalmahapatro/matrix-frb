@@ -1,12 +1,20 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, ops::Deref, sync::Arc};
 
 use flutter_rust_bridge::frb;
 
 use eyeball_im::Vector;
+use futures::future::join_all;
 use matrix_sdk::{
-    ruma::{OwnedRoomId, RoomId},
+    ruma::{
+        events::{
+            room::encryption::RoomEncryptionEventContent,
+            InitialStateEvent,
+        },
+        OwnedRoomId, RoomId,
+    },
     Client, Room, RoomState,
 };
+use matrix_sdk_ui::room_list_service::RoomListItem;
 use matrix_sdk_ui::timeline::{LatestEventValue, RoomExt};
 use std::sync::Mutex;
 use tokio::sync::Mutex as AsyncMutex;
@@ -14,41 +22,36 @@ use tokio::sync::Mutex as AsyncMutex;
 use crate::{
     frb_generated::StreamSink,
     matrix::{
-        status::StatusHandle,
         sync_service::App,
-        timelines::{Message, MessageType},
+        timelines::{EventSendStateKind, Message, MessageType},
     },
 };
 use tracing::{debug, error, warn};
 
 // RoomUpdate moved to api module
 
-pub type Rooms = Arc<Mutex<Vector<Room>>>;
+/// Rooms as ordered by sliding sync + room list service (matches multiverse / Element).
+pub type Rooms = Arc<Mutex<Vector<RoomListItem>>>;
 
 #[derive(Clone)]
 #[frb(ignore)]
 pub struct RoomList {
-    pub status_handle: StatusHandle,
     pub rooms: Rooms,
     /// Extra information about rooms (written by sync listen_task).
     pub room_infos: RoomInfos,
 }
 
 impl RoomList {
-    pub fn new(rooms: Rooms, room_infos: RoomInfos, status_handle: StatusHandle) -> Self {
-        Self {
-            rooms,
-            status_handle,
-            room_infos,
-        }
+    pub fn new(rooms: Rooms, room_infos: RoomInfos) -> Self {
+        Self { rooms, room_infos }
     }
 
     pub fn get_room_by_id(&self, room_id: &str) -> Option<Room> {
         let rooms = self.rooms.lock().unwrap();
         rooms
             .iter()
-            .find(|room| room.room_id().to_string() == room_id)
-            .cloned()
+            .find(|item| item.room_id().as_str() == room_id)
+            .map(|item| item.clone().into_inner())
     }
 }
 
@@ -90,15 +93,7 @@ pub struct RoomUpdate {
     pub message: Option<Message>,
 }
 
-/// Result of sending a message: event_id and a room update with the sent message as last.
-/// Use the room_update to refresh the room list so the UI shows the correct last message
-/// immediately (the SDK's latest_event is updated asynchronously and may be one step behind).
-pub struct SendMessageResult {
-    pub event_id: String,
-    pub room_update: RoomUpdate,
-}
-
-pub(crate) async fn get_room_update_data(room: &Room) -> RoomUpdate {
+pub(crate) async fn get_room_update_data(room: &Room, own_user_id: Option<&str>) -> RoomUpdate {
     let room_id = room.room_id().to_string();
     let raw_name = room.name().map(|name| name.to_string());
     let display_name = room.cached_display_name().map(|name| name.to_string());
@@ -118,10 +113,18 @@ pub(crate) async fn get_room_update_data(room: &Room) -> RoomUpdate {
     let last_event = room.latest_event().await;
     let mut message = Message {
         event_id: "".to_string(),
+        transaction_id: "".to_string(),
         sender: "".to_string(),
         content: "".to_string(),
         timestamp: 0,
         message_type: MessageType::Message,
+        room_msg_kind: crate::matrix::timelines::RoomMessageKind::Other,
+        send_state: EventSendStateKind::Delivered,
+        send_error: "".to_string(),
+        send_recoverable: false,
+        is_own: false,
+        media_mimetype: String::new(),
+        media_size_bytes: 0,
     };
     match &last_event {
         LatestEventValue::Remote {
@@ -136,16 +139,39 @@ pub(crate) async fn get_room_update_data(room: &Room) -> RoomUpdate {
             content,
             ..
         } => {
+            let base_latest = room.deref().latest_event();
+            let event_id_str = base_latest
+                .event_id()
+                .map(|id| id.to_string())
+                .unwrap_or_default();
             let message_content = content
                 .as_message()
                 .map(|m| m.body().to_string())
                 .unwrap_or_else(|| "".to_string());
+            let room_msg_kind = content
+                .as_message()
+                .map(crate::matrix::timelines::room_msg_kind_from_sdk_ui_message)
+                .unwrap_or(crate::matrix::timelines::RoomMessageKind::Other);
+            let (media_mimetype, media_size_bytes) = content
+                .as_message()
+                .map(|m| crate::matrix::timelines::sdk_ui_message_media_info(m))
+                .unwrap_or((String::new(), 0));
+            let sender_str = sender.to_string();
+            let is_own = own_user_id.is_some_and(|o| o == sender_str.as_str());
             message = Message {
-                event_id: "".to_string(), // LatestEventValue does not expose event_id
-                sender: sender.to_string(),
+                event_id: event_id_str,
+                transaction_id: "".to_string(),
+                sender: sender_str,
                 content: message_content,
                 timestamp: u64::from(timestamp.0),
                 message_type: MessageType::Message,
+                room_msg_kind,
+                send_state: EventSendStateKind::Delivered,
+                send_error: "".to_string(),
+                send_recoverable: false,
+                is_own,
+                media_mimetype,
+                media_size_bytes,
             };
         }
         LatestEventValue::None | LatestEventValue::RemoteInvite { .. } => {
@@ -191,19 +217,35 @@ pub(crate) fn sort_room_list_by_activity(list: &mut [RoomUpdate]) {
 }
 
 /// Room list for the given app (used by [crate::api::matrix_client::MatrixClient]).
-pub(crate) async fn get_all_rooms(app: &App) -> Vec<RoomUpdate> {
-    let rooms_snapshot: Vec<matrix_sdk::Room> = {
+pub(crate) async fn get_all_rooms(app: &App, own_user_id: Option<String>) -> Vec<RoomUpdate> {
+    let rooms_snapshot: Vec<RoomListItem> = {
         let rooms_lock = app.room_list.rooms.lock().unwrap();
         rooms_lock.iter().cloned().collect()
     };
 
-    let mut room_updates = Vec::new();
-    for room in &rooms_snapshot {
-        let update = get_room_update_data(room).await;
-        room_updates.push(update);
-    }
+    let own = own_user_id.as_deref();
+    join_all(
+        rooms_snapshot
+            .iter()
+            .map(|item| get_room_update_data(&**item, own)),
+    )
+    .await
+}
 
-    room_updates
+/// Full snapshot for subscribers (sorted like the merged room-list cache).
+pub(crate) async fn push_full_room_list_to_subscribers(
+    app: &App,
+    cache: &Arc<AsyncMutex<Vec<RoomUpdate>>>,
+    sink: &Arc<StreamSink<Vec<RoomUpdate>>>,
+    own_user_id: Option<String>,
+) {
+    let mut list = get_all_rooms(app, own_user_id).await;
+    sort_room_list_by_activity(&mut list);
+    {
+        let mut c = cache.lock().await;
+        *c = list.clone();
+    }
+    let _ = sink.add(list);
 }
 
 /// Subscribe to room updates for the given app (used by [crate::api::matrix_client::MatrixClient]). Runs until stream is dropped.
@@ -211,12 +253,19 @@ pub(crate) async fn subscribe_to_all_room_updates(client: &Client, stream: Strea
     loop {
         match client.subscribe_to_all_room_updates().recv().await {
             Ok(updates) => {
-                debug!("Received room update: {} joined, {} invited, {} left, {} knocked",
-                    updates.joined.len(), updates.invited.len(), updates.left.len(), updates.knocked.len());
+                let own = client.user_id().map(|u| u.to_string());
+                let own_ref = own.as_deref();
+                debug!(
+                    "Received room update: {} joined, {} invited, {} left, {} knocked",
+                    updates.joined.len(),
+                    updates.invited.len(),
+                    updates.left.len(),
+                    updates.knocked.len()
+                );
                 for room_id in &updates.joined {
                     match client.get_room(&room_id.0) {
                         Some(room) => {
-                            let mut update = get_room_update_data(&room).await;
+                            let mut update = get_room_update_data(&room, own_ref).await;
                             update.update_type = UpdateType::Joined;
                             let _ = stream.add(update);
                         }
@@ -228,7 +277,7 @@ pub(crate) async fn subscribe_to_all_room_updates(client: &Client, stream: Strea
                 for room_id in &updates.invited {
                     match client.get_room(&room_id.0) {
                         Some(room) => {
-                            let mut update = get_room_update_data(&room).await;
+                            let mut update = get_room_update_data(&room, own_ref).await;
                             update.update_type = UpdateType::Invited;
                             let _ = stream.add(update);
                         }
@@ -240,7 +289,7 @@ pub(crate) async fn subscribe_to_all_room_updates(client: &Client, stream: Strea
                 for room_id in &updates.left {
                     match client.get_room(&room_id.0) {
                         Some(room) => {
-                            let mut update = get_room_update_data(&room).await;
+                            let mut update = get_room_update_data(&room, own_ref).await;
                             update.update_type = UpdateType::Left;
                             let _ = stream.add(update);
                         }
@@ -252,7 +301,7 @@ pub(crate) async fn subscribe_to_all_room_updates(client: &Client, stream: Strea
                 for room_id in &updates.knocked {
                     match client.get_room(&room_id.0) {
                         Some(room) => {
-                            let mut update = get_room_update_data(&room).await;
+                            let mut update = get_room_update_data(&room, own_ref).await;
                             update.update_type = UpdateType::Knocked;
                             let _ = stream.add(update);
                         }
@@ -270,101 +319,32 @@ pub(crate) async fn subscribe_to_all_room_updates(client: &Client, stream: Strea
     }
 }
 
-/// Runs until stream is dropped. Receives sync room updates, merges into cache, and sends full list each time.
-pub(crate) async fn subscribe_to_room_list_loop(
-    client: Client,
-    cache: Arc<AsyncMutex<Vec<RoomUpdate>>>,
-    stream: std::sync::Arc<StreamSink<Vec<RoomUpdate>>>,
-) {
-    loop {
-        match client.subscribe_to_all_room_updates().recv().await {
-            Ok(updates) => {
-                debug!(
-                    "Room list: {} joined, {} invited, {} left, {} knocked",
-                    updates.joined.len(),
-                    updates.invited.len(),
-                    updates.left.len(),
-                    updates.knocked.len()
-                );
-                let mut list = cache.lock().await;
-                for room_id in &updates.joined {
-                    if let Some(room) = client.get_room(&room_id.0) {
-                        let mut update = get_room_update_data(&room).await;
-                        update.update_type = UpdateType::Joined;
-                        merge_room_update_into_list(&mut list, update);
-                    }
-                }
-                for room_id in &updates.invited {
-                    if let Some(room) = client.get_room(&room_id.0) {
-                        let mut update = get_room_update_data(&room).await;
-                        update.update_type = UpdateType::Invited;
-                        merge_room_update_into_list(&mut list, update);
-                    }
-                }
-                for room_id in &updates.left {
-                    if let Some(room) = client.get_room(&room_id.0) {
-                        let mut update = get_room_update_data(&room).await;
-                        update.update_type = UpdateType::Left;
-                        merge_room_update_into_list(&mut list, update);
-                    }
-                }
-                for room_id in &updates.knocked {
-                    if let Some(room) = client.get_room(&room_id.0) {
-                        let mut update = get_room_update_data(&room).await;
-                        update.update_type = UpdateType::Knocked;
-                        merge_room_update_into_list(&mut list, update);
-                    }
-                }
-                sort_room_list_by_activity(&mut list);
-                let _ = stream.add(list.clone());
-            }
-            Err(e) => {
-                error!("Room list stream closed or lagged: {}", e);
-                break;
-            }
-        }
-    }
+/// `m.room.encryption` at creation so the room is E2EE from the first event (no plaintext window).
+fn new_room_encryption_initial_state(
+) -> Vec<matrix_sdk::ruma::serde::Raw<matrix_sdk::ruma::events::AnyInitialStateEvent>> {
+    vec![InitialStateEvent::with_empty_state_key(
+        RoomEncryptionEventContent::with_recommended_defaults(),
+    )
+    .to_raw_any()]
 }
 
-/// Send a message in the given app (used by [crate::api::matrix_client::MatrixClient]).
-/// Returns the event_id and a room update with the sent message as the last message,
-/// so the UI can refresh the room list immediately without waiting for the SDK's
-/// latest_event cache to update (which can be one step behind after send).
-pub(crate) async fn send_message(
-    client: &Client,
-    room_id: String,
-    content: String,
-) -> Result<SendMessageResult, String> {
-    let room_id_parsed = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
-    let room = client.get_room(&room_id_parsed).ok_or("Room not found")?;
-    let sender = client.user_id().ok_or("Not logged in")?.to_string();
-
-    let result = room
-        .send(
-            matrix_sdk::ruma::events::room::message::RoomMessageEventContent::text_plain(&content),
-        )
+/// Turn on Megolm if needed, wait for sync, then fail if the room is still not encrypted.
+async fn ensure_created_room_is_e2ee(room: &Room) -> Result<(), String> {
+    room.enable_encryption()
         .await
-        .map_err(|e| e.to_string())?;
-
-    let event_id = result.response.event_id.to_string();
-    let timestamp_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0);
-
-    let mut room_update = get_room_update_data(&room).await;
-    room_update.message = Some(Message {
-        event_id: event_id.clone(),
-        sender,
-        content: content.clone(),
-        timestamp: timestamp_ms,
-        message_type: MessageType::Message,
-    });
-
-    Ok(SendMessageResult {
-        event_id,
-        room_update,
-    })
+        .map_err(|e| format!("Failed to enable end-to-end encryption: {e}"))?;
+    let encrypted = room
+        .latest_encryption_state()
+        .await
+        .map_err(|e| format!("Failed to read room encryption state: {e}"))?
+        .is_encrypted();
+    if !encrypted {
+        return Err(
+            "Room was created but is not end-to-end encrypted (check server support and your power level)"
+                .to_string(),
+        );
+    }
+    Ok(())
 }
 
 pub(crate) async fn create_direct_room(client: &Client, user_id: String) -> Result<String, String> {
@@ -374,6 +354,7 @@ pub(crate) async fn create_direct_room(client: &Client, user_id: String) -> Resu
     let user_id = UserId::parse(&user_id).map_err(|e| e.to_string())?;
 
     let mut request = CreateRoomRequest::new();
+    request.initial_state = new_room_encryption_initial_state();
     request.is_direct = true;
     request.invite = vec![user_id.to_owned()];
     request.preset =
@@ -384,7 +365,7 @@ pub(crate) async fn create_direct_room(client: &Client, user_id: String) -> Resu
         .await
         .map_err(|e| e.to_string())?;
 
-    room.enable_encryption().await.map_err(|e| e.to_string())?;
+    ensure_created_room_is_e2ee(&room).await?;
 
     Ok(room.room_id().to_string())
 }
@@ -398,6 +379,7 @@ pub(crate) async fn create_group_room(
     use matrix_sdk::ruma::UserId;
 
     let mut request = CreateRoomRequest::new();
+    request.initial_state = new_room_encryption_initial_state();
     request.name = Some(name);
     request.is_direct = false;
     request.preset =
@@ -415,7 +397,7 @@ pub(crate) async fn create_group_room(
         .await
         .map_err(|e| e.to_string())?;
 
-    room.enable_encryption().await.map_err(|e| e.to_string())?;
+    ensure_created_room_is_e2ee(&room).await?;
 
     Ok(room.room_id().to_string())
 }

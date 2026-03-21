@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:elementary/elementary.dart';
 import 'package:flutter/material.dart';
 import 'package:matrix/src/core/navigation/navigator_service.dart';
@@ -9,6 +11,8 @@ import 'package:matrix/src/features/conversation/presentation/screens/conversati
 import 'package:matrix/src/features/create_chat/presentation/screens/create_chat_screen.dart';
 import 'package:matrix/src/features/settings/presentation/screens/settings_screen.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
+import 'package:matrix_sdk/matrix_sdk.dart';
+import 'package:path/path.dart' as p;
 
 ChatListingScreenWM chatListingScreenWMFactory(BuildContext context) {
   return ChatListingScreenWM(ChatListingScreenModel(MatrixService()));
@@ -166,6 +170,7 @@ class ChatListingScreen extends ElementaryWidget<ChatListingScreenWM>
                   return _buildRoomTile(
                     room,
                     context,
+                    wm,
                     (chatId, roomName) => wm.navigateToConversationScreen(
                       context,
                       chatId,
@@ -185,6 +190,7 @@ class ChatListingScreen extends ElementaryWidget<ChatListingScreenWM>
   Widget _buildRoomTile(
     Chat chat,
     BuildContext context,
+    ChatListingScreenWM wm,
     Function(String, String) goToConversation,
   ) {
     final theme = Theme.of(context);
@@ -221,12 +227,24 @@ class ChatListingScreen extends ElementaryWidget<ChatListingScreenWM>
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    chat.lastMessage,
-                    style: theme.textTheme.bodySmall,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  if (chat.lastPreview != null &&
+                      _chatListingShowsMediaRow(chat.lastPreview!))
+                    _ChatListingMediaSubtitle(
+                      roomId: chat.id,
+                      message: chat.lastPreview!,
+                      loadThumbnail: () => wm.loadListingThumbnail(
+                        chat.id,
+                        chat.lastPreview!,
+                      ),
+                      textStyle: theme.textTheme.bodySmall,
+                    )
+                  else
+                    Text(
+                      chat.lastMessage,
+                      style: theme.textTheme.bodySmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                 ],
               ),
             ),
@@ -371,5 +389,255 @@ class ChatListingScreen extends ElementaryWidget<ChatListingScreenWM>
   @override
   void navigateToSettingsScreen(BuildContext context) {
     NavigatorService.push(context, const SettingsScreen());
+  }
+}
+
+bool _chatListingShowsMediaRow(Message m) {
+  switch (m.roomMsgKind) {
+    case RoomMessageKind.image:
+    case RoomMessageKind.video:
+    case RoomMessageKind.audio:
+    case RoomMessageKind.file:
+      return true;
+    case RoomMessageKind.text:
+    case RoomMessageKind.other:
+      return false;
+  }
+}
+
+String _chatListingExtLower(String label) {
+  final base = p.basename(label.trim());
+  final dot = base.lastIndexOf('.');
+  if (dot < 0 || dot >= base.length - 1) return '';
+  return base.substring(dot + 1).toLowerCase();
+}
+
+String _chatListingTypeLabel(Message m) {
+  final mime = m.mediaMimetype.trim();
+  if (mime.isNotEmpty) return mime;
+  final ext = _chatListingExtLower(m.content);
+  return switch (m.roomMsgKind) {
+    RoomMessageKind.image => 'Image',
+    RoomMessageKind.video => 'Video',
+    RoomMessageKind.audio => 'Audio',
+    RoomMessageKind.file => ext.isNotEmpty ? ext.toUpperCase() : 'File',
+    _ => 'Attachment',
+  };
+}
+
+IconData _chatListingKindIcon(RoomMessageKind k) {
+  switch (k) {
+    case RoomMessageKind.image:
+      return Icons.image_outlined;
+    case RoomMessageKind.video:
+      return Icons.video_file_outlined;
+    case RoomMessageKind.audio:
+      return Icons.audio_file_outlined;
+    case RoomMessageKind.file:
+      return Icons.insert_drive_file_outlined;
+    case RoomMessageKind.text:
+    case RoomMessageKind.other:
+      return Icons.attach_file_outlined;
+  }
+}
+
+bool _chatListingRasterBytes(Uint8List data) {
+  if (data.length < 12) return false;
+  if (data.length >= 3 &&
+      data[0] == 0xFF &&
+      data[1] == 0xD8 &&
+      data[2] == 0xFF) {
+    return true;
+  }
+  if (data.length >= 8 &&
+      data[0] == 0x89 &&
+      data[1] == 0x50 &&
+      data[2] == 0x4E &&
+      data[3] == 0x47 &&
+      data[4] == 0x0D &&
+      data[5] == 0x0A &&
+      data[6] == 0x1A &&
+      data[7] == 0x0A) {
+    return true;
+  }
+  if (data.length >= 6 &&
+      data[0] == 0x47 &&
+      data[1] == 0x49 &&
+      data[2] == 0x46) {
+    final g = String.fromCharCodes(data.sublist(0, 6));
+    if (g == 'GIF87a' || g == 'GIF89a') return true;
+  }
+  if (data.length >= 12 &&
+      data[0] == 0x52 &&
+      data[1] == 0x49 &&
+      data[2] == 0x46 &&
+      data[3] == 0x46 &&
+      data[8] == 0x57 &&
+      data[9] == 0x45 &&
+      data[10] == 0x42 &&
+      data[11] == 0x50) {
+    return true;
+  }
+  if (data.length >= 2 && data[0] == 0x42 && data[1] == 0x4D) return true;
+  return false;
+}
+
+class _ChatListingMediaSubtitle extends StatefulWidget {
+  const _ChatListingMediaSubtitle({
+    required this.roomId,
+    required this.message,
+    required this.loadThumbnail,
+    required this.textStyle,
+  });
+
+  final String roomId;
+  final Message message;
+  final Future<Uint8List?> Function() loadThumbnail;
+  final TextStyle? textStyle;
+
+  @override
+  State<_ChatListingMediaSubtitle> createState() =>
+      _ChatListingMediaSubtitleState();
+}
+
+class _ChatListingMediaSubtitleState extends State<_ChatListingMediaSubtitle> {
+  static const double _thumb = 12;
+  static const double _thumbRadius = 2;
+
+  Uint8List? _bytes;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.message.roomMsgKind == RoomMessageKind.audio) {
+      _loading = false;
+      return;
+    }
+    final id = widget.message.eventId.isNotEmpty
+        ? widget.message.eventId
+        : widget.message.transactionId;
+    if (id.isEmpty) {
+      _loading = false;
+      return;
+    }
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ChatListingMediaSubtitle oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.roomId != widget.roomId ||
+        oldWidget.message.eventId != widget.message.eventId ||
+        oldWidget.message.transactionId != widget.message.transactionId ||
+        oldWidget.message.roomMsgKind != widget.message.roomMsgKind) {
+      if (widget.message.roomMsgKind == RoomMessageKind.audio) {
+        setState(() {
+          _loading = false;
+          _bytes = null;
+        });
+        return;
+      }
+      final id = widget.message.eventId.isNotEmpty
+          ? widget.message.eventId
+          : widget.message.transactionId;
+      if (id.isEmpty) {
+        setState(() {
+          _loading = false;
+          _bytes = null;
+        });
+        return;
+      }
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _bytes = null;
+    });
+    try {
+      var b = await widget.loadThumbnail();
+      if (b != null && b.isNotEmpty && !_chatListingRasterBytes(b)) {
+        b = null;
+      }
+      if (!mounted) return;
+      setState(() {
+        _bytes = b;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _bytes = null;
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final label = _chatListingTypeLabel(widget.message);
+    final icon = _chatListingKindIcon(widget.message.roomMsgKind);
+
+    Widget thumb;
+    if (_loading) {
+      thumb = SizedBox(
+        width: _thumb,
+        height: _thumb,
+        child: Center(
+          child: SizedBox(
+            width: 10,
+            height: 10,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: scheme.primary,
+            ),
+          ),
+        ),
+      );
+    } else if (_bytes != null && _bytes!.isNotEmpty) {
+      thumb = ClipRRect(
+        borderRadius: BorderRadius.circular(_thumbRadius),
+        child: Image.memory(
+          _bytes!,
+          width: _thumb,
+          height: _thumb,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (_, __, ___) =>
+              Icon(icon, size: 10, color: scheme.primary),
+        ),
+      );
+    } else {
+      thumb = Container(
+        width: _thumb,
+        height: _thumb,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(_thumbRadius),
+          border: Border.all(color: scheme.primary.withValues(alpha: 0.35)),
+        ),
+        child: Icon(icon, size: 10, color: scheme.primary),
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        thumb,
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            label,
+            style: widget.textStyle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
   }
 }

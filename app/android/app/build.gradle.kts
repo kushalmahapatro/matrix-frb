@@ -5,6 +5,13 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Load keystore properties
+// val keystorePropertiesFile = rootProject.file("keystore.properties")
+// val keystoreProperties = Properties()
+// if (keystorePropertiesFile.exists()) {
+//     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+// }
+
 android {
     namespace = "dev.inve.matrixchat"
     compileSdk = flutter.compileSdkVersion
@@ -38,11 +45,38 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
+
+    //  signingConfigs {
+    //     create("release") {
+    //         keyAlias = keystoreProperties["keyAlias"] as String?
+    //         keyPassword = keystoreProperties["keyPassword"] as String?
+    //         storeFile = keystoreProperties["storeFile"]?.let { file(it) }
+    //         storePassword = keystoreProperties["storePassword"] as String?
+    //     }
+    // }
+
+    // buildTypes {
+    //     release {
+    //         isMinifyEnabled = false
+    //         isShrinkResources = false
+    //     }
+    //     profile {
+    //         isMinifyEnabled = false
+    //         isShrinkResources = false
+    //     }
+    //     release {
+    //         signingConfig = signingConfigs.getByName("release")
+    //         proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+    //         isMinifyEnabled = false
+    //         isShrinkResources = false
+    //     }
+    // }
 }
 
 dependencies {
-    // Kotlin component required by rustls-platform-verifier for TLS cert verification on Android
-    implementation("rustls:rustls-platform-verifier:0.1.1")
+    // TLS certificate verification on Android (required by rustls in Matrix SDK).
+    // @aar: crate ships an AAR; without it Gradle may look for a .jar and fail resolution.
+    implementation("rustls:rustls-platform-verifier:0.1.1@aar")
 }
 
 flutter {

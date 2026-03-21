@@ -10,7 +10,8 @@ import 'package:matrix/src/features/conversation/presentation/screens/conversati
 import 'package:matrix/src/features/conversation/presentation/widgets/pagianted_message_list.dart';
 import 'package:matrix/src/features/conversation/routes/conversation_routes.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
-import 'package:matrix_sdk/matrix_sdk.dart';
+import 'package:matrix_sdk/matrix_sdk.dart'
+    show FileSendPhase, FileSendProgress, Message;
 
 ConversationScreenWM conversationScreenWMFactory(BuildContext context) {
   return ConversationScreenWM(
@@ -78,6 +79,9 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                   ),
                   loaded: (messages, roomInfo) {
                     return PaginatedMessageList(
+                      roomId: roomId,
+                      loadMessageMedia: wm.fetchRoomMessageMedia,
+                      onOpenAttachment: wm.openAttachment,
                       initialMessages: messages,
                       loadOlder: (Message oldest) async {
                         return await wm.fetchOlderMessages(
@@ -85,8 +89,10 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                           limit: 50,
                         );
                       },
+                      onRetryFailedSend: wm.retryFailedSend,
                       onVisibleRange:
                           (Message firstVisible, Message lastVisible) {},
+                      jumpToEventNotifier: wm.jumpToTimelineEventId,
                     );
                   },
                   error: (message) => Center(
@@ -134,13 +140,119 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
               if (isInvited) {
                 return _acceptInviteWidget(wm);
               } else {
-                return _buildMessageInput(wm);
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ValueListenableBuilder<FileSendProgress?>(
+                      valueListenable: wm.fileSendProgress,
+                      builder: (context, prog, _) {
+                        if (prog == null) return const SizedBox.shrink();
+                        return _fileSendProgressBanner(context, wm, prog);
+                      },
+                    ),
+                    _buildMessageInput(wm),
+                  ],
+                );
               }
             },
           ),
         ],
       ),
     );
+  }
+
+  Widget _fileSendProgressBanner(
+    BuildContext context,
+    ConversationScreenWM wm,
+    FileSendProgress prog,
+  ) {
+    final theme = Theme.of(context);
+    final ratio = _fileSendProgressRatio(prog);
+    final bytesLabel = _fileSendBytesLabel(prog);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+      child: Material(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _fileSendPhaseLabel(prog.phase),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: wm.cancelFileSend,
+                    child: const Text('CANCEL'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              LinearProgressIndicator(value: ratio),
+              const SizedBox(height: 8),
+              Text(
+                bytesLabel,
+                style: theme.textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _fileSendPhaseLabel(FileSendPhase phase) {
+    switch (phase) {
+      case FileSendPhase.videoCompress:
+        return 'COMPRESSING VIDEO';
+      case FileSendPhase.mainUpload:
+        return 'UPLOADING FILE';
+      case FileSendPhase.thumbnailUpload:
+        return 'UPLOADING THUMBNAIL';
+      case FileSendPhase.sendingMessage:
+        return 'SENDING MESSAGE';
+      case FileSendPhase.encryptedQueued:
+        return 'ENCRYPTED SEND (QUEUE)';
+      case FileSendPhase.done:
+        return 'DONE';
+      case FileSendPhase.cancelled:
+        return 'CANCELLED';
+      case FileSendPhase.failed:
+        return 'FAILED';
+    }
+  }
+
+  /// Determinate bar when `total > 0`; otherwise indeterminate (`null`).
+  /// Encrypted send-queue path has no live byte counter — keep bar indeterminate.
+  double? _fileSendProgressRatio(FileSendProgress p) {
+    if (p.phase == FileSendPhase.encryptedQueued) return null;
+    final t = p.total;
+    if (t <= BigInt.zero) return null;
+    final scaled = (p.current * BigInt.from(10_000)) ~/ t;
+    return scaled.toInt().clamp(0, 10_000) / 10_000.0;
+  }
+
+  String _fileSendBytesLabel(FileSendProgress p) {
+    if (p.phase == FileSendPhase.encryptedQueued) {
+      if (p.total <= BigInt.zero) {
+        return 'Encrypting and uploading…';
+      }
+      return '${p.current} / ${p.total} bytes (encrypted — no live upload counter)';
+    }
+    if (p.total <= BigInt.zero) {
+      return 'Working…';
+    }
+    return '${p.current} / ${p.total} bytes';
   }
 
   Widget _buildMessageInput(ConversationScreenWM wm) {
@@ -153,6 +265,11 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
               color: theme.colorScheme.primary,
               fontWeight: FontWeight.bold,
             )),
+            IconButton(
+              icon: Icon(Icons.attach_file, color: theme.colorScheme.primary),
+              onPressed: wm.showAttachMenu,
+              tooltip: 'Attach',
+            ),
             Expanded(
               child: TextField(
                 controller: wm.messageController,
@@ -240,31 +357,6 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
 
   @override
   void showRoomInfo(BuildContext context) {
-    final theme = Theme.of(context);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: theme.colorScheme.surfaceContainerHighest,
-        title: Text('ROOM INFO', style: theme.textTheme.titleLarge),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Room: General Discussion', style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 8),
-            Text('Members: 42', style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 8),
-            Text('Topic: Welcome to the Matrix', style: theme.textTheme.bodyMedium),
-          ],
-        ),
-        actions: [
-          TerminalButton(
-            text: 'CLOSE',
-            onPressed: () => Navigator.of(context).pop(),
-            isPrimary: false,
-          ),
-        ],
-      ),
-    );
+    // Navigation is handled in [ConversationScreenWM.showRoomInfo].
   }
 }

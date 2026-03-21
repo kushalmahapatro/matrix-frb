@@ -227,9 +227,10 @@ class CreateChatScreen extends ElementaryWidget<CreateChatScreenWM>
                           builder: (context, child) {
                             final isCreating = wm.isCreating.value;
                             final text =
-                                wm.selectedChatType.value == CreateChatType.direct
-                                    ? 'CREATE DIRECT CHAT'
-                                    : 'CREATE GROUP CHAT';
+                                wm.selectedChatType.value ==
+                                    CreateChatType.direct
+                                ? 'CREATE DIRECT CHAT'
+                                : 'CREATE GROUP CHAT';
                             if (isCreating) {
                               return Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -318,5 +319,43 @@ class CreateChatScreen extends ElementaryWidget<CreateChatScreenWM>
   @override
   void goBack(BuildContext context, String chatId) {
     Navigator.of(context).pop(chatId);
+  }
+
+  @override
+  Future<bool?> showExistingDmDialog(
+    BuildContext context, {
+    required String otherUserId,
+    required String existingRoomId,
+  }) {
+    final theme = Theme.of(context);
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: theme.colorScheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: theme.colorScheme.primary),
+        ),
+        title: Text(
+          'Direct chat already exists',
+          style: theme.textTheme.titleLarge,
+        ),
+        content: Text(
+          'You already have a direct message room with this user.\n\n'
+          '$otherUserId',
+          style: theme.textTheme.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Stay here'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Open chat'),
+          ),
+        ],
+      ),
+    );
   }
 }

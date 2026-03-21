@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:matrix/src/core/domain/services/app_config.dart';
+import 'package:media/media.dart';
 import 'package:matrix/src/core/logging_service.dart';
+import 'package:matrix/src/core/native_media_rust_paths.dart';
 import 'package:matrix_sdk/matrix_sdk.dart' as platform;
 import 'package:matrix_sdk/matrix_sdk.dart' as tracing;
 import 'package:matrix_sdk/matrix_sdk.dart';
@@ -14,10 +16,6 @@ class MatrixService {
   MatrixService._internal();
 
   late final MatrixClient _matrixClient;
-
-  /// rhttp client created before Matrix so Matrix SDK can use the same HTTP client (when native build uses rhttp-client feature). Kept so it is not GC'd.
-  // ignore: unused_field
-  late final RhttpClient _httpClient;
 
   /// One active timeline subscription per room (timeline list or updates stream).
   final Map<String, StreamSubscription<Object?>> _timelineSubscriptions =
@@ -47,6 +45,7 @@ class MatrixService {
   Future<Result<bool>> initialize({
     required String dbPath,
     required String logsPath,
+    NativeMediaRustPaths? nativeMediaRustPaths,
   }) async {
     // Initialize Rust logging
     await LoggingService.init();
@@ -76,6 +75,13 @@ class MatrixService {
           debugPrint(line);
         });
       }
+
+      final media =
+          nativeMediaRustPaths ?? NativeMediaRustPaths.fromDefinesOnly();
+      await setNativeMediaEnv(
+        pdfiumDynamicLibPath: media.pdfiumDynamicLibPath,
+        matrixPdfiumDir: media.matrixPdfiumDir,
+      );
     } catch (e) {
       LoggingService.error('InitializationService', e.toString());
       return Failure(Exception(e.toString()));
@@ -86,28 +92,24 @@ class MatrixService {
       'Initializing Matrix app with homeserver: $homeserverUrl',
     );
 
-    // Create rhttp client with interceptor so Matrix HTTP requests are logged (console + optional DevTools).
-    try {
-      _httpClient = await RhttpClient.create();
-    } catch (e) {
-      LoggingService.error(
-        'InitializationService',
-        'Could not create rhttp client (Matrix will use its own HTTP client): $e',
-      );
-      throw Exception(e.toString());
-    }
-
     final config = ClientConfig(
       sessionPath: dbPath,
       homeserverUrl: homeserverUrl.toString(),
       passphrase: 'password',
-      rhttpClient: _httpClient.ref,
       proxy: AppConfig.proxyEnabled ? AppConfig.proxyUrl : null,
     );
 
     try {
       final result = await MatrixClient.configure(config: config);
       _matrixClient = result;
+      try {
+        await Media.init(kDebugMode: kDebugMode);
+      } catch (e) {
+        LoggingService.info(
+          'InitializationService',
+          'media package init skipped (video preprocess may fall back to Rust/ffmpeg): $e',
+        );
+      }
       _isInitialized = true;
       return Success(true);
     } catch (e) {

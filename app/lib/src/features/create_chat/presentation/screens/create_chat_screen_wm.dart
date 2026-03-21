@@ -25,6 +25,10 @@ class CreateChatScreenModel extends ElementaryModel {
     }
   }
 
+  Future<String?> getExistingDmRoomId({required String userId}) async {
+    return _matrixService.client.getExistingDmRoomId(userId: userId);
+  }
+
   Future<Result<String>> createDirectRoom({required String userId}) async {
     try {
       final result = await _matrixService.client.createDirectRoom(
@@ -168,10 +172,25 @@ class CreateChatScreenWM
 
     try {
       if (_selectedChatType.value == CreateChatType.direct) {
-        // For direct chat, only use the first selected user
-        final result = await model.createDirectRoom(
-          userId: _selectedUsers.value.first.userId,
+        final otherUserId = _selectedUsers.value.first.userId;
+        final existingRoomId = await model.getExistingDmRoomId(
+          userId: otherUserId,
         );
+        if (!context.mounted) return;
+        if (existingRoomId != null && existingRoomId.isNotEmpty) {
+          _isCreating.value = false;
+          final openExisting = await widget.showExistingDmDialog(
+            context,
+            otherUserId: otherUserId,
+            existingRoomId: existingRoomId,
+          );
+          if (context.mounted && openExisting == true) {
+            widget.goBack(context, existingRoomId);
+          }
+          return;
+        }
+
+        final result = await model.createDirectRoom(userId: otherUserId);
         if (context.mounted) {
           result.fold(
             (id) {
@@ -179,10 +198,13 @@ class CreateChatScreenWM
               widget.goBack(context, id);
               widget.showSnackBar(context, 'ROOM CREATED: $id');
             },
-            (failure) => widget.showSnackBar(
-              context,
-              'CREATE DIRECT ROOM ERROR: $failure',
-            ),
+            (failure) {
+              _isCreating.value = false;
+              widget.showSnackBar(
+                context,
+                'CREATE DIRECT ROOM ERROR: $failure',
+              );
+            },
           );
         }
       } else {
@@ -199,10 +221,13 @@ class CreateChatScreenWM
               widget.goBack(context, id);
               widget.showSnackBar(context, 'ROOM CREATED: $id');
             },
-            (failure) => widget.showSnackBar(
-              context,
-              'CREATE GROUP ROOM ERROR: $failure',
-            ),
+            (failure) {
+              _isCreating.value = false;
+              widget.showSnackBar(
+                context,
+                'CREATE GROUP ROOM ERROR: $failure',
+              );
+            },
           );
         }
       }

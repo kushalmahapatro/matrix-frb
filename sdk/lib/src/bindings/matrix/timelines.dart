@@ -6,28 +6,79 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+enum EventSendStateKind {
+  /// Remote event, or local echo already confirmed / sent.
+  delivered,
+
+  /// Local echo: sending or waiting for network.
+  pending,
+
+  /// Local echo: send failed (see [Message::send_error]; retry if [Message::send_recoverable]).
+  failed,
+}
+
 class Message {
   final String eventId;
+
+  /// Matrix transaction id for local echoes (empty for remote-only items).
+  final String transactionId;
   final String sender;
   final String content;
   final BigInt timestamp;
   final MessageType messageType;
 
+  /// `m.room.message` kind for rendering (image/file/video…).
+  final RoomMessageKind roomMsgKind;
+
+  /// Send state for timeline events (local echo progress / failures).
+  final EventSendStateKind sendState;
+
+  /// Human-readable error when [EventSendStateKind::Failed].
+  final String sendError;
+
+  /// Whether the SDK considers the failure recoverable (e.g. retry via [crate::api::matrix_client::MatrixClient::retry_failed_send]).
+  final bool sendRecoverable;
+
+  /// `true` when the event sender is the logged-in user (outgoing); virtual rows are `false`.
+  final bool isOwn;
+
+  /// From `m.room.message` attachment `info.mimetype` when present.
+  final String mediaMimetype;
+
+  /// From `m.room.message` attachment `info.size` when present (bytes).
+  final BigInt mediaSizeBytes;
+
   const Message({
     required this.eventId,
+    required this.transactionId,
     required this.sender,
     required this.content,
     required this.timestamp,
     required this.messageType,
+    required this.roomMsgKind,
+    required this.sendState,
+    required this.sendError,
+    required this.sendRecoverable,
+    required this.isOwn,
+    required this.mediaMimetype,
+    required this.mediaSizeBytes,
   });
 
   @override
   int get hashCode =>
       eventId.hashCode ^
+      transactionId.hashCode ^
       sender.hashCode ^
       content.hashCode ^
       timestamp.hashCode ^
-      messageType.hashCode;
+      messageType.hashCode ^
+      roomMsgKind.hashCode ^
+      sendState.hashCode ^
+      sendError.hashCode ^
+      sendRecoverable.hashCode ^
+      isOwn.hashCode ^
+      mediaMimetype.hashCode ^
+      mediaSizeBytes.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -35,10 +86,18 @@ class Message {
       other is Message &&
           runtimeType == other.runtimeType &&
           eventId == other.eventId &&
+          transactionId == other.transactionId &&
           sender == other.sender &&
           content == other.content &&
           timestamp == other.timestamp &&
-          messageType == other.messageType;
+          messageType == other.messageType &&
+          roomMsgKind == other.roomMsgKind &&
+          sendState == other.sendState &&
+          sendError == other.sendError &&
+          sendRecoverable == other.sendRecoverable &&
+          isOwn == other.isOwn &&
+          mediaMimetype == other.mediaMimetype &&
+          mediaSizeBytes == other.mediaSizeBytes;
 }
 
 enum MessageType { message, dateDivider, readMarker, timelineStart }
@@ -93,3 +152,6 @@ enum MessageUpdateType {
   timelineStart,
   readMarker,
 }
+
+/// Classification of an `m.room.message` (for media previews). Non-message timeline rows use [RoomMessageKind::Other].
+enum RoomMessageKind { text, image, file, video, audio, other }

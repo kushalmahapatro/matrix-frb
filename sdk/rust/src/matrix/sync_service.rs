@@ -1,21 +1,20 @@
 use tracing::{error, warn};
 
 use crate::frb_generated::StreamSink;
-use crate::matrix::rooms::{ExtraRoomInfo, RoomInfos, RoomList};
-use crate::matrix::status::Status;
-use crate::matrix::timelines::{RoomView, Timeline, Timelines};
+use crate::matrix::rooms::{ExtraRoomInfo, RoomInfos, RoomList, Rooms};
+use crate::matrix::timelines::{Timeline, Timelines};
 use eyeball_im::Vector;
 use flutter_rust_bridge::frb;
 use futures::{pin_mut, StreamExt};
 use matrix_sdk::Client;
-use matrix_sdk::Room;
+use matrix_sdk_ui::room_list_service::filters::new_filter_non_left;
+use matrix_sdk_ui::room_list_service::RoomList as SlidingSyncRoomList;
 use matrix_sdk_ui::sync_service::{State as MatrixSyncState, SyncService};
 use matrix_sdk_ui::timeline::{RoomExt, TimelineFocus};
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
-use std::sync::Mutex as StdMutex;
 use tokio::spawn;
+use tokio::sync::broadcast;
 
 /// Sync service state, mirroring the matrix-sdk-ffi SyncServiceState.
 /// Notify the client when this changes so it can refresh rooms/timeline or show sync status.
@@ -41,9 +40,6 @@ impl From<MatrixSyncState> for SyncState {
 }
 
 #[frb(ignore)]
-pub type Rooms = Arc<StdMutex<Vector<Room>>>;
-
-#[frb(ignore)]
 #[derive(Clone)]
 pub struct App {
     /// The sync service used for synchronizing events.
@@ -55,74 +51,74 @@ pub struct App {
     /// The room list widget on the left-hand side of the screen.
     pub room_list: RoomList,
 
-    /// A view displaying the contents of the selected room, the widget on the
-    /// right-hand side of the screen.
-    pub room_view: RoomView,
-
-    /// The status widget at the bottom of the screen.
-    pub status: Status,
+    /// Notify UI room-list subscribers when sliding-sync room list changes (multiverse-style).
+    pub room_list_refresh: broadcast::Sender<()>,
 }
 
 #[frb(ignore)]
 impl App {
-    /// Build the App (rooms, room_list, room_view, listen_task). Caller must spawn
-    /// `app.sync_service.start()` so the sync loop runs without blocking.
-    async fn new(client: Client, sync_service: Arc<SyncService>) -> Result<Self, ()> {
+    /// Build the App (rooms, room_list, listen_task). Caller must call
+    /// `app.sync_service.start().await` so the sync loop runs without blocking.
+    async fn new(
+        _client: Client,
+        sync_service: Arc<SyncService>,
+        all_rooms: SlidingSyncRoomList,
+    ) -> Result<Self, ()> {
         let rooms = Rooms::default();
         let room_infos = RoomInfos::default();
         let timelines = Timelines::default();
 
-        // Spawn the listen task; it will get the room stream from the client it owns.
+        let (room_list_refresh, _) = broadcast::channel::<()>(256);
+        let refresh_tx = room_list_refresh.clone();
+
         let _listen_task = spawn(Self::listen_task(
             rooms.clone(),
             room_infos.clone(),
             timelines.clone(),
-            client.clone(),
+            all_rooms,
+            refresh_tx,
         ));
 
-        let status = Status::new();
-        let room_list = RoomList::new(rooms, room_infos, status.handle());
-
-        let room_view = RoomView::new(client.clone(), timelines.clone(), status.handle());
+        let room_list = RoomList::new(rooms, room_infos);
 
         Ok(Self {
             sync_service,
             timelines,
             room_list,
-            room_view,
-            status,
+            room_list_refresh,
         })
     }
 
+    /// Sliding Sync room list + timelines (same pipeline as matrix-rust-sdk multiverse).
     async fn listen_task(
         rooms: Rooms,
         room_infos: RoomInfos,
         timelines: Timelines,
-        client: Client,
+        all_rooms: SlidingSyncRoomList,
+        room_list_refresh: broadcast::Sender<()>,
     ) {
-        let (initial_rooms, mut rooms_stream) = client.rooms_stream();
-        *rooms.lock().unwrap() = initial_rooms;
+        let (stream, entries_controller) = all_rooms.entries_with_dynamic_adapters(50_000);
+        entries_controller.set_filter(Box::new(new_filter_non_left()));
+
+        pin_mut!(stream);
 
         let mut previous_rooms = HashSet::new();
 
-        while let Some(diffs) = rooms_stream.next().await {
-            let all_rooms = {
-                // Apply the diffs to the list of room entries.
-                let mut rooms = rooms.lock().unwrap();
+        while let Some(diffs) = stream.next().await {
+            let all_room_items = {
+                let mut rooms_guard = rooms.lock().unwrap();
 
                 for diff in diffs {
-                    diff.apply(&mut *rooms);
+                    diff.apply(&mut *rooms_guard);
                 }
 
-                // Collect rooms early to release the room entries list lock.
-                (*rooms).clone()
+                (*rooms_guard).clone()
             };
 
-            let mut new_rooms = HashMap::new();
+            let mut new_room_ids = HashSet::new();
             let mut new_timelines = Vec::new();
 
-            // Update all the room info for all rooms.
-            for room in all_rooms.iter() {
+            for room in all_room_items.iter() {
                 let raw_name = room.name();
                 let display_name = room
                     .cached_display_name()
@@ -144,12 +140,10 @@ impl App {
                 );
             }
 
-            // Initialize all the new rooms.
-            for room in all_rooms
+            for room in all_room_items
                 .into_iter()
                 .filter(|room| !previous_rooms.contains(room.room_id()))
             {
-                // Initialize the timeline.
                 let Ok(timeline) = room
                     .timeline_builder()
                     .with_focus(TimelineFocus::Live {
@@ -162,12 +156,10 @@ impl App {
                     continue;
                 };
 
-                // Save the timeline in the cache.
                 let (items, stream): (Vector<Arc<matrix_sdk_ui::timeline::TimelineItem>>, _) =
                     timeline.subscribe().await;
-                let items = Arc::new(StdMutex::new(items));
+                let items = Arc::new(std::sync::Mutex::new(items));
 
-                // Spawn a timeline task that will listen to all the timeline item changes.
                 let i = items.clone();
                 let timeline_task = spawn(async move {
                     pin_mut!(stream);
@@ -190,13 +182,14 @@ impl App {
                     },
                 ));
 
-                // Save the room list service room in the cache.
-                new_rooms.insert(room.room_id().to_owned(), room);
+                new_room_ids.insert(room.room_id().to_owned());
             }
 
-            previous_rooms.extend(new_rooms.into_keys());
+            previous_rooms.extend(new_room_ids);
 
             timelines.lock().unwrap().extend(new_timelines);
+
+            let _ = room_list_refresh.send(());
         }
     }
 }
@@ -205,15 +198,29 @@ pub(crate) async fn start_sync_service(client: Client) -> Result<Arc<App>, Strin
     match SyncService::builder(client.clone()).build().await {
         Ok(sync) => {
             let sync = Arc::new(sync);
-            let app = App::new(client.clone(), sync.clone()).await.map_err(|_| ());
-            let app = match app {
-                Ok(a) => Arc::new(a),
-                Err(_) => return Err("Failed to create App".to_string()),
-            };
 
-            // Run sync loop in background so this future can return.
+            let all_rooms = sync
+                .room_list_service()
+                .all_rooms()
+                .await
+                .map_err(|e| e.to_string())?;
 
-            sync.start().await;
+            client
+                .event_cache()
+                .subscribe()
+                .map_err(|e| format!("event_cache.subscribe: {e}"))?;
+
+            let app = App::new(client.clone(), sync.clone(), all_rooms)
+                .await
+                .map_err(|_| "Failed to create App".to_string())?;
+            let app = Arc::new(app);
+
+            // Run sync in the background so Flutter can leave the splash screen immediately.
+            // Room list updates still arrive via `room_list_refresh` as sliding sync applies diffs.
+            let sync_runner = sync.clone();
+            spawn(async move {
+                sync_runner.start().await;
+            });
 
             Ok(app.clone())
         }

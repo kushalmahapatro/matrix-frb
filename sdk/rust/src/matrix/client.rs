@@ -11,11 +11,10 @@ use matrix_sdk::{
     AuthSession, Client, SessionChange, SqliteCryptoStore, SqliteEventCacheStore, SqliteStateStore,
 };
 use once_cell::sync::OnceCell;
+use reqwest::ClientBuilder;
 use std::{path::Path, sync::Arc};
 use tokio::sync::Mutex;
 use tracing::info;
-
-use crate::rhttp::api::client::RequestClient;
 
 #[frb(ignore)]
 static GLOBAL_CLIENT: OnceCell<Arc<Mutex<Option<Client>>>> = OnceCell::new();
@@ -46,7 +45,6 @@ pub struct ClientConfig {
     pub root_certificates: Option<Vec<Certificate>>,
     pub proxy: Option<String>,
     pub passphrase: Option<String>,
-    pub rhttp_client: Option<RequestClient>,
 }
 
 /// Configure the client so it's ready for sync'ing.
@@ -66,7 +64,6 @@ pub(crate) async fn configure_client(config: &ClientConfig) -> Result<Client, St
         root_certificates,
         proxy,
         passphrase,
-        rhttp_client,
     } = config;
 
     info!("Storage path: {}", session_path);
@@ -103,20 +100,12 @@ pub(crate) async fn configure_client(config: &ClientConfig) -> Result<Client, St
         .with_enable_share_history_on_invite(true)
         .handle_refresh_tokens();
 
-    // Use the same reqwest client as rhttp when available (create rhttp client before Matrix client).
-    #[cfg(feature = "rhttp-client")]
-    {
-        if let Some(shared) = shared_http::get_shared_reqwest_client() {
-            client_builder = client_builder.http_client(shared);
-        }
-    }
+    let reqwest_client = ClientBuilder::new()
+        .use_native_tls()
+        .build()
+        .map_err(|e| e.to_string())?;
 
-    if let Some(rhttp_client) = rhttp_client {
-        let client = rhttp_client.client.clone();
-        // Use shared reqwest client only; executor disabled to avoid crashes on iOS
-        // (stream/FFI path). Re-enable when stable: .http_client_executor(Arc::new(DartInterceptorExecutor::new(client.clone())))
-        client_builder = client_builder.http_client(client);
-    }
+    client_builder = client_builder.http_client(reqwest_client);
 
     if let Some(proxy_url) = proxy {
         client_builder = client_builder.proxy(proxy_url).disable_ssl_verification();

@@ -4,20 +4,19 @@ allprojects {
         mavenCentral()
         // rustls-platform-verifier Android AAR from Cargo cache (TLS cert verification on Android)
         maven {
-            url = uri(findRustlsPlatformVerifierMaven())
+            url = findRustlsPlatformVerifierMaven()
             content { includeGroup("rustls") }
         }
     }
 }
 
-fun findRustlsPlatformVerifierMaven(): String {
+fun findRustlsPlatformVerifierMaven(): java.net.URI {
     val manifestPath = rootProject.file("../../sdk/rust/Cargo.toml").absolutePath
     val out = java.io.ByteArrayOutputStream()
     rootProject.exec {
         workingDir = rootProject.file("../..")
         commandLine("cargo", "metadata", "--format-version", "1", "--filter-platform", "aarch64-linux-android", "--manifest-path", manifestPath)
         standardOutput = out
-        isIgnoreExitValue = true
     }
     val json = out.toString()
     val label = "\"manifest_path\":\""
@@ -29,9 +28,9 @@ fun findRustlsPlatformVerifierMaven(): String {
         val pathEnd = json.indexOf("\"", pathStart)
         val pkgManifest = json.substring(pathStart, pathEnd).replace("\\\\", "/")
         if (pkgManifest.contains("rustls-platform-verifier-android")) {
-            val mavenDir = java.io.File(pkgManifest).parentFile.resolve("maven").path
-            require(java.io.File(mavenDir).isDirectory) { "rustls-platform-verifier maven dir missing: $mavenDir" }
-            return mavenDir
+            val mavenDir = java.io.File(pkgManifest).parentFile.resolve("maven")
+            require(mavenDir.isDirectory) { "rustls-platform-verifier maven dir missing: $mavenDir" }
+            return mavenDir.toURI()
         }
         searchStart = pathEnd + 1
     }

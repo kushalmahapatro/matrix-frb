@@ -1,8 +1,0 @@
-[package]
-name = "shared_http"
-version = "0.1.0"
-edition = "2021"
-description = "Shared reqwest::Client for rhttp and matrix-sdk (set by rhttp, read by matrix)"
-
-[dependencies]
-reqwest = { version = "0.13.1", default-features = false, features = ["rustls"] }

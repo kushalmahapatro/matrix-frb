@@ -80,7 +80,14 @@ class TerminalScreen extends StatelessWidget {
       body: Container(
         height: MediaQuery.of(context).size.height,
         decoration: BoxDecoration(gradient: MatrixTheme.backgroundGradient),
-        child: SafeArea(child: child),
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: child),
+            ],
+          ),
+        ),
       ),
     );
   }

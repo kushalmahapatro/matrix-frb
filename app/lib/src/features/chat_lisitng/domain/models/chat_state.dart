@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:matrix_sdk/matrix_sdk.dart';
 
 part 'chat_state.freezed.dart';
 
@@ -23,6 +24,8 @@ abstract class Chat with _$Chat {
     @Default(0) int unreadCount,
     @Default(false) bool isDirect,
     String? avatarUrl,
+    /// Last timeline message from Rust (media kind, event id for thumbnails, mimetype).
+    @Default(null) Message? lastPreview,
   }) = _Chat;
 
   static const _weekdays = [

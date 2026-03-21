@@ -16,6 +16,8 @@ class SplashScreenModel extends ElementaryModel {
     return await _matrixService.initialize(
       dbPath: await _filePathService.getDatabasePath(),
       logsPath: await _filePathService.getLogsPath(),
+      nativeMediaRustPaths:
+          await _filePathService.resolveNativeMediaRustPaths(),
     );
   }
 
@@ -48,7 +50,6 @@ class SplashScreenWM extends BaseWidgetModel<SplashScreen, SplashScreenModel> {
 
   Future<void> _checkIfUserLoggedIn() async {
     final userLoggedIn = await model.isUserLoggedIn();
-    await Future.delayed(const Duration(seconds: 2));
     userLoggedIn.fold((success) async {
       if (success) {
         await model.startSync();

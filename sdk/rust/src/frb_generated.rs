@@ -27,8 +27,6 @@
 
 use crate::api::matrix_client::*;
 use crate::logger::platform::*;
-use crate::rhttp::api::client::*;
-use crate::rhttp::api::stream::*;
 use crate::*;
 use flutter_rust_bridge::for_generated::byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
 use flutter_rust_bridge::for_generated::{transform_result_dco, Lifetimeable, Lockable};
@@ -42,7 +40,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueNom,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -863695137;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 475599269;
 
 // Section: executor
 
@@ -50,101 +48,6 @@ flutter_rust_bridge::frb_generated_default_handler!();
 
 // Section: wire_funcs
 
-fn wire__crate__rhttp__api__stream__Dart2RustStreamSink_add_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    that: impl CstDecode<
-        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamSink>>,
-    >,
-    data: impl CstDecode<Vec<u8>>,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "Dart2RustStreamSink_add",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let api_that = that.cst_decode();
-            let api_data = data.cst_decode();
-            move |context| async move {
-                transform_result_dco::<_, _, crate::rhttp::api::error::RhttpError>(
-                    (move || async move {
-                        let mut api_that_guard = None;
-                        let decode_indices_ =
-                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
-                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
-                                    &api_that, 0, true,
-                                )],
-                            );
-                        for i in decode_indices_ {
-                            match i {
-                                0 => {
-                                    api_that_guard =
-                                        Some(api_that.lockable_decode_async_ref_mut().await)
-                                }
-                                _ => unreachable!(),
-                            }
-                        }
-                        let mut api_that_guard = api_that_guard.unwrap();
-                        let output_ok = crate::rhttp::api::stream::Dart2RustStreamSink::add(
-                            &mut *api_that_guard,
-                            api_data,
-                        )
-                        .await?;
-                        Ok(output_ok)
-                    })()
-                    .await,
-                )
-            }
-        },
-    )
-}
-fn wire__crate__rhttp__api__stream__Dart2RustStreamSink_close_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    that: impl CstDecode<
-        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamSink>>,
-    >,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "Dart2RustStreamSink_close",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let api_that = that.cst_decode();
-            move |context| async move {
-                transform_result_dco::<_, _, crate::rhttp::api::error::RhttpError>(
-                    (move || async move {
-                        let mut api_that_guard = None;
-                        let decode_indices_ =
-                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
-                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
-                                    &api_that, 0, true,
-                                )],
-                            );
-                        for i in decode_indices_ {
-                            match i {
-                                0 => {
-                                    api_that_guard =
-                                        Some(api_that.lockable_decode_async_ref_mut().await)
-                                }
-                                _ => unreachable!(),
-                            }
-                        }
-                        let mut api_that_guard = api_that_guard.unwrap();
-                        let output_ok = crate::rhttp::api::stream::Dart2RustStreamSink::close(
-                            &mut *api_that_guard,
-                        )
-                        .await?;
-                        Ok(output_ok)
-                    })()
-                    .await,
-                )
-            }
-        },
-    )
-}
 fn wire__crate__logger__platform__FieldsFormatterForFiles_default_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
 ) {
@@ -162,6 +65,54 @@ fn wire__crate__logger__platform__FieldsFormatterForFiles_default_impl(
                     )?;
                     Ok(output_ok)
                 })())
+            }
+        },
+    )
+}
+fn wire__crate__api__matrix_client__MatrixClient_cancel_timeline_file_send_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_cancel_timeline_file_send",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, ()>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok = Result::<_, ()>::Ok({
+                            crate::api::matrix_client::MatrixClient::cancel_timeline_file_send(
+                                &*api_that_guard,
+                            )
+                            .await;
+                        })?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
             }
         },
     )
@@ -293,6 +244,62 @@ fn wire__crate__api__matrix_client__MatrixClient_create_group_room_impl(
         },
     )
 }
+fn wire__crate__api__matrix_client__MatrixClient_fetch_room_message_media_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    room_id: impl CstDecode<String>,
+    event_id: impl CstDecode<String>,
+    thumbnail: impl CstDecode<bool>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_fetch_room_message_media",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_room_id = room_id.cst_decode();
+            let api_event_id = event_id.cst_decode();
+            let api_thumbnail = thumbnail.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::matrix_client::MatrixClient::fetch_room_message_media(
+                                &*api_that_guard,
+                                api_room_id,
+                                api_event_id,
+                                api_thumbnail,
+                            )
+                            .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__matrix_client__MatrixClient_get_all_rooms_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     that: impl CstDecode<
@@ -387,6 +394,50 @@ fn wire__crate__api__matrix_client__MatrixClient_get_display_name_impl(
         },
     )
 }
+fn wire__crate__api__matrix_client__MatrixClient_get_existing_dm_room_id_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    user_id: impl CstDecode<String>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::DcoCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_get_existing_dm_room_id",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_user_id = user_id.cst_decode();
+            move |context| {
+                transform_result_dco::<_, _, ()>((move || {
+                    let mut api_that_guard = None;
+                    let decode_indices_ =
+                        flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                            flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                &api_that, 0, false,
+                            ),
+                        ]);
+                    for i in decode_indices_ {
+                        match i {
+                            0 => api_that_guard = Some(api_that.lockable_decode_sync_ref()),
+                            _ => unreachable!(),
+                        }
+                    }
+                    let api_that_guard = api_that_guard.unwrap();
+                    let output_ok = Result::<_, ()>::Ok(
+                        crate::api::matrix_client::MatrixClient::get_existing_dm_room_id(
+                            &*api_that_guard,
+                            api_user_id,
+                        ),
+                    )?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__matrix_client__MatrixClient_get_older_messages_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     that: impl CstDecode<
@@ -432,6 +483,55 @@ fn wire__crate__api__matrix_client__MatrixClient_get_older_messages_impl(
                                 api_count,
                             )
                             .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__matrix_client__MatrixClient_get_room_details_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    room_id: impl CstDecode<String>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_get_room_details",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_room_id = room_id.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok = crate::api::matrix_client::MatrixClient::get_room_details(
+                            &*api_that_guard,
+                            api_room_id,
+                        )
+                        .await?;
                         Ok(output_ok)
                     })()
                     .await,
@@ -580,6 +680,108 @@ fn wire__crate__api__matrix_client__MatrixClient_join_room_impl(
         },
     )
 }
+fn wire__crate__api__matrix_client__MatrixClient_kick_room_member_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    room_id: impl CstDecode<String>,
+    user_id: impl CstDecode<String>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_kick_room_member",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_room_id = room_id.cst_decode();
+            let api_user_id = user_id.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok = crate::api::matrix_client::MatrixClient::kick_room_member(
+                            &*api_that_guard,
+                            api_room_id,
+                            api_user_id,
+                        )
+                        .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__matrix_client__MatrixClient_leave_and_forget_room_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    room_id: impl CstDecode<String>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_leave_and_forget_room",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_room_id = room_id.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::matrix_client::MatrixClient::leave_and_forget_room(
+                                &*api_that_guard,
+                                api_room_id,
+                            )
+                            .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__matrix_client__MatrixClient_leave_room_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     that: impl CstDecode<
@@ -619,6 +821,58 @@ fn wire__crate__api__matrix_client__MatrixClient_leave_room_impl(
                         let output_ok = crate::api::matrix_client::MatrixClient::leave_room(
                             &*api_that_guard,
                             api_room_id,
+                        )
+                        .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__matrix_client__MatrixClient_list_room_files_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    room_id: impl CstDecode<String>,
+    filter: impl CstDecode<crate::matrix::room_info::RoomFileFilter>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_list_room_files",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_room_id = room_id.cst_decode();
+            let api_filter = filter.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok = crate::api::matrix_client::MatrixClient::list_room_files(
+                            &*api_that_guard,
+                            api_room_id,
+                            api_filter,
                         )
                         .await?;
                         Ok(output_ok)
@@ -898,6 +1152,108 @@ fn wire__crate__api__matrix_client__MatrixClient_restart_sync_service_impl(
         },
     )
 }
+fn wire__crate__api__matrix_client__MatrixClient_retry_failed_send_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    room_id: impl CstDecode<String>,
+    transaction_id: impl CstDecode<String>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_retry_failed_send",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_room_id = room_id.cst_decode();
+            let api_transaction_id = transaction_id.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok = crate::api::matrix_client::MatrixClient::retry_failed_send(
+                            &*api_that_guard,
+                            api_room_id,
+                            api_transaction_id,
+                        )
+                        .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__matrix_client__MatrixClient_room_list_subscribe_to_rooms_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    room_id: impl CstDecode<String>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_room_list_subscribe_to_rooms",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_room_id = room_id.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::matrix_client::MatrixClient::room_list_subscribe_to_rooms(
+                                &*api_that_guard,
+                                api_room_id,
+                            )
+                            .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__matrix_client__MatrixClient_search_users_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     that: impl CstDecode<
@@ -999,6 +1355,96 @@ fn wire__crate__api__matrix_client__MatrixClient_send_message_impl(
         },
     )
 }
+fn wire__crate__api__matrix_client__MatrixClient_send_timeline_file_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    room_id: impl CstDecode<String>,
+    file_path: impl CstDecode<String>,
+    caption: impl CstDecode<Option<String>>,
+    app_thumbnail_jpeg_path: impl CstDecode<Option<String>>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_send_timeline_file",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_room_id = room_id.cst_decode();
+            let api_file_path = file_path.cst_decode();
+            let api_caption = caption.cst_decode();
+            let api_app_thumbnail_jpeg_path = app_thumbnail_jpeg_path.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::matrix_client::MatrixClient::send_timeline_file(
+                                &*api_that_guard,
+                                api_room_id,
+                                api_file_path,
+                                api_caption,
+                                api_app_thumbnail_jpeg_path,
+                            )
+                            .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__matrix_client__MatrixClient_send_timeline_file_with_progress_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    room_id: impl CstDecode<String>,
+    file_path: impl CstDecode<String>,
+    caption: impl CstDecode<Option<String>>,
+    app_thumbnail_jpeg_path: impl CstDecode<Option<String>>,
+    progress: impl CstDecode<
+        StreamSink<
+            crate::matrix::file_send_progress::FileSendProgress,
+            flutter_rust_bridge::for_generated::DcoCodec,
+        >,
+    >,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "MatrixClient_send_timeline_file_with_progress", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_that = that.cst_decode();let api_room_id = room_id.cst_decode();let api_file_path = file_path.cst_decode();let api_caption = caption.cst_decode();let api_app_thumbnail_jpeg_path = app_thumbnail_jpeg_path.cst_decode();let api_progress = progress.cst_decode(); move |context| async move {
+                    transform_result_dco::<_, _, String>((move || async move {
+                        let mut api_that_guard = None;
+let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(&api_that, 0, false)]);
+        for i in decode_indices_ {
+            match i {
+                0 => api_that_guard = Some(api_that.lockable_decode_async_ref().await),
+                _ => unreachable!(),
+            }
+        }
+        let api_that_guard = api_that_guard.unwrap();
+ let output_ok = crate::api::matrix_client::MatrixClient::send_timeline_file_with_progress(&*api_that_guard, api_room_id, api_file_path, api_caption, api_app_thumbnail_jpeg_path, api_progress).await?;   Ok(output_ok)
+                    })().await)
+                } })
+}
 fn wire__crate__api__matrix_client__MatrixClient_set_display_name_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     that: impl CstDecode<
@@ -1040,6 +1486,62 @@ fn wire__crate__api__matrix_client__MatrixClient_set_display_name_impl(
                             api_display_name,
                         )
                         .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__matrix_client__MatrixClient_set_room_member_power_level_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    room_id: impl CstDecode<String>,
+    user_id: impl CstDecode<String>,
+    power_level: impl CstDecode<i64>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_set_room_member_power_level",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_room_id = room_id.cst_decode();
+            let api_user_id = user_id.cst_decode();
+            let api_power_level = power_level.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::matrix_client::MatrixClient::set_room_member_power_level(
+                                &*api_that_guard,
+                                api_room_id,
+                                api_user_id,
+                                api_power_level,
+                            )
+                            .await?;
                         Ok(output_ok)
                     })()
                     .await,
@@ -1478,182 +1980,30 @@ fn wire__crate__api__matrix_client__MatrixClient_unregister_pusher_impl(
         },
     )
 }
-fn wire__crate__rhttp__api__http__cancel_request_impl(
+fn wire__crate__api__document_preview__document_preview_json_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
-    token: impl CstDecode<
-        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<CancellationToken>>,
-    >,
+    extension: impl CstDecode<String>,
+    data: impl CstDecode<Vec<u8>>,
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::DcoCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "cancel_request",
+            debug_name: "document_preview_json",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
         move || {
-            let api_token = token.cst_decode();
-            move |context| {
-                transform_result_dco::<_, _, ()>((move || {
-                    let mut api_token_guard = None;
-                    let decode_indices_ =
-                        flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
-                            flutter_rust_bridge::for_generated::LockableOrderInfo::new(
-                                &api_token, 0, false,
-                            ),
-                        ]);
-                    for i in decode_indices_ {
-                        match i {
-                            0 => api_token_guard = Some(api_token.lockable_decode_sync_ref()),
-                            _ => unreachable!(),
-                        }
-                    }
-                    let api_token_guard = api_token_guard.unwrap();
-                    let output_ok = Result::<_, ()>::Ok({
-                        crate::rhttp::api::http::cancel_request(&*api_token_guard);
-                    })?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__rhttp__api__http__cancel_running_requests_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    client: impl CstDecode<
-        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RequestClient>>,
-    >,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::DcoCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "cancel_running_requests",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let api_client = client.cst_decode();
-            move |context| {
-                transform_result_dco::<_, _, ()>((move || {
-                    let mut api_client_guard = None;
-                    let decode_indices_ =
-                        flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
-                            flutter_rust_bridge::for_generated::LockableOrderInfo::new(
-                                &api_client,
-                                0,
-                                false,
-                            ),
-                        ]);
-                    for i in decode_indices_ {
-                        match i {
-                            0 => api_client_guard = Some(api_client.lockable_decode_sync_ref()),
-                            _ => unreachable!(),
-                        }
-                    }
-                    let api_client_guard = api_client_guard.unwrap();
-                    let output_ok = Result::<_, ()>::Ok({
-                        crate::rhttp::api::http::cancel_running_requests(&*api_client_guard);
-                    })?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__rhttp__api__client__client_settings_default_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::DcoCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "client_settings_default",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
+            let api_extension = extension.cst_decode();
+            let api_data = data.cst_decode();
             move |context| {
                 transform_result_dco::<_, _, ()>((move || {
                     let output_ok =
-                        Result::<_, ()>::Ok(crate::rhttp::api::client::ClientSettings::default())?;
+                        Result::<_, ()>::Ok(crate::api::document_preview::document_preview_json(
+                            api_extension,
+                            api_data,
+                        ))?;
                     Ok(output_ok)
                 })())
             }
-        },
-    )
-}
-fn wire__crate__rhttp__api__client__create_dynamic_resolver_sync_impl(
-    resolver: impl CstDecode<flutter_rust_bridge::DartOpaque>,
-) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::DcoCodec, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "create_dynamic_resolver_sync",
-            port: None,
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
-        },
-        move || {
-            let api_resolver = decode_DartFn_Inputs_String_Output_list_String_AnyhowException(
-                resolver.cst_decode(),
-            );
-            transform_result_dco::<_, _, ()>((move || {
-                let output_ok = Result::<_, ()>::Ok(
-                    crate::rhttp::api::client::create_dynamic_resolver_sync(api_resolver),
-                )?;
-                Ok(output_ok)
-            })())
-        },
-    )
-}
-fn wire__crate__rhttp__api__client__create_static_resolver_sync_impl(
-    settings: impl CstDecode<crate::rhttp::api::client::StaticDnsSettings>,
-) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::DcoCodec, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "create_static_resolver_sync",
-            port: None,
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
-        },
-        move || {
-            let api_settings = settings.cst_decode();
-            transform_result_dco::<_, _, ()>((move || {
-                let output_ok = Result::<_, ()>::Ok(
-                    crate::rhttp::api::client::create_static_resolver_sync(api_settings),
-                )?;
-                Ok(output_ok)
-            })())
-        },
-    )
-}
-fn wire__crate__rhttp__api__stream__create_stream_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::DcoCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "create_stream",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            move |context| {
-                transform_result_dco::<_, _, ()>((move || {
-                    let output_ok =
-                        Result::<_, ()>::Ok(crate::rhttp::api::stream::create_stream())?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__rhttp__api__client__get_default_client_sync_impl(
-) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::DcoCodec, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "get_default_client_sync",
-            port: None,
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
-        },
-        move || {
-            transform_result_dco::<_, _, ()>((move || {
-                let output_ok =
-                    Result::<_, ()>::Ok(crate::rhttp::api::client::get_default_client_sync())?;
-                Ok(output_ok)
-            })())
         },
     )
 }
@@ -1721,91 +2071,6 @@ fn wire__crate__logger__tracing__log_event_impl(
         },
     )
 }
-fn wire__crate__rhttp__api__http__make_http_request_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    client: impl CstDecode<RustAutoOpaqueNom<RequestClient>>,
-    settings: impl CstDecode<Option<crate::rhttp::api::client::ClientSettings>>,
-    method: impl CstDecode<crate::rhttp::api::http::HttpMethod>,
-    url: impl CstDecode<String>,
-    query: impl CstDecode<Option<Vec<(String, String)>>>,
-    headers: impl CstDecode<Option<crate::rhttp::api::http::HttpHeaders>>,
-    body: impl CstDecode<Option<crate::rhttp::api::http::HttpBody>>,
-    body_stream: impl CstDecode<Option<Dart2RustStreamReceiver>>,
-    expect_body: impl CstDecode<crate::rhttp::api::http::HttpExpectBody>,
-    on_cancel_token: impl CstDecode<flutter_rust_bridge::DartOpaque>,
-    cancelable: impl CstDecode<bool>,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "make_http_request", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_client = client.cst_decode();let api_settings = settings.cst_decode();let api_method = method.cst_decode();let api_url = url.cst_decode();let api_query = query.cst_decode();let api_headers = headers.cst_decode();let api_body = body.cst_decode();let api_body_stream = body_stream.cst_decode();let api_expect_body = expect_body.cst_decode();let api_on_cancel_token = decode_DartFn_Inputs_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCancellationToken_Output_unit_AnyhowException(on_cancel_token.cst_decode());let api_cancelable = cancelable.cst_decode(); move |context| async move {
-                    transform_result_dco::<_, _, crate::rhttp::api::error::RhttpError>((move || async move {
-                         let output_ok = crate::rhttp::api::http::make_http_request(api_client, api_settings, api_method, api_url, api_query, api_headers, api_body, api_body_stream, api_expect_body, api_on_cancel_token, api_cancelable).await?;   Ok(output_ok)
-                    })().await)
-                } })
-}
-fn wire__crate__rhttp__api__http__make_http_request_receive_stream_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    client: impl CstDecode<RustAutoOpaqueNom<RequestClient>>,
-    settings: impl CstDecode<Option<crate::rhttp::api::client::ClientSettings>>,
-    method: impl CstDecode<crate::rhttp::api::http::HttpMethod>,
-    url: impl CstDecode<String>,
-    query: impl CstDecode<Option<Vec<(String, String)>>>,
-    headers: impl CstDecode<Option<crate::rhttp::api::http::HttpHeaders>>,
-    body: impl CstDecode<Option<crate::rhttp::api::http::HttpBody>>,
-    body_stream: impl CstDecode<Option<Dart2RustStreamReceiver>>,
-    stream_sink: impl CstDecode<StreamSink<Vec<u8>, flutter_rust_bridge::for_generated::DcoCodec>>,
-    on_response: impl CstDecode<flutter_rust_bridge::DartOpaque>,
-    on_error: impl CstDecode<flutter_rust_bridge::DartOpaque>,
-    on_cancel_token: impl CstDecode<flutter_rust_bridge::DartOpaque>,
-    cancelable: impl CstDecode<bool>,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "make_http_request_receive_stream", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_client = client.cst_decode();let api_settings = settings.cst_decode();let api_method = method.cst_decode();let api_url = url.cst_decode();let api_query = query.cst_decode();let api_headers = headers.cst_decode();let api_body = body.cst_decode();let api_body_stream = body_stream.cst_decode();let api_stream_sink = stream_sink.cst_decode();let api_on_response = decode_DartFn_Inputs_http_response_Output_unit_AnyhowException(on_response.cst_decode());let api_on_error = decode_DartFn_Inputs_rhttp_error_Output_unit_AnyhowException(on_error.cst_decode());let api_on_cancel_token = decode_DartFn_Inputs_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCancellationToken_Output_unit_AnyhowException(on_cancel_token.cst_decode());let api_cancelable = cancelable.cst_decode(); move |context| async move {
-                    transform_result_dco::<_, _, ()>((move || async move {
-                         let output_ok = Result::<_,()>::Ok({ crate::rhttp::api::http::make_http_request_receive_stream(api_client, api_settings, api_method, api_url, api_query, api_headers, api_body, api_body_stream, api_stream_sink, api_on_response, api_on_error, api_on_cancel_token, api_cancelable).await; })?;   Ok(output_ok)
-                    })().await)
-                } })
-}
-fn wire__crate__rhttp__api__http__register_client_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    settings: impl CstDecode<crate::rhttp::api::client::ClientSettings>,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "register_client",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let api_settings = settings.cst_decode();
-            move |context| async move {
-                transform_result_dco::<_, _, crate::rhttp::api::error::RhttpError>(
-                    (move || async move {
-                        let output_ok =
-                            crate::rhttp::api::http::register_client(api_settings).await?;
-                        Ok(output_ok)
-                    })()
-                    .await,
-                )
-            }
-        },
-    )
-}
-fn wire__crate__rhttp__api__http__register_client_sync_impl(
-    settings: impl CstDecode<crate::rhttp::api::client::ClientSettings>,
-) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::DcoCodec, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "register_client_sync",
-            port: None,
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
-        },
-        move || {
-            let api_settings = settings.cst_decode();
-            transform_result_dco::<_, _, crate::rhttp::api::error::RhttpError>((move || {
-                let output_ok = crate::rhttp::api::http::register_client_sync(api_settings)?;
-                Ok(output_ok)
-            })())
-        },
-    )
-}
 fn wire__crate__logger__platform__reload_tracing_file_writer_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     configuration: impl CstDecode<crate::logger::platform::TracingFileConfiguration>,
@@ -1825,6 +2090,37 @@ fn wire__crate__logger__platform__reload_tracing_file_writer_impl(
                     Ok(output_ok)
                 })(
                 ))
+            }
+        },
+    )
+}
+fn wire__crate__api__native_media_env__set_native_media_env_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    pdfium_dynamic_lib_path: impl CstDecode<Option<String>>,
+    matrix_pdfium_dir: impl CstDecode<Option<String>>,
+    matrix_ffmpeg_path: impl CstDecode<Option<String>>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::DcoCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "set_native_media_env",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_pdfium_dynamic_lib_path = pdfium_dynamic_lib_path.cst_decode();
+            let api_matrix_pdfium_dir = matrix_pdfium_dir.cst_decode();
+            let api_matrix_ffmpeg_path = matrix_ffmpeg_path.cst_decode();
+            move |context| {
+                transform_result_dco::<_, _, ()>((move || {
+                    let output_ok = Result::<_, ()>::Ok({
+                        crate::api::native_media_env::set_native_media_env(
+                            api_pdfium_dynamic_lib_path,
+                            api_matrix_pdfium_dir,
+                            api_matrix_ffmpeg_path,
+                        );
+                    })?;
+                    Ok(output_ok)
+                })())
             }
         },
     )
@@ -1876,149 +2172,23 @@ fn wire__crate__logger__platform__subscribe_tracing_logs_impl(
     )
 }
 
-// Section: related_funcs
-
-fn decode_DartFn_Inputs_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCancellationToken_Output_unit_AnyhowException(
-    dart_opaque: flutter_rust_bridge::DartOpaque,
-) -> impl Fn(CancellationToken) -> flutter_rust_bridge::DartFnFuture<()> {
-    use flutter_rust_bridge::IntoDart;
-
-    async fn body(dart_opaque: flutter_rust_bridge::DartOpaque, arg0: CancellationToken) -> () {
-        let args = vec![arg0.into_into_dart().into_dart()];
-        let message = FLUTTER_RUST_BRIDGE_HANDLER
-            .dart_fn_invoke(dart_opaque, args)
-            .await;
-
-        let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-        let action = deserializer.cursor.read_u8().unwrap();
-        let ans = match action {
-            0 => std::result::Result::Ok(<()>::sse_decode(&mut deserializer)),
-            1 => std::result::Result::Err(
-                <flutter_rust_bridge::for_generated::anyhow::Error>::sse_decode(&mut deserializer),
-            ),
-            _ => unreachable!(),
-        };
-        deserializer.end();
-        let ans = ans.expect("Dart throws exception but Rust side assume it is not failable");
-        ans
-    }
-
-    move |arg0: CancellationToken| {
-        flutter_rust_bridge::for_generated::convert_into_dart_fn_future(body(
-            dart_opaque.clone(),
-            arg0,
-        ))
-    }
-}
-fn decode_DartFn_Inputs_String_Output_list_String_AnyhowException(
-    dart_opaque: flutter_rust_bridge::DartOpaque,
-) -> impl Fn(String) -> flutter_rust_bridge::DartFnFuture<Vec<String>> {
-    use flutter_rust_bridge::IntoDart;
-
-    async fn body(dart_opaque: flutter_rust_bridge::DartOpaque, arg0: String) -> Vec<String> {
-        let args = vec![arg0.into_into_dart().into_dart()];
-        let message = FLUTTER_RUST_BRIDGE_HANDLER
-            .dart_fn_invoke(dart_opaque, args)
-            .await;
-
-        let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-        let action = deserializer.cursor.read_u8().unwrap();
-        let ans = match action {
-            0 => std::result::Result::Ok(<Vec<String>>::sse_decode(&mut deserializer)),
-            1 => std::result::Result::Err(
-                <flutter_rust_bridge::for_generated::anyhow::Error>::sse_decode(&mut deserializer),
-            ),
-            _ => unreachable!(),
-        };
-        deserializer.end();
-        let ans = ans.expect("Dart throws exception but Rust side assume it is not failable");
-        ans
-    }
-
-    move |arg0: String| {
-        flutter_rust_bridge::for_generated::convert_into_dart_fn_future(body(
-            dart_opaque.clone(),
-            arg0,
-        ))
-    }
-}
-fn decode_DartFn_Inputs_http_response_Output_unit_AnyhowException(
-    dart_opaque: flutter_rust_bridge::DartOpaque,
-) -> impl Fn(crate::rhttp::api::http::HttpResponse) -> flutter_rust_bridge::DartFnFuture<()> {
-    use flutter_rust_bridge::IntoDart;
-
-    async fn body(
-        dart_opaque: flutter_rust_bridge::DartOpaque,
-        arg0: crate::rhttp::api::http::HttpResponse,
-    ) -> () {
-        let args = vec![arg0.into_into_dart().into_dart()];
-        let message = FLUTTER_RUST_BRIDGE_HANDLER
-            .dart_fn_invoke(dart_opaque, args)
-            .await;
-
-        let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-        let action = deserializer.cursor.read_u8().unwrap();
-        let ans = match action {
-            0 => std::result::Result::Ok(<()>::sse_decode(&mut deserializer)),
-            1 => std::result::Result::Err(
-                <flutter_rust_bridge::for_generated::anyhow::Error>::sse_decode(&mut deserializer),
-            ),
-            _ => unreachable!(),
-        };
-        deserializer.end();
-        let ans = ans.expect("Dart throws exception but Rust side assume it is not failable");
-        ans
-    }
-
-    move |arg0: crate::rhttp::api::http::HttpResponse| {
-        flutter_rust_bridge::for_generated::convert_into_dart_fn_future(body(
-            dart_opaque.clone(),
-            arg0,
-        ))
-    }
-}
-fn decode_DartFn_Inputs_rhttp_error_Output_unit_AnyhowException(
-    dart_opaque: flutter_rust_bridge::DartOpaque,
-) -> impl Fn(crate::rhttp::api::error::RhttpError) -> flutter_rust_bridge::DartFnFuture<()> {
-    use flutter_rust_bridge::IntoDart;
-
-    async fn body(
-        dart_opaque: flutter_rust_bridge::DartOpaque,
-        arg0: crate::rhttp::api::error::RhttpError,
-    ) -> () {
-        let args = vec![arg0.into_into_dart().into_dart()];
-        let message = FLUTTER_RUST_BRIDGE_HANDLER
-            .dart_fn_invoke(dart_opaque, args)
-            .await;
-
-        let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-        let action = deserializer.cursor.read_u8().unwrap();
-        let ans = match action {
-            0 => std::result::Result::Ok(<()>::sse_decode(&mut deserializer)),
-            1 => std::result::Result::Err(
-                <flutter_rust_bridge::for_generated::anyhow::Error>::sse_decode(&mut deserializer),
-            ),
-            _ => unreachable!(),
-        };
-        deserializer.end();
-        let ans = ans.expect("Dart throws exception but Rust side assume it is not failable");
-        ans
-    }
-
-    move |arg0: crate::rhttp::api::error::RhttpError| {
-        flutter_rust_bridge::for_generated::convert_into_dart_fn_future(body(
-            dart_opaque.clone(),
-            arg0,
-        ))
-    }
-}
-
 // Section: dart2rust
 
 impl CstDecode<bool> for bool {
     // Codec=Cst (C-struct based), see doc to use other codecs
     fn cst_decode(self) -> bool {
         self
+    }
+}
+impl CstDecode<crate::matrix::timelines::EventSendStateKind> for i32 {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    fn cst_decode(self) -> crate::matrix::timelines::EventSendStateKind {
+        match self {
+            0 => crate::matrix::timelines::EventSendStateKind::Delivered,
+            1 => crate::matrix::timelines::EventSendStateKind::Pending,
+            2 => crate::matrix::timelines::EventSendStateKind::Failed,
+            _ => unreachable!("Invalid variant for EventSendStateKind: {}", self),
+        }
     }
 }
 impl CstDecode<crate::logger::platform::FileRotation> for i32 {
@@ -2034,40 +2204,19 @@ impl CstDecode<crate::logger::platform::FileRotation> for i32 {
         }
     }
 }
-impl CstDecode<crate::rhttp::api::http::HttpExpectBody> for i32 {
+impl CstDecode<crate::matrix::file_send_progress::FileSendPhase> for i32 {
     // Codec=Cst (C-struct based), see doc to use other codecs
-    fn cst_decode(self) -> crate::rhttp::api::http::HttpExpectBody {
+    fn cst_decode(self) -> crate::matrix::file_send_progress::FileSendPhase {
         match self {
-            0 => crate::rhttp::api::http::HttpExpectBody::Text,
-            1 => crate::rhttp::api::http::HttpExpectBody::Bytes,
-            _ => unreachable!("Invalid variant for HttpExpectBody: {}", self),
-        }
-    }
-}
-impl CstDecode<crate::rhttp::api::http::HttpVersion> for i32 {
-    // Codec=Cst (C-struct based), see doc to use other codecs
-    fn cst_decode(self) -> crate::rhttp::api::http::HttpVersion {
-        match self {
-            0 => crate::rhttp::api::http::HttpVersion::Http09,
-            1 => crate::rhttp::api::http::HttpVersion::Http10,
-            2 => crate::rhttp::api::http::HttpVersion::Http11,
-            3 => crate::rhttp::api::http::HttpVersion::Http2,
-            4 => crate::rhttp::api::http::HttpVersion::Http3,
-            5 => crate::rhttp::api::http::HttpVersion::Other,
-            _ => unreachable!("Invalid variant for HttpVersion: {}", self),
-        }
-    }
-}
-impl CstDecode<crate::rhttp::api::http::HttpVersionPref> for i32 {
-    // Codec=Cst (C-struct based), see doc to use other codecs
-    fn cst_decode(self) -> crate::rhttp::api::http::HttpVersionPref {
-        match self {
-            0 => crate::rhttp::api::http::HttpVersionPref::Http10,
-            1 => crate::rhttp::api::http::HttpVersionPref::Http11,
-            2 => crate::rhttp::api::http::HttpVersionPref::Http2,
-            3 => crate::rhttp::api::http::HttpVersionPref::Http3,
-            4 => crate::rhttp::api::http::HttpVersionPref::All,
-            _ => unreachable!("Invalid variant for HttpVersionPref: {}", self),
+            0 => crate::matrix::file_send_progress::FileSendPhase::VideoCompress,
+            1 => crate::matrix::file_send_progress::FileSendPhase::MainUpload,
+            2 => crate::matrix::file_send_progress::FileSendPhase::ThumbnailUpload,
+            3 => crate::matrix::file_send_progress::FileSendPhase::SendingMessage,
+            4 => crate::matrix::file_send_progress::FileSendPhase::EncryptedQueued,
+            5 => crate::matrix::file_send_progress::FileSendPhase::Done,
+            6 => crate::matrix::file_send_progress::FileSendPhase::Cancelled,
+            7 => crate::matrix::file_send_progress::FileSendPhase::Failed,
+            _ => unreachable!("Invalid variant for FileSendPhase: {}", self),
         }
     }
 }
@@ -2080,12 +2229,6 @@ impl CstDecode<i32> for i32 {
 impl CstDecode<i64> for i64 {
     // Codec=Cst (C-struct based), see doc to use other codecs
     fn cst_decode(self) -> i64 {
-        self
-    }
-}
-impl CstDecode<isize> for isize {
-    // Codec=Cst (C-struct based), see doc to use other codecs
-    fn cst_decode(self) -> isize {
         self
     }
 }
@@ -2135,14 +2278,40 @@ impl CstDecode<crate::matrix::timelines::MessageUpdateType> for i32 {
         }
     }
 }
-impl CstDecode<crate::rhttp::api::client::ProxyCondition> for i32 {
+impl CstDecode<crate::matrix::room_info::RoomFileFilter> for i32 {
     // Codec=Cst (C-struct based), see doc to use other codecs
-    fn cst_decode(self) -> crate::rhttp::api::client::ProxyCondition {
+    fn cst_decode(self) -> crate::matrix::room_info::RoomFileFilter {
         match self {
-            0 => crate::rhttp::api::client::ProxyCondition::Http,
-            1 => crate::rhttp::api::client::ProxyCondition::Https,
-            2 => crate::rhttp::api::client::ProxyCondition::All,
-            _ => unreachable!("Invalid variant for ProxyCondition: {}", self),
+            0 => crate::matrix::room_info::RoomFileFilter::All,
+            1 => crate::matrix::room_info::RoomFileFilter::Received,
+            2 => crate::matrix::room_info::RoomFileFilter::Sent,
+            _ => unreachable!("Invalid variant for RoomFileFilter: {}", self),
+        }
+    }
+}
+impl CstDecode<crate::matrix::room_info::RoomMemberRoleDto> for i32 {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    fn cst_decode(self) -> crate::matrix::room_info::RoomMemberRoleDto {
+        match self {
+            0 => crate::matrix::room_info::RoomMemberRoleDto::Creator,
+            1 => crate::matrix::room_info::RoomMemberRoleDto::Administrator,
+            2 => crate::matrix::room_info::RoomMemberRoleDto::Moderator,
+            3 => crate::matrix::room_info::RoomMemberRoleDto::User,
+            _ => unreachable!("Invalid variant for RoomMemberRoleDto: {}", self),
+        }
+    }
+}
+impl CstDecode<crate::matrix::timelines::RoomMessageKind> for i32 {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    fn cst_decode(self) -> crate::matrix::timelines::RoomMessageKind {
+        match self {
+            0 => crate::matrix::timelines::RoomMessageKind::Text,
+            1 => crate::matrix::timelines::RoomMessageKind::Image,
+            2 => crate::matrix::timelines::RoomMessageKind::File,
+            3 => crate::matrix::timelines::RoomMessageKind::Video,
+            4 => crate::matrix::timelines::RoomMessageKind::Audio,
+            5 => crate::matrix::timelines::RoomMessageKind::Other,
+            _ => unreachable!("Invalid variant for RoomMessageKind: {}", self),
         }
     }
 }
@@ -2156,16 +2325,6 @@ impl CstDecode<crate::matrix::sync_service::SyncState> for i32 {
             3 => crate::matrix::sync_service::SyncState::Error,
             4 => crate::matrix::sync_service::SyncState::Offline,
             _ => unreachable!("Invalid variant for SyncState: {}", self),
-        }
-    }
-}
-impl CstDecode<crate::rhttp::api::client::TlsVersion> for i32 {
-    // Codec=Cst (C-struct based), see doc to use other codecs
-    fn cst_decode(self) -> crate::rhttp::api::client::TlsVersion {
-        match self {
-            0 => crate::rhttp::api::client::TlsVersion::Tls1_2,
-            1 => crate::rhttp::api::client::TlsVersion::Tls1_3,
-            _ => unreachable!("Invalid variant for TlsVersion: {}", self),
         }
     }
 }
@@ -2233,61 +2392,11 @@ impl SseDecode for flutter_rust_bridge::for_generated::anyhow::Error {
     }
 }
 
-impl SseDecode for RustAutoOpaqueNom<RequestClient> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <RustOpaqueNom<
-            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RequestClient>,
-        >>::sse_decode(deserializer);
-        return flutter_rust_bridge::for_generated::rust_auto_opaque_explicit_decode(inner);
-    }
-}
-
-impl SseDecode for CancellationToken {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <RustOpaqueNom<
-            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<CancellationToken>,
-        >>::sse_decode(deserializer);
-        return flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(inner);
-    }
-}
-
 impl SseDecode for Certificate {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut inner = <RustOpaqueNom<
             flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Certificate>,
-        >>::sse_decode(deserializer);
-        return flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(inner);
-    }
-}
-
-impl SseDecode for Dart2RustStreamReceiver {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <RustOpaqueNom<
-            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamReceiver>,
-        >>::sse_decode(deserializer);
-        return flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(inner);
-    }
-}
-
-impl SseDecode for Dart2RustStreamSink {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <RustOpaqueNom<
-            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamSink>,
-        >>::sse_decode(deserializer);
-        return flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(inner);
-    }
-}
-
-impl SseDecode for DnsSettings {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <RustOpaqueNom<
-            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<DnsSettings>,
         >>::sse_decode(deserializer);
         return flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(inner);
     }
@@ -2313,84 +2422,8 @@ impl SseDecode for MatrixClient {
     }
 }
 
-impl SseDecode for RequestClient {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <RustOpaqueNom<
-            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RequestClient>,
-        >>::sse_decode(deserializer);
-        return flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(inner);
-    }
-}
-
-impl SseDecode for flutter_rust_bridge::DartOpaque {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <usize>::sse_decode(deserializer);
-        return unsafe { flutter_rust_bridge::for_generated::sse_decode_dart_opaque(inner) };
-    }
-}
-
-impl SseDecode for std::collections::HashMap<String, String> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <Vec<(String, String)>>::sse_decode(deserializer);
-        return inner.into_iter().collect();
-    }
-}
-
-impl SseDecode for std::collections::HashMap<String, Vec<String>> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <Vec<(String, Vec<String>)>>::sse_decode(deserializer);
-        return inner.into_iter().collect();
-    }
-}
-
-impl SseDecode
-    for RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<CancellationToken>>
-{
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <usize>::sse_decode(deserializer);
-        return unsafe { decode_rust_opaque_nom(inner) };
-    }
-}
-
 impl SseDecode
     for RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Certificate>>
-{
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <usize>::sse_decode(deserializer);
-        return unsafe { decode_rust_opaque_nom(inner) };
-    }
-}
-
-impl SseDecode
-    for RustOpaqueNom<
-        flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamReceiver>,
-    >
-{
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <usize>::sse_decode(deserializer);
-        return unsafe { decode_rust_opaque_nom(inner) };
-    }
-}
-
-impl SseDecode
-    for RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamSink>>
-{
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <usize>::sse_decode(deserializer);
-        return unsafe { decode_rust_opaque_nom(inner) };
-    }
-}
-
-impl SseDecode
-    for RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<DnsSettings>>
 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2421,17 +2454,20 @@ impl SseDecode
     }
 }
 
-impl SseDecode
-    for RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RequestClient>>
-{
+impl SseDecode for StreamSink<String, flutter_rust_bridge::for_generated::DcoCodec> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <usize>::sse_decode(deserializer);
-        return unsafe { decode_rust_opaque_nom(inner) };
+        let mut inner = <String>::sse_decode(deserializer);
+        return StreamSink::deserialize(inner);
     }
 }
 
-impl SseDecode for StreamSink<String, flutter_rust_bridge::for_generated::DcoCodec> {
+impl SseDecode
+    for StreamSink<
+        crate::matrix::file_send_progress::FileSendProgress,
+        flutter_rust_bridge::for_generated::DcoCodec,
+    >
+{
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut inner = <String>::sse_decode(deserializer);
@@ -2445,14 +2481,6 @@ impl SseDecode
         flutter_rust_bridge::for_generated::DcoCodec,
     >
 {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <String>::sse_decode(deserializer);
-        return StreamSink::deserialize(inner);
-    }
-}
-
-impl SseDecode for StreamSink<Vec<u8>, flutter_rust_bridge::for_generated::DcoCodec> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut inner = <String>::sse_decode(deserializer);
@@ -2524,18 +2552,6 @@ impl SseDecode for bool {
     }
 }
 
-impl SseDecode for crate::rhttp::api::client::ClientCertificate {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_certificate = <Vec<u8>>::sse_decode(deserializer);
-        let mut var_privateKey = <Vec<u8>>::sse_decode(deserializer);
-        return crate::rhttp::api::client::ClientCertificate {
-            certificate: var_certificate,
-            private_key: var_privateKey,
-        };
-    }
-}
-
 impl SseDecode for crate::matrix::client::ClientConfig {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2544,14 +2560,12 @@ impl SseDecode for crate::matrix::client::ClientConfig {
         let mut var_rootCertificates = <Option<Vec<Certificate>>>::sse_decode(deserializer);
         let mut var_proxy = <Option<String>>::sse_decode(deserializer);
         let mut var_passphrase = <Option<String>>::sse_decode(deserializer);
-        let mut var_rhttpClient = <Option<RequestClient>>::sse_decode(deserializer);
         return crate::matrix::client::ClientConfig {
             session_path: var_sessionPath,
             homeserver_url: var_homeserverUrl,
             root_certificates: var_rootCertificates,
             proxy: var_proxy,
             passphrase: var_passphrase,
-            rhttp_client: var_rhttpClient,
         };
     }
 }
@@ -2576,57 +2590,15 @@ impl SseDecode for crate::logger::platform::ClientError {
     }
 }
 
-impl SseDecode for crate::rhttp::api::client::ClientSettings {
+impl SseDecode for crate::matrix::timelines::EventSendStateKind {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_cookieSettings =
-            <Option<crate::rhttp::api::client::CookieSettings>>::sse_decode(deserializer);
-        let mut var_httpVersionPref =
-            <crate::rhttp::api::http::HttpVersionPref>::sse_decode(deserializer);
-        let mut var_timeoutSettings =
-            <Option<crate::rhttp::api::client::TimeoutSettings>>::sse_decode(deserializer);
-        let mut var_throwOnStatusCode = <bool>::sse_decode(deserializer);
-        let mut var_proxySettings =
-            <Option<crate::rhttp::api::client::ProxySettings>>::sse_decode(deserializer);
-        let mut var_redirectSettings =
-            <Option<crate::rhttp::api::client::RedirectSettings>>::sse_decode(deserializer);
-        let mut var_tlsSettings =
-            <Option<crate::rhttp::api::client::TlsSettings>>::sse_decode(deserializer);
-        let mut var_dnsSettings = <Option<DnsSettings>>::sse_decode(deserializer);
-        let mut var_userAgent = <Option<String>>::sse_decode(deserializer);
-        return crate::rhttp::api::client::ClientSettings {
-            cookie_settings: var_cookieSettings,
-            http_version_pref: var_httpVersionPref,
-            timeout_settings: var_timeoutSettings,
-            throw_on_status_code: var_throwOnStatusCode,
-            proxy_settings: var_proxySettings,
-            redirect_settings: var_redirectSettings,
-            tls_settings: var_tlsSettings,
-            dns_settings: var_dnsSettings,
-            user_agent: var_userAgent,
-        };
-    }
-}
-
-impl SseDecode for crate::rhttp::api::client::CookieSettings {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_storeCookies = <bool>::sse_decode(deserializer);
-        return crate::rhttp::api::client::CookieSettings {
-            store_cookies: var_storeCookies,
-        };
-    }
-}
-
-impl SseDecode for crate::rhttp::api::client::CustomProxy {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_url = <String>::sse_decode(deserializer);
-        let mut var_condition =
-            <crate::rhttp::api::client::ProxyCondition>::sse_decode(deserializer);
-        return crate::rhttp::api::client::CustomProxy {
-            url: var_url,
-            condition: var_condition,
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::matrix::timelines::EventSendStateKind::Delivered,
+            1 => crate::matrix::timelines::EventSendStateKind::Pending,
+            2 => crate::matrix::timelines::EventSendStateKind::Failed,
+            _ => unreachable!("Invalid variant for EventSendStateKind: {}", inner),
         };
     }
 }
@@ -2646,148 +2618,37 @@ impl SseDecode for crate::logger::platform::FileRotation {
     }
 }
 
-impl SseDecode for crate::rhttp::api::http::HttpBody {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut tag_ = <i32>::sse_decode(deserializer);
-        match tag_ {
-            0 => {
-                let mut var_field0 = <String>::sse_decode(deserializer);
-                return crate::rhttp::api::http::HttpBody::Text(var_field0);
-            }
-            1 => {
-                let mut var_field0 = <Vec<u8>>::sse_decode(deserializer);
-                return crate::rhttp::api::http::HttpBody::Bytes(var_field0);
-            }
-            2 => {
-                return crate::rhttp::api::http::HttpBody::BytesStream;
-            }
-            3 => {
-                let mut var_field0 =
-                    <std::collections::HashMap<String, String>>::sse_decode(deserializer);
-                return crate::rhttp::api::http::HttpBody::Form(var_field0);
-            }
-            4 => {
-                let mut var_field0 =
-                    <crate::rhttp::api::http::MultipartPayload>::sse_decode(deserializer);
-                return crate::rhttp::api::http::HttpBody::Multipart(var_field0);
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
-    }
-}
-
-impl SseDecode for crate::rhttp::api::http::HttpExpectBody {
+impl SseDecode for crate::matrix::file_send_progress::FileSendPhase {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut inner = <i32>::sse_decode(deserializer);
         return match inner {
-            0 => crate::rhttp::api::http::HttpExpectBody::Text,
-            1 => crate::rhttp::api::http::HttpExpectBody::Bytes,
-            _ => unreachable!("Invalid variant for HttpExpectBody: {}", inner),
+            0 => crate::matrix::file_send_progress::FileSendPhase::VideoCompress,
+            1 => crate::matrix::file_send_progress::FileSendPhase::MainUpload,
+            2 => crate::matrix::file_send_progress::FileSendPhase::ThumbnailUpload,
+            3 => crate::matrix::file_send_progress::FileSendPhase::SendingMessage,
+            4 => crate::matrix::file_send_progress::FileSendPhase::EncryptedQueued,
+            5 => crate::matrix::file_send_progress::FileSendPhase::Done,
+            6 => crate::matrix::file_send_progress::FileSendPhase::Cancelled,
+            7 => crate::matrix::file_send_progress::FileSendPhase::Failed,
+            _ => unreachable!("Invalid variant for FileSendPhase: {}", inner),
         };
     }
 }
 
-impl SseDecode for crate::rhttp::api::http::HttpHeaders {
+impl SseDecode for crate::matrix::file_send_progress::FileSendProgress {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut tag_ = <i32>::sse_decode(deserializer);
-        match tag_ {
-            0 => {
-                let mut var_field0 =
-                    <std::collections::HashMap<String, String>>::sse_decode(deserializer);
-                return crate::rhttp::api::http::HttpHeaders::Map(var_field0);
-            }
-            1 => {
-                let mut var_field0 = <Vec<(String, String)>>::sse_decode(deserializer);
-                return crate::rhttp::api::http::HttpHeaders::List(var_field0);
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
-    }
-}
-
-impl SseDecode for crate::rhttp::api::http::HttpMethod {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_method = <String>::sse_decode(deserializer);
-        return crate::rhttp::api::http::HttpMethod { method: var_method };
-    }
-}
-
-impl SseDecode for crate::rhttp::api::http::HttpResponse {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_remoteIp = <Option<String>>::sse_decode(deserializer);
-        let mut var_headers = <Vec<(String, String)>>::sse_decode(deserializer);
-        let mut var_version = <crate::rhttp::api::http::HttpVersion>::sse_decode(deserializer);
-        let mut var_statusCode = <u16>::sse_decode(deserializer);
-        let mut var_body = <crate::rhttp::api::http::HttpResponseBody>::sse_decode(deserializer);
-        return crate::rhttp::api::http::HttpResponse {
-            remote_ip: var_remoteIp,
-            headers: var_headers,
-            version: var_version,
-            status_code: var_statusCode,
-            body: var_body,
-        };
-    }
-}
-
-impl SseDecode for crate::rhttp::api::http::HttpResponseBody {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut tag_ = <i32>::sse_decode(deserializer);
-        match tag_ {
-            0 => {
-                let mut var_field0 = <String>::sse_decode(deserializer);
-                return crate::rhttp::api::http::HttpResponseBody::Text(var_field0);
-            }
-            1 => {
-                let mut var_field0 = <Vec<u8>>::sse_decode(deserializer);
-                return crate::rhttp::api::http::HttpResponseBody::Bytes(var_field0);
-            }
-            2 => {
-                return crate::rhttp::api::http::HttpResponseBody::Stream;
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
-    }
-}
-
-impl SseDecode for crate::rhttp::api::http::HttpVersion {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <i32>::sse_decode(deserializer);
-        return match inner {
-            0 => crate::rhttp::api::http::HttpVersion::Http09,
-            1 => crate::rhttp::api::http::HttpVersion::Http10,
-            2 => crate::rhttp::api::http::HttpVersion::Http11,
-            3 => crate::rhttp::api::http::HttpVersion::Http2,
-            4 => crate::rhttp::api::http::HttpVersion::Http3,
-            5 => crate::rhttp::api::http::HttpVersion::Other,
-            _ => unreachable!("Invalid variant for HttpVersion: {}", inner),
-        };
-    }
-}
-
-impl SseDecode for crate::rhttp::api::http::HttpVersionPref {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <i32>::sse_decode(deserializer);
-        return match inner {
-            0 => crate::rhttp::api::http::HttpVersionPref::Http10,
-            1 => crate::rhttp::api::http::HttpVersionPref::Http11,
-            2 => crate::rhttp::api::http::HttpVersionPref::Http2,
-            3 => crate::rhttp::api::http::HttpVersionPref::Http3,
-            4 => crate::rhttp::api::http::HttpVersionPref::All,
-            _ => unreachable!("Invalid variant for HttpVersionPref: {}", inner),
+        let mut var_phase =
+            <crate::matrix::file_send_progress::FileSendPhase>::sse_decode(deserializer);
+        let mut var_current = <u64>::sse_decode(deserializer);
+        let mut var_total = <u64>::sse_decode(deserializer);
+        let mut var_message = <String>::sse_decode(deserializer);
+        return crate::matrix::file_send_progress::FileSendProgress {
+            phase: var_phase,
+            current: var_current,
+            total: var_total,
+            message: var_message,
         };
     }
 }
@@ -2803,13 +2664,6 @@ impl SseDecode for i64 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         deserializer.cursor.read_i64::<NativeEndian>().unwrap()
-    }
-}
-
-impl SseDecode for isize {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        deserializer.cursor.read_i64::<NativeEndian>().unwrap() as _
     }
 }
 
@@ -2832,32 +2686,6 @@ impl SseDecode for Vec<String> {
         let mut ans_ = vec![];
         for idx_ in 0..len_ {
             ans_.push(<String>::sse_decode(deserializer));
-        }
-        return ans_;
-    }
-}
-
-impl SseDecode for Vec<crate::rhttp::api::client::CustomProxy> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut len_ = <i32>::sse_decode(deserializer);
-        let mut ans_ = vec![];
-        for idx_ in 0..len_ {
-            ans_.push(<crate::rhttp::api::client::CustomProxy>::sse_decode(
-                deserializer,
-            ));
-        }
-        return ans_;
-    }
-}
-
-impl SseDecode for Vec<Vec<u8>> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut len_ = <i32>::sse_decode(deserializer);
-        let mut ans_ = vec![];
-        for idx_ in 0..len_ {
-            ans_.push(<Vec<u8>>::sse_decode(deserializer));
         }
         return ans_;
     }
@@ -2889,37 +2717,29 @@ impl SseDecode for Vec<u8> {
     }
 }
 
-impl SseDecode for Vec<(String, Vec<String>)> {
+impl SseDecode for Vec<crate::matrix::room_info::RoomFileItem> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut len_ = <i32>::sse_decode(deserializer);
         let mut ans_ = vec![];
         for idx_ in 0..len_ {
-            ans_.push(<(String, Vec<String>)>::sse_decode(deserializer));
+            ans_.push(<crate::matrix::room_info::RoomFileItem>::sse_decode(
+                deserializer,
+            ));
         }
         return ans_;
     }
 }
 
-impl SseDecode for Vec<(String, crate::rhttp::api::http::MultipartItem)> {
+impl SseDecode for Vec<crate::matrix::room_info::RoomMemberRow> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut len_ = <i32>::sse_decode(deserializer);
         let mut ans_ = vec![];
         for idx_ in 0..len_ {
-            ans_.push(<(String, crate::rhttp::api::http::MultipartItem)>::sse_decode(deserializer));
-        }
-        return ans_;
-    }
-}
-
-impl SseDecode for Vec<(String, String)> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut len_ = <i32>::sse_decode(deserializer);
-        let mut ans_ = vec![];
-        for idx_ in 0..len_ {
-            ans_.push(<(String, String)>::sse_decode(deserializer));
+            ans_.push(<crate::matrix::room_info::RoomMemberRow>::sse_decode(
+                deserializer,
+            ));
         }
         return ans_;
     }
@@ -2982,16 +2802,34 @@ impl SseDecode for crate::matrix::timelines::Message {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_eventId = <String>::sse_decode(deserializer);
+        let mut var_transactionId = <String>::sse_decode(deserializer);
         let mut var_sender = <String>::sse_decode(deserializer);
         let mut var_content = <String>::sse_decode(deserializer);
         let mut var_timestamp = <u64>::sse_decode(deserializer);
         let mut var_messageType = <crate::matrix::timelines::MessageType>::sse_decode(deserializer);
+        let mut var_roomMsgKind =
+            <crate::matrix::timelines::RoomMessageKind>::sse_decode(deserializer);
+        let mut var_sendState =
+            <crate::matrix::timelines::EventSendStateKind>::sse_decode(deserializer);
+        let mut var_sendError = <String>::sse_decode(deserializer);
+        let mut var_sendRecoverable = <bool>::sse_decode(deserializer);
+        let mut var_isOwn = <bool>::sse_decode(deserializer);
+        let mut var_mediaMimetype = <String>::sse_decode(deserializer);
+        let mut var_mediaSizeBytes = <u64>::sse_decode(deserializer);
         return crate::matrix::timelines::Message {
             event_id: var_eventId,
+            transaction_id: var_transactionId,
             sender: var_sender,
             content: var_content,
             timestamp: var_timestamp,
             message_type: var_messageType,
+            room_msg_kind: var_roomMsgKind,
+            send_state: var_sendState,
+            send_error: var_sendError,
+            send_recoverable: var_sendRecoverable,
+            is_own: var_isOwn,
+            media_mimetype: var_mediaMimetype,
+            media_size_bytes: var_mediaSizeBytes,
         };
     }
 }
@@ -3051,53 +2889,6 @@ impl SseDecode for crate::matrix::timelines::MessageUpdateType {
     }
 }
 
-impl SseDecode for crate::rhttp::api::http::MultipartItem {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_value = <crate::rhttp::api::http::MultipartValue>::sse_decode(deserializer);
-        let mut var_fileName = <Option<String>>::sse_decode(deserializer);
-        let mut var_contentType = <Option<String>>::sse_decode(deserializer);
-        return crate::rhttp::api::http::MultipartItem {
-            value: var_value,
-            file_name: var_fileName,
-            content_type: var_contentType,
-        };
-    }
-}
-
-impl SseDecode for crate::rhttp::api::http::MultipartPayload {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_parts =
-            <Vec<(String, crate::rhttp::api::http::MultipartItem)>>::sse_decode(deserializer);
-        return crate::rhttp::api::http::MultipartPayload { parts: var_parts };
-    }
-}
-
-impl SseDecode for crate::rhttp::api::http::MultipartValue {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut tag_ = <i32>::sse_decode(deserializer);
-        match tag_ {
-            0 => {
-                let mut var_field0 = <String>::sse_decode(deserializer);
-                return crate::rhttp::api::http::MultipartValue::Text(var_field0);
-            }
-            1 => {
-                let mut var_field0 = <Vec<u8>>::sse_decode(deserializer);
-                return crate::rhttp::api::http::MultipartValue::Bytes(var_field0);
-            }
-            2 => {
-                let mut var_field0 = <String>::sse_decode(deserializer);
-                return crate::rhttp::api::http::MultipartValue::File(var_field0);
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
-    }
-}
-
 impl SseDecode for Option<String> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3109,120 +2900,11 @@ impl SseDecode for Option<String> {
     }
 }
 
-impl SseDecode for Option<Dart2RustStreamReceiver> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<Dart2RustStreamReceiver>::sse_decode(deserializer));
-        } else {
-            return None;
-        }
-    }
-}
-
-impl SseDecode for Option<DnsSettings> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<DnsSettings>::sse_decode(deserializer));
-        } else {
-            return None;
-        }
-    }
-}
-
-impl SseDecode for Option<RequestClient> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<RequestClient>::sse_decode(deserializer));
-        } else {
-            return None;
-        }
-    }
-}
-
 impl SseDecode for Option<bool> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<bool>::sse_decode(deserializer));
-        } else {
-            return None;
-        }
-    }
-}
-
-impl SseDecode for Option<crate::rhttp::api::client::ClientCertificate> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<crate::rhttp::api::client::ClientCertificate>::sse_decode(
-                deserializer,
-            ));
-        } else {
-            return None;
-        }
-    }
-}
-
-impl SseDecode for Option<crate::rhttp::api::client::ClientSettings> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<crate::rhttp::api::client::ClientSettings>::sse_decode(
-                deserializer,
-            ));
-        } else {
-            return None;
-        }
-    }
-}
-
-impl SseDecode for Option<crate::rhttp::api::client::CookieSettings> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<crate::rhttp::api::client::CookieSettings>::sse_decode(
-                deserializer,
-            ));
-        } else {
-            return None;
-        }
-    }
-}
-
-impl SseDecode for Option<crate::rhttp::api::http::HttpBody> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<crate::rhttp::api::http::HttpBody>::sse_decode(
-                deserializer,
-            ));
-        } else {
-            return None;
-        }
-    }
-}
-
-impl SseDecode for Option<crate::rhttp::api::http::HttpHeaders> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<crate::rhttp::api::http::HttpHeaders>::sse_decode(
-                deserializer,
-            ));
-        } else {
-            return None;
-        }
-    }
-}
-
-impl SseDecode for Option<i64> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<i64>::sse_decode(deserializer));
         } else {
             return None;
         }
@@ -3242,76 +2924,11 @@ impl SseDecode for Option<crate::matrix::timelines::Message> {
     }
 }
 
-impl SseDecode for Option<crate::rhttp::api::client::ProxySettings> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<crate::rhttp::api::client::ProxySettings>::sse_decode(
-                deserializer,
-            ));
-        } else {
-            return None;
-        }
-    }
-}
-
-impl SseDecode for Option<crate::rhttp::api::client::RedirectSettings> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<crate::rhttp::api::client::RedirectSettings>::sse_decode(
-                deserializer,
-            ));
-        } else {
-            return None;
-        }
-    }
-}
-
 impl SseDecode for Option<crate::matrix::rooms::RoomUpdate> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<crate::matrix::rooms::RoomUpdate>::sse_decode(deserializer));
-        } else {
-            return None;
-        }
-    }
-}
-
-impl SseDecode for Option<crate::rhttp::api::client::TimeoutSettings> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<crate::rhttp::api::client::TimeoutSettings>::sse_decode(
-                deserializer,
-            ));
-        } else {
-            return None;
-        }
-    }
-}
-
-impl SseDecode for Option<crate::rhttp::api::client::TlsSettings> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<crate::rhttp::api::client::TlsSettings>::sse_decode(
-                deserializer,
-            ));
-        } else {
-            return None;
-        }
-    }
-}
-
-impl SseDecode for Option<crate::rhttp::api::client::TlsVersion> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<crate::rhttp::api::client::TlsVersion>::sse_decode(
-                deserializer,
-            ));
         } else {
             return None;
         }
@@ -3377,146 +2994,119 @@ impl SseDecode for Option<Vec<crate::matrix::timelines::Message>> {
     }
 }
 
-impl SseDecode for Option<Vec<(String, String)>> {
+impl SseDecode for crate::matrix::room_info::RoomDetails {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<Vec<(String, String)>>::sse_decode(deserializer));
-        } else {
-            return None;
-        }
-    }
-}
-
-impl SseDecode for crate::rhttp::api::client::ProxyCondition {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <i32>::sse_decode(deserializer);
-        return match inner {
-            0 => crate::rhttp::api::client::ProxyCondition::Http,
-            1 => crate::rhttp::api::client::ProxyCondition::Https,
-            2 => crate::rhttp::api::client::ProxyCondition::All,
-            _ => unreachable!("Invalid variant for ProxyCondition: {}", inner),
+        let mut var_roomId = <String>::sse_decode(deserializer);
+        let mut var_displayName = <String>::sse_decode(deserializer);
+        let mut var_topic = <String>::sse_decode(deserializer);
+        let mut var_isDirect = <bool>::sse_decode(deserializer);
+        let mut var_isEncrypted = <bool>::sse_decode(deserializer);
+        let mut var_memberCount = <u32>::sse_decode(deserializer);
+        let mut var_members =
+            <Vec<crate::matrix::room_info::RoomMemberRow>>::sse_decode(deserializer);
+        let mut var_currentUserId = <String>::sse_decode(deserializer);
+        let mut var_currentUserIsAdmin = <bool>::sse_decode(deserializer);
+        let mut var_currentUserIsModerator = <bool>::sse_decode(deserializer);
+        return crate::matrix::room_info::RoomDetails {
+            room_id: var_roomId,
+            display_name: var_displayName,
+            topic: var_topic,
+            is_direct: var_isDirect,
+            is_encrypted: var_isEncrypted,
+            member_count: var_memberCount,
+            members: var_members,
+            current_user_id: var_currentUserId,
+            current_user_is_admin: var_currentUserIsAdmin,
+            current_user_is_moderator: var_currentUserIsModerator,
         };
     }
 }
 
-impl SseDecode for crate::rhttp::api::client::ProxySettings {
+impl SseDecode for crate::matrix::room_info::RoomFileFilter {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut tag_ = <i32>::sse_decode(deserializer);
-        match tag_ {
-            0 => {
-                return crate::rhttp::api::client::ProxySettings::NoProxy;
-            }
-            1 => {
-                let mut var_field0 =
-                    <Vec<crate::rhttp::api::client::CustomProxy>>::sse_decode(deserializer);
-                return crate::rhttp::api::client::ProxySettings::CustomProxyList(var_field0);
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::matrix::room_info::RoomFileFilter::All,
+            1 => crate::matrix::room_info::RoomFileFilter::Received,
+            2 => crate::matrix::room_info::RoomFileFilter::Sent,
+            _ => unreachable!("Invalid variant for RoomFileFilter: {}", inner),
+        };
     }
 }
 
-impl SseDecode for (Dart2RustStreamSink, Dart2RustStreamReceiver) {
+impl SseDecode for crate::matrix::room_info::RoomFileItem {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_field0 = <Dart2RustStreamSink>::sse_decode(deserializer);
-        let mut var_field1 = <Dart2RustStreamReceiver>::sse_decode(deserializer);
-        return (var_field0, var_field1);
+        let mut var_eventId = <String>::sse_decode(deserializer);
+        let mut var_transactionId = <String>::sse_decode(deserializer);
+        let mut var_sender = <String>::sse_decode(deserializer);
+        let mut var_caption = <String>::sse_decode(deserializer);
+        let mut var_timestamp = <u64>::sse_decode(deserializer);
+        let mut var_kind = <crate::matrix::timelines::RoomMessageKind>::sse_decode(deserializer);
+        let mut var_isOutgoing = <bool>::sse_decode(deserializer);
+        let mut var_sizeBytes = <u64>::sse_decode(deserializer);
+        return crate::matrix::room_info::RoomFileItem {
+            event_id: var_eventId,
+            transaction_id: var_transactionId,
+            sender: var_sender,
+            caption: var_caption,
+            timestamp: var_timestamp,
+            kind: var_kind,
+            is_outgoing: var_isOutgoing,
+            size_bytes: var_sizeBytes,
+        };
     }
 }
 
-impl SseDecode for (String, Vec<String>) {
+impl SseDecode for crate::matrix::room_info::RoomMemberRoleDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_field0 = <String>::sse_decode(deserializer);
-        let mut var_field1 = <Vec<String>>::sse_decode(deserializer);
-        return (var_field0, var_field1);
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::matrix::room_info::RoomMemberRoleDto::Creator,
+            1 => crate::matrix::room_info::RoomMemberRoleDto::Administrator,
+            2 => crate::matrix::room_info::RoomMemberRoleDto::Moderator,
+            3 => crate::matrix::room_info::RoomMemberRoleDto::User,
+            _ => unreachable!("Invalid variant for RoomMemberRoleDto: {}", inner),
+        };
     }
 }
 
-impl SseDecode for (String, crate::rhttp::api::http::MultipartItem) {
+impl SseDecode for crate::matrix::room_info::RoomMemberRow {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_field0 = <String>::sse_decode(deserializer);
-        let mut var_field1 = <crate::rhttp::api::http::MultipartItem>::sse_decode(deserializer);
-        return (var_field0, var_field1);
+        let mut var_userId = <String>::sse_decode(deserializer);
+        let mut var_displayName = <String>::sse_decode(deserializer);
+        let mut var_powerLevel = <i64>::sse_decode(deserializer);
+        let mut var_role = <crate::matrix::room_info::RoomMemberRoleDto>::sse_decode(deserializer);
+        let mut var_isSelf = <bool>::sse_decode(deserializer);
+        let mut var_currentUserCanKick = <bool>::sse_decode(deserializer);
+        return crate::matrix::room_info::RoomMemberRow {
+            user_id: var_userId,
+            display_name: var_displayName,
+            power_level: var_powerLevel,
+            role: var_role,
+            is_self: var_isSelf,
+            current_user_can_kick: var_currentUserCanKick,
+        };
     }
 }
 
-impl SseDecode for (String, String) {
+impl SseDecode for crate::matrix::timelines::RoomMessageKind {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_field0 = <String>::sse_decode(deserializer);
-        let mut var_field1 = <String>::sse_decode(deserializer);
-        return (var_field0, var_field1);
-    }
-}
-
-impl SseDecode for crate::rhttp::api::client::RedirectSettings {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut tag_ = <i32>::sse_decode(deserializer);
-        match tag_ {
-            0 => {
-                return crate::rhttp::api::client::RedirectSettings::NoRedirect;
-            }
-            1 => {
-                let mut var_field0 = <i32>::sse_decode(deserializer);
-                return crate::rhttp::api::client::RedirectSettings::LimitedRedirects(var_field0);
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
-    }
-}
-
-impl SseDecode for crate::rhttp::api::error::RhttpError {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut tag_ = <i32>::sse_decode(deserializer);
-        match tag_ {
-            0 => {
-                return crate::rhttp::api::error::RhttpError::RhttpCancelError;
-            }
-            1 => {
-                return crate::rhttp::api::error::RhttpError::RhttpTimeoutError;
-            }
-            2 => {
-                return crate::rhttp::api::error::RhttpError::RhttpRedirectError;
-            }
-            3 => {
-                let mut var_field0 = <u16>::sse_decode(deserializer);
-                let mut var_field1 = <Vec<(String, String)>>::sse_decode(deserializer);
-                let mut var_field2 =
-                    <crate::rhttp::api::http::HttpResponseBody>::sse_decode(deserializer);
-                return crate::rhttp::api::error::RhttpError::RhttpStatusCodeError(
-                    var_field0, var_field1, var_field2,
-                );
-            }
-            4 => {
-                let mut var_field0 = <String>::sse_decode(deserializer);
-                return crate::rhttp::api::error::RhttpError::RhttpInvalidCertificateError(
-                    var_field0,
-                );
-            }
-            5 => {
-                let mut var_field0 = <String>::sse_decode(deserializer);
-                return crate::rhttp::api::error::RhttpError::RhttpConnectionError(var_field0);
-            }
-            6 => {
-                let mut var_field0 = <String>::sse_decode(deserializer);
-                return crate::rhttp::api::error::RhttpError::RhttpUnknownError(var_field0);
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::matrix::timelines::RoomMessageKind::Text,
+            1 => crate::matrix::timelines::RoomMessageKind::Image,
+            2 => crate::matrix::timelines::RoomMessageKind::File,
+            3 => crate::matrix::timelines::RoomMessageKind::Video,
+            4 => crate::matrix::timelines::RoomMessageKind::Audio,
+            5 => crate::matrix::timelines::RoomMessageKind::Other,
+            _ => unreachable!("Invalid variant for RoomMessageKind: {}", inner),
+        };
     }
 }
 
@@ -3548,19 +3138,6 @@ impl SseDecode for crate::matrix::rooms::RoomUpdate {
     }
 }
 
-impl SseDecode for crate::rhttp::api::client::StaticDnsSettings {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_overrides =
-            <std::collections::HashMap<String, Vec<String>>>::sse_decode(deserializer);
-        let mut var_fallback = <Option<String>>::sse_decode(deserializer);
-        return crate::rhttp::api::client::StaticDnsSettings {
-            overrides: var_overrides,
-            fallback: var_fallback,
-        };
-    }
-}
-
 impl SseDecode for crate::matrix::sync_service::SyncState {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3572,59 +3149,6 @@ impl SseDecode for crate::matrix::sync_service::SyncState {
             3 => crate::matrix::sync_service::SyncState::Error,
             4 => crate::matrix::sync_service::SyncState::Offline,
             _ => unreachable!("Invalid variant for SyncState: {}", inner),
-        };
-    }
-}
-
-impl SseDecode for crate::rhttp::api::client::TimeoutSettings {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_timeoutMs = <Option<i64>>::sse_decode(deserializer);
-        let mut var_connectTimeoutMs = <Option<i64>>::sse_decode(deserializer);
-        let mut var_keepAliveTimeoutMs = <Option<i64>>::sse_decode(deserializer);
-        let mut var_keepAlivePingMs = <Option<i64>>::sse_decode(deserializer);
-        return crate::rhttp::api::client::TimeoutSettings {
-            timeout_ms: var_timeoutMs,
-            connect_timeout_ms: var_connectTimeoutMs,
-            keep_alive_timeout_ms: var_keepAliveTimeoutMs,
-            keep_alive_ping_ms: var_keepAlivePingMs,
-        };
-    }
-}
-
-impl SseDecode for crate::rhttp::api::client::TlsSettings {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_trustRootCertificates = <bool>::sse_decode(deserializer);
-        let mut var_trustedRootCertificates = <Vec<Vec<u8>>>::sse_decode(deserializer);
-        let mut var_verifyCertificates = <bool>::sse_decode(deserializer);
-        let mut var_clientCertificate =
-            <Option<crate::rhttp::api::client::ClientCertificate>>::sse_decode(deserializer);
-        let mut var_minTlsVersion =
-            <Option<crate::rhttp::api::client::TlsVersion>>::sse_decode(deserializer);
-        let mut var_maxTlsVersion =
-            <Option<crate::rhttp::api::client::TlsVersion>>::sse_decode(deserializer);
-        let mut var_sni = <bool>::sse_decode(deserializer);
-        return crate::rhttp::api::client::TlsSettings {
-            trust_root_certificates: var_trustRootCertificates,
-            trusted_root_certificates: var_trustedRootCertificates,
-            verify_certificates: var_verifyCertificates,
-            client_certificate: var_clientCertificate,
-            min_tls_version: var_minTlsVersion,
-            max_tls_version: var_maxTlsVersion,
-            sni: var_sni,
-        };
-    }
-}
-
-impl SseDecode for crate::rhttp::api::client::TlsVersion {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut inner = <i32>::sse_decode(deserializer);
-        return match inner {
-            0 => crate::rhttp::api::client::TlsVersion::Tls1_2,
-            1 => crate::rhttp::api::client::TlsVersion::Tls1_3,
-            _ => unreachable!("Invalid variant for TlsVersion: {}", inner),
         };
     }
 }
@@ -3791,21 +3315,6 @@ fn pde_ffi_dispatcher_sync_impl(
 // Section: rust2dart
 
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for FrbWrapper<CancellationToken> {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, StdArc<_>>(self.0)
-            .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for FrbWrapper<CancellationToken> {}
-
-impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<CancellationToken>> for CancellationToken {
-    fn into_into_dart(self) -> FrbWrapper<CancellationToken> {
-        self.into()
-    }
-}
-
-// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for FrbWrapper<Certificate> {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, StdArc<_>>(self.0)
@@ -3816,59 +3325,6 @@ impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for FrbWrapper<
 
 impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<Certificate>> for Certificate {
     fn into_into_dart(self) -> FrbWrapper<Certificate> {
-        self.into()
-    }
-}
-
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for FrbWrapper<Dart2RustStreamReceiver> {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, StdArc<_>>(self.0)
-            .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for FrbWrapper<Dart2RustStreamReceiver>
-{
-}
-
-impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<Dart2RustStreamReceiver>>
-    for Dart2RustStreamReceiver
-{
-    fn into_into_dart(self) -> FrbWrapper<Dart2RustStreamReceiver> {
-        self.into()
-    }
-}
-
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for FrbWrapper<Dart2RustStreamSink> {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, StdArc<_>>(self.0)
-            .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for FrbWrapper<Dart2RustStreamSink>
-{
-}
-
-impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<Dart2RustStreamSink>> for Dart2RustStreamSink {
-    fn into_into_dart(self) -> FrbWrapper<Dart2RustStreamSink> {
-        self.into()
-    }
-}
-
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for FrbWrapper<DnsSettings> {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, StdArc<_>>(self.0)
-            .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for FrbWrapper<DnsSettings> {}
-
-impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<DnsSettings>> for DnsSettings {
-    fn into_into_dart(self) -> FrbWrapper<DnsSettings> {
         self.into()
     }
 }
@@ -3909,42 +3365,6 @@ impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<MatrixClient>> for MatrixClien
 }
 
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for FrbWrapper<RequestClient> {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, StdArc<_>>(self.0)
-            .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for FrbWrapper<RequestClient> {}
-
-impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<RequestClient>> for RequestClient {
-    fn into_into_dart(self) -> FrbWrapper<RequestClient> {
-        self.into()
-    }
-}
-
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::client::ClientCertificate {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [
-            self.certificate.into_into_dart().into_dart(),
-            self.private_key.into_into_dart().into_dart(),
-        ]
-        .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::client::ClientCertificate
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::client::ClientCertificate>
-    for crate::rhttp::api::client::ClientCertificate
-{
-    fn into_into_dart(self) -> crate::rhttp::api::client::ClientCertificate {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::matrix::client::ClientConfig {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -3953,7 +3373,6 @@ impl flutter_rust_bridge::IntoDart for crate::matrix::client::ClientConfig {
             self.root_certificates.into_into_dart().into_dart(),
             self.proxy.into_into_dart().into_dart(),
             self.passphrase.into_into_dart().into_dart(),
-            self.rhttp_client.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -3997,68 +3416,24 @@ impl flutter_rust_bridge::IntoIntoDart<crate::logger::platform::ClientError>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::client::ClientSettings {
+impl flutter_rust_bridge::IntoDart for crate::matrix::timelines::EventSendStateKind {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [
-            self.cookie_settings.into_into_dart().into_dart(),
-            self.http_version_pref.into_into_dart().into_dart(),
-            self.timeout_settings.into_into_dart().into_dart(),
-            self.throw_on_status_code.into_into_dart().into_dart(),
-            self.proxy_settings.into_into_dart().into_dart(),
-            self.redirect_settings.into_into_dart().into_dart(),
-            self.tls_settings.into_into_dart().into_dart(),
-            self.dns_settings.into_into_dart().into_dart(),
-            self.user_agent.into_into_dart().into_dart(),
-        ]
-        .into_dart()
+        match self {
+            Self::Delivered => 0.into_dart(),
+            Self::Pending => 1.into_dart(),
+            Self::Failed => 2.into_dart(),
+            _ => unreachable!(),
+        }
     }
 }
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::client::ClientSettings
+    for crate::matrix::timelines::EventSendStateKind
 {
 }
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::client::ClientSettings>
-    for crate::rhttp::api::client::ClientSettings
+impl flutter_rust_bridge::IntoIntoDart<crate::matrix::timelines::EventSendStateKind>
+    for crate::matrix::timelines::EventSendStateKind
 {
-    fn into_into_dart(self) -> crate::rhttp::api::client::ClientSettings {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::client::CookieSettings {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [self.store_cookies.into_into_dart().into_dart()].into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::client::CookieSettings
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::client::CookieSettings>
-    for crate::rhttp::api::client::CookieSettings
-{
-    fn into_into_dart(self) -> crate::rhttp::api::client::CookieSettings {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::client::CustomProxy {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [
-            self.url.into_into_dart().into_dart(),
-            self.condition.into_into_dart().into_dart(),
-        ]
-        .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::client::CustomProxy
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::client::CustomProxy>
-    for crate::rhttp::api::client::CustomProxy
-{
-    fn into_into_dart(self) -> crate::rhttp::api::client::CustomProxy {
+    fn into_into_dart(self) -> crate::matrix::timelines::EventSendStateKind {
         self
     }
 }
@@ -4087,202 +3462,52 @@ impl flutter_rust_bridge::IntoIntoDart<crate::logger::platform::FileRotation>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::http::HttpBody {
+impl flutter_rust_bridge::IntoDart for crate::matrix::file_send_progress::FileSendPhase {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
-            crate::rhttp::api::http::HttpBody::Text(field0) => {
-                [0.into_dart(), field0.into_into_dart().into_dart()].into_dart()
-            }
-            crate::rhttp::api::http::HttpBody::Bytes(field0) => {
-                [1.into_dart(), field0.into_into_dart().into_dart()].into_dart()
-            }
-            crate::rhttp::api::http::HttpBody::BytesStream => [2.into_dart()].into_dart(),
-            crate::rhttp::api::http::HttpBody::Form(field0) => {
-                [3.into_dart(), field0.into_into_dart().into_dart()].into_dart()
-            }
-            crate::rhttp::api::http::HttpBody::Multipart(field0) => {
-                [4.into_dart(), field0.into_into_dart().into_dart()].into_dart()
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::http::HttpBody
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::http::HttpBody>
-    for crate::rhttp::api::http::HttpBody
-{
-    fn into_into_dart(self) -> crate::rhttp::api::http::HttpBody {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::http::HttpExpectBody {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        match self {
-            Self::Text => 0.into_dart(),
-            Self::Bytes => 1.into_dart(),
+            Self::VideoCompress => 0.into_dart(),
+            Self::MainUpload => 1.into_dart(),
+            Self::ThumbnailUpload => 2.into_dart(),
+            Self::SendingMessage => 3.into_dart(),
+            Self::EncryptedQueued => 4.into_dart(),
+            Self::Done => 5.into_dart(),
+            Self::Cancelled => 6.into_dart(),
+            Self::Failed => 7.into_dart(),
             _ => unreachable!(),
         }
     }
 }
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::http::HttpExpectBody
+    for crate::matrix::file_send_progress::FileSendPhase
 {
 }
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::http::HttpExpectBody>
-    for crate::rhttp::api::http::HttpExpectBody
+impl flutter_rust_bridge::IntoIntoDart<crate::matrix::file_send_progress::FileSendPhase>
+    for crate::matrix::file_send_progress::FileSendPhase
 {
-    fn into_into_dart(self) -> crate::rhttp::api::http::HttpExpectBody {
+    fn into_into_dart(self) -> crate::matrix::file_send_progress::FileSendPhase {
         self
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::http::HttpHeaders {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        match self {
-            crate::rhttp::api::http::HttpHeaders::Map(field0) => {
-                [0.into_dart(), field0.into_into_dart().into_dart()].into_dart()
-            }
-            crate::rhttp::api::http::HttpHeaders::List(field0) => {
-                [1.into_dart(), field0.into_into_dart().into_dart()].into_dart()
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::http::HttpHeaders
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::http::HttpHeaders>
-    for crate::rhttp::api::http::HttpHeaders
-{
-    fn into_into_dart(self) -> crate::rhttp::api::http::HttpHeaders {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::http::HttpMethod {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [self.method.into_into_dart().into_dart()].into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::http::HttpMethod
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::http::HttpMethod>
-    for crate::rhttp::api::http::HttpMethod
-{
-    fn into_into_dart(self) -> crate::rhttp::api::http::HttpMethod {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::http::HttpResponse {
+impl flutter_rust_bridge::IntoDart for crate::matrix::file_send_progress::FileSendProgress {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
-            self.remote_ip.into_into_dart().into_dart(),
-            self.headers.into_into_dart().into_dart(),
-            self.version.into_into_dart().into_dart(),
-            self.status_code.into_into_dart().into_dart(),
-            self.body.into_into_dart().into_dart(),
+            self.phase.into_into_dart().into_dart(),
+            self.current.into_into_dart().into_dart(),
+            self.total.into_into_dart().into_dart(),
+            self.message.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
 }
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::http::HttpResponse
+    for crate::matrix::file_send_progress::FileSendProgress
 {
 }
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::http::HttpResponse>
-    for crate::rhttp::api::http::HttpResponse
+impl flutter_rust_bridge::IntoIntoDart<crate::matrix::file_send_progress::FileSendProgress>
+    for crate::matrix::file_send_progress::FileSendProgress
 {
-    fn into_into_dart(self) -> crate::rhttp::api::http::HttpResponse {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::http::HttpResponseBody {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        match self {
-            crate::rhttp::api::http::HttpResponseBody::Text(field0) => {
-                [0.into_dart(), field0.into_into_dart().into_dart()].into_dart()
-            }
-            crate::rhttp::api::http::HttpResponseBody::Bytes(field0) => {
-                [1.into_dart(), field0.into_into_dart().into_dart()].into_dart()
-            }
-            crate::rhttp::api::http::HttpResponseBody::Stream => [2.into_dart()].into_dart(),
-            _ => {
-                unimplemented!("");
-            }
-        }
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::http::HttpResponseBody
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::http::HttpResponseBody>
-    for crate::rhttp::api::http::HttpResponseBody
-{
-    fn into_into_dart(self) -> crate::rhttp::api::http::HttpResponseBody {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::http::HttpVersion {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        match self {
-            Self::Http09 => 0.into_dart(),
-            Self::Http10 => 1.into_dart(),
-            Self::Http11 => 2.into_dart(),
-            Self::Http2 => 3.into_dart(),
-            Self::Http3 => 4.into_dart(),
-            Self::Other => 5.into_dart(),
-            _ => unreachable!(),
-        }
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::http::HttpVersion
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::http::HttpVersion>
-    for crate::rhttp::api::http::HttpVersion
-{
-    fn into_into_dart(self) -> crate::rhttp::api::http::HttpVersion {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::http::HttpVersionPref {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        match self {
-            Self::Http10 => 0.into_dart(),
-            Self::Http11 => 1.into_dart(),
-            Self::Http2 => 2.into_dart(),
-            Self::Http3 => 3.into_dart(),
-            Self::All => 4.into_dart(),
-            _ => unreachable!(),
-        }
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::http::HttpVersionPref
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::http::HttpVersionPref>
-    for crate::rhttp::api::http::HttpVersionPref
-{
-    fn into_into_dart(self) -> crate::rhttp::api::http::HttpVersionPref {
+    fn into_into_dart(self) -> crate::matrix::file_send_progress::FileSendProgress {
         self
     }
 }
@@ -4315,10 +3540,18 @@ impl flutter_rust_bridge::IntoDart for crate::matrix::timelines::Message {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
             self.event_id.into_into_dart().into_dart(),
+            self.transaction_id.into_into_dart().into_dart(),
             self.sender.into_into_dart().into_dart(),
             self.content.into_into_dart().into_dart(),
             self.timestamp.into_into_dart().into_dart(),
             self.message_type.into_into_dart().into_dart(),
+            self.room_msg_kind.into_into_dart().into_dart(),
+            self.send_state.into_into_dart().into_dart(),
+            self.send_error.into_into_dart().into_dart(),
+            self.send_recoverable.into_into_dart().into_dart(),
+            self.is_own.into_into_dart().into_dart(),
+            self.media_mimetype.into_into_dart().into_dart(),
+            self.media_size_bytes.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -4413,183 +3646,153 @@ impl flutter_rust_bridge::IntoIntoDart<crate::matrix::timelines::MessageUpdateTy
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::http::MultipartItem {
+impl flutter_rust_bridge::IntoDart for crate::matrix::room_info::RoomDetails {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
-            self.value.into_into_dart().into_dart(),
-            self.file_name.into_into_dart().into_dart(),
-            self.content_type.into_into_dart().into_dart(),
+            self.room_id.into_into_dart().into_dart(),
+            self.display_name.into_into_dart().into_dart(),
+            self.topic.into_into_dart().into_dart(),
+            self.is_direct.into_into_dart().into_dart(),
+            self.is_encrypted.into_into_dart().into_dart(),
+            self.member_count.into_into_dart().into_dart(),
+            self.members.into_into_dart().into_dart(),
+            self.current_user_id.into_into_dart().into_dart(),
+            self.current_user_is_admin.into_into_dart().into_dart(),
+            self.current_user_is_moderator.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
 }
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::http::MultipartItem
+    for crate::matrix::room_info::RoomDetails
 {
 }
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::http::MultipartItem>
-    for crate::rhttp::api::http::MultipartItem
+impl flutter_rust_bridge::IntoIntoDart<crate::matrix::room_info::RoomDetails>
+    for crate::matrix::room_info::RoomDetails
 {
-    fn into_into_dart(self) -> crate::rhttp::api::http::MultipartItem {
+    fn into_into_dart(self) -> crate::matrix::room_info::RoomDetails {
         self
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::http::MultipartPayload {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [self.parts.into_into_dart().into_dart()].into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::http::MultipartPayload
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::http::MultipartPayload>
-    for crate::rhttp::api::http::MultipartPayload
-{
-    fn into_into_dart(self) -> crate::rhttp::api::http::MultipartPayload {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::http::MultipartValue {
+impl flutter_rust_bridge::IntoDart for crate::matrix::room_info::RoomFileFilter {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
-            crate::rhttp::api::http::MultipartValue::Text(field0) => {
-                [0.into_dart(), field0.into_into_dart().into_dart()].into_dart()
-            }
-            crate::rhttp::api::http::MultipartValue::Bytes(field0) => {
-                [1.into_dart(), field0.into_into_dart().into_dart()].into_dart()
-            }
-            crate::rhttp::api::http::MultipartValue::File(field0) => {
-                [2.into_dart(), field0.into_into_dart().into_dart()].into_dart()
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::http::MultipartValue
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::http::MultipartValue>
-    for crate::rhttp::api::http::MultipartValue
-{
-    fn into_into_dart(self) -> crate::rhttp::api::http::MultipartValue {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::client::ProxyCondition {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        match self {
-            Self::Http => 0.into_dart(),
-            Self::Https => 1.into_dart(),
-            Self::All => 2.into_dart(),
+            Self::All => 0.into_dart(),
+            Self::Received => 1.into_dart(),
+            Self::Sent => 2.into_dart(),
             _ => unreachable!(),
         }
     }
 }
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::client::ProxyCondition
+    for crate::matrix::room_info::RoomFileFilter
 {
 }
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::client::ProxyCondition>
-    for crate::rhttp::api::client::ProxyCondition
+impl flutter_rust_bridge::IntoIntoDart<crate::matrix::room_info::RoomFileFilter>
+    for crate::matrix::room_info::RoomFileFilter
 {
-    fn into_into_dart(self) -> crate::rhttp::api::client::ProxyCondition {
+    fn into_into_dart(self) -> crate::matrix::room_info::RoomFileFilter {
         self
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::client::ProxySettings {
+impl flutter_rust_bridge::IntoDart for crate::matrix::room_info::RoomFileItem {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        match self {
-            crate::rhttp::api::client::ProxySettings::NoProxy => [0.into_dart()].into_dart(),
-            crate::rhttp::api::client::ProxySettings::CustomProxyList(field0) => {
-                [1.into_dart(), field0.into_into_dart().into_dart()].into_dart()
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
+        [
+            self.event_id.into_into_dart().into_dart(),
+            self.transaction_id.into_into_dart().into_dart(),
+            self.sender.into_into_dart().into_dart(),
+            self.caption.into_into_dart().into_dart(),
+            self.timestamp.into_into_dart().into_dart(),
+            self.kind.into_into_dart().into_dart(),
+            self.is_outgoing.into_into_dart().into_dart(),
+            self.size_bytes.into_into_dart().into_dart(),
+        ]
+        .into_dart()
     }
 }
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::client::ProxySettings
+    for crate::matrix::room_info::RoomFileItem
 {
 }
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::client::ProxySettings>
-    for crate::rhttp::api::client::ProxySettings
+impl flutter_rust_bridge::IntoIntoDart<crate::matrix::room_info::RoomFileItem>
+    for crate::matrix::room_info::RoomFileItem
 {
-    fn into_into_dart(self) -> crate::rhttp::api::client::ProxySettings {
+    fn into_into_dart(self) -> crate::matrix::room_info::RoomFileItem {
         self
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::client::RedirectSettings {
+impl flutter_rust_bridge::IntoDart for crate::matrix::room_info::RoomMemberRoleDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
-            crate::rhttp::api::client::RedirectSettings::NoRedirect => [0.into_dart()].into_dart(),
-            crate::rhttp::api::client::RedirectSettings::LimitedRedirects(field0) => {
-                [1.into_dart(), field0.into_into_dart().into_dart()].into_dart()
-            }
-            _ => {
-                unimplemented!("");
-            }
+            Self::Creator => 0.into_dart(),
+            Self::Administrator => 1.into_dart(),
+            Self::Moderator => 2.into_dart(),
+            Self::User => 3.into_dart(),
+            _ => unreachable!(),
         }
     }
 }
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::client::RedirectSettings
+    for crate::matrix::room_info::RoomMemberRoleDto
 {
 }
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::client::RedirectSettings>
-    for crate::rhttp::api::client::RedirectSettings
+impl flutter_rust_bridge::IntoIntoDart<crate::matrix::room_info::RoomMemberRoleDto>
+    for crate::matrix::room_info::RoomMemberRoleDto
 {
-    fn into_into_dart(self) -> crate::rhttp::api::client::RedirectSettings {
+    fn into_into_dart(self) -> crate::matrix::room_info::RoomMemberRoleDto {
         self
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::error::RhttpError {
+impl flutter_rust_bridge::IntoDart for crate::matrix::room_info::RoomMemberRow {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.user_id.into_into_dart().into_dart(),
+            self.display_name.into_into_dart().into_dart(),
+            self.power_level.into_into_dart().into_dart(),
+            self.role.into_into_dart().into_dart(),
+            self.is_self.into_into_dart().into_dart(),
+            self.current_user_can_kick.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::matrix::room_info::RoomMemberRow
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::matrix::room_info::RoomMemberRow>
+    for crate::matrix::room_info::RoomMemberRow
+{
+    fn into_into_dart(self) -> crate::matrix::room_info::RoomMemberRow {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::matrix::timelines::RoomMessageKind {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
-            crate::rhttp::api::error::RhttpError::RhttpCancelError => [0.into_dart()].into_dart(),
-            crate::rhttp::api::error::RhttpError::RhttpTimeoutError => [1.into_dart()].into_dart(),
-            crate::rhttp::api::error::RhttpError::RhttpRedirectError => [2.into_dart()].into_dart(),
-            crate::rhttp::api::error::RhttpError::RhttpStatusCodeError(field0, field1, field2) => [
-                3.into_dart(),
-                field0.into_into_dart().into_dart(),
-                field1.into_into_dart().into_dart(),
-                field2.into_into_dart().into_dart(),
-            ]
-            .into_dart(),
-            crate::rhttp::api::error::RhttpError::RhttpInvalidCertificateError(field0) => {
-                [4.into_dart(), field0.into_into_dart().into_dart()].into_dart()
-            }
-            crate::rhttp::api::error::RhttpError::RhttpConnectionError(field0) => {
-                [5.into_dart(), field0.into_into_dart().into_dart()].into_dart()
-            }
-            crate::rhttp::api::error::RhttpError::RhttpUnknownError(field0) => {
-                [6.into_dart(), field0.into_into_dart().into_dart()].into_dart()
-            }
-            _ => {
-                unimplemented!("");
-            }
+            Self::Text => 0.into_dart(),
+            Self::Image => 1.into_dart(),
+            Self::File => 2.into_dart(),
+            Self::Video => 3.into_dart(),
+            Self::Audio => 4.into_dart(),
+            Self::Other => 5.into_dart(),
+            _ => unreachable!(),
         }
     }
 }
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::error::RhttpError
+    for crate::matrix::timelines::RoomMessageKind
 {
 }
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::error::RhttpError>
-    for crate::rhttp::api::error::RhttpError
+impl flutter_rust_bridge::IntoIntoDart<crate::matrix::timelines::RoomMessageKind>
+    for crate::matrix::timelines::RoomMessageKind
 {
-    fn into_into_dart(self) -> crate::rhttp::api::error::RhttpError {
+    fn into_into_dart(self) -> crate::matrix::timelines::RoomMessageKind {
         self
     }
 }
@@ -4623,27 +3826,6 @@ impl flutter_rust_bridge::IntoIntoDart<crate::matrix::rooms::RoomUpdate>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::client::StaticDnsSettings {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [
-            self.overrides.into_into_dart().into_dart(),
-            self.fallback.into_into_dart().into_dart(),
-        ]
-        .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::client::StaticDnsSettings
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::client::StaticDnsSettings>
-    for crate::rhttp::api::client::StaticDnsSettings
-{
-    fn into_into_dart(self) -> crate::rhttp::api::client::StaticDnsSettings {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::matrix::sync_service::SyncState {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
@@ -4664,76 +3846,6 @@ impl flutter_rust_bridge::IntoIntoDart<crate::matrix::sync_service::SyncState>
     for crate::matrix::sync_service::SyncState
 {
     fn into_into_dart(self) -> crate::matrix::sync_service::SyncState {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::client::TimeoutSettings {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [
-            self.timeout_ms.into_into_dart().into_dart(),
-            self.connect_timeout_ms.into_into_dart().into_dart(),
-            self.keep_alive_timeout_ms.into_into_dart().into_dart(),
-            self.keep_alive_ping_ms.into_into_dart().into_dart(),
-        ]
-        .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::client::TimeoutSettings
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::client::TimeoutSettings>
-    for crate::rhttp::api::client::TimeoutSettings
-{
-    fn into_into_dart(self) -> crate::rhttp::api::client::TimeoutSettings {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::client::TlsSettings {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [
-            self.trust_root_certificates.into_into_dart().into_dart(),
-            self.trusted_root_certificates.into_into_dart().into_dart(),
-            self.verify_certificates.into_into_dart().into_dart(),
-            self.client_certificate.into_into_dart().into_dart(),
-            self.min_tls_version.into_into_dart().into_dart(),
-            self.max_tls_version.into_into_dart().into_dart(),
-            self.sni.into_into_dart().into_dart(),
-        ]
-        .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::client::TlsSettings
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::client::TlsSettings>
-    for crate::rhttp::api::client::TlsSettings
-{
-    fn into_into_dart(self) -> crate::rhttp::api::client::TlsSettings {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::rhttp::api::client::TlsVersion {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        match self {
-            Self::Tls1_2 => 0.into_dart(),
-            Self::Tls1_3 => 1.into_dart(),
-            _ => unreachable!(),
-        }
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::rhttp::api::client::TlsVersion
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::rhttp::api::client::TlsVersion>
-    for crate::rhttp::api::client::TlsVersion
-{
-    fn into_into_dart(self) -> crate::rhttp::api::client::TlsVersion {
         self
     }
 }
@@ -4884,50 +3996,10 @@ impl SseEncode for flutter_rust_bridge::for_generated::anyhow::Error {
     }
 }
 
-impl SseEncode for RustAutoOpaqueNom<RequestClient> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RequestClient>>>::sse_encode(flutter_rust_bridge::for_generated::rust_auto_opaque_explicit_encode(self), serializer);
-    }
-}
-
-impl SseEncode for CancellationToken {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<CancellationToken>>>::sse_encode(flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, StdArc<_>>(self), serializer);
-    }
-}
-
 impl SseEncode for Certificate {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Certificate>>>::sse_encode(flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, StdArc<_>>(self), serializer);
-    }
-}
-
-impl SseEncode for Dart2RustStreamReceiver {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <RustOpaqueNom<
-            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamReceiver>,
-        >>::sse_encode(
-            flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, StdArc<_>>(self),
-            serializer,
-        );
-    }
-}
-
-impl SseEncode for Dart2RustStreamSink {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamSink>>>::sse_encode(flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, StdArc<_>>(self), serializer);
-    }
-}
-
-impl SseEncode for DnsSettings {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<DnsSettings>>>::sse_encode(flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, StdArc<_>>(self), serializer);
     }
 }
 
@@ -4950,82 +4022,8 @@ impl SseEncode for MatrixClient {
     }
 }
 
-impl SseEncode for RequestClient {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RequestClient>>>::sse_encode(flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, StdArc<_>>(self), serializer);
-    }
-}
-
-impl SseEncode for flutter_rust_bridge::DartOpaque {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <usize>::sse_encode(self.encode(), serializer);
-    }
-}
-
-impl SseEncode for std::collections::HashMap<String, String> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <Vec<(String, String)>>::sse_encode(self.into_iter().collect(), serializer);
-    }
-}
-
-impl SseEncode for std::collections::HashMap<String, Vec<String>> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <Vec<(String, Vec<String>)>>::sse_encode(self.into_iter().collect(), serializer);
-    }
-}
-
-impl SseEncode
-    for RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<CancellationToken>>
-{
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        let (ptr, size) = self.sse_encode_raw();
-        <usize>::sse_encode(ptr, serializer);
-        <i32>::sse_encode(size, serializer);
-    }
-}
-
 impl SseEncode
     for RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Certificate>>
-{
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        let (ptr, size) = self.sse_encode_raw();
-        <usize>::sse_encode(ptr, serializer);
-        <i32>::sse_encode(size, serializer);
-    }
-}
-
-impl SseEncode
-    for RustOpaqueNom<
-        flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamReceiver>,
-    >
-{
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        let (ptr, size) = self.sse_encode_raw();
-        <usize>::sse_encode(ptr, serializer);
-        <i32>::sse_encode(size, serializer);
-    }
-}
-
-impl SseEncode
-    for RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamSink>>
-{
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        let (ptr, size) = self.sse_encode_raw();
-        <usize>::sse_encode(ptr, serializer);
-        <i32>::sse_encode(size, serializer);
-    }
-}
-
-impl SseEncode
-    for RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<DnsSettings>>
 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -5059,18 +4057,19 @@ impl SseEncode
     }
 }
 
-impl SseEncode
-    for RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RequestClient>>
-{
+impl SseEncode for StreamSink<String, flutter_rust_bridge::for_generated::DcoCodec> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        let (ptr, size) = self.sse_encode_raw();
-        <usize>::sse_encode(ptr, serializer);
-        <i32>::sse_encode(size, serializer);
+        unimplemented!("")
     }
 }
 
-impl SseEncode for StreamSink<String, flutter_rust_bridge::for_generated::DcoCodec> {
+impl SseEncode
+    for StreamSink<
+        crate::matrix::file_send_progress::FileSendProgress,
+        flutter_rust_bridge::for_generated::DcoCodec,
+    >
+{
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         unimplemented!("")
@@ -5083,13 +4082,6 @@ impl SseEncode
         flutter_rust_bridge::for_generated::DcoCodec,
     >
 {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        unimplemented!("")
-    }
-}
-
-impl SseEncode for StreamSink<Vec<u8>, flutter_rust_bridge::for_generated::DcoCodec> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         unimplemented!("")
@@ -5155,14 +4147,6 @@ impl SseEncode for bool {
     }
 }
 
-impl SseEncode for crate::rhttp::api::client::ClientCertificate {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <Vec<u8>>::sse_encode(self.certificate, serializer);
-        <Vec<u8>>::sse_encode(self.private_key, serializer);
-    }
-}
-
 impl SseEncode for crate::matrix::client::ClientConfig {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -5171,7 +4155,6 @@ impl SseEncode for crate::matrix::client::ClientConfig {
         <Option<Vec<Certificate>>>::sse_encode(self.root_certificates, serializer);
         <Option<String>>::sse_encode(self.proxy, serializer);
         <Option<String>>::sse_encode(self.passphrase, serializer);
-        <Option<RequestClient>>::sse_encode(self.rhttp_client, serializer);
     }
 }
 
@@ -5191,45 +4174,20 @@ impl SseEncode for crate::logger::platform::ClientError {
     }
 }
 
-impl SseEncode for crate::rhttp::api::client::ClientSettings {
+impl SseEncode for crate::matrix::timelines::EventSendStateKind {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <Option<crate::rhttp::api::client::CookieSettings>>::sse_encode(
-            self.cookie_settings,
+        <i32>::sse_encode(
+            match self {
+                crate::matrix::timelines::EventSendStateKind::Delivered => 0,
+                crate::matrix::timelines::EventSendStateKind::Pending => 1,
+                crate::matrix::timelines::EventSendStateKind::Failed => 2,
+                _ => {
+                    unimplemented!("");
+                }
+            },
             serializer,
         );
-        <crate::rhttp::api::http::HttpVersionPref>::sse_encode(self.http_version_pref, serializer);
-        <Option<crate::rhttp::api::client::TimeoutSettings>>::sse_encode(
-            self.timeout_settings,
-            serializer,
-        );
-        <bool>::sse_encode(self.throw_on_status_code, serializer);
-        <Option<crate::rhttp::api::client::ProxySettings>>::sse_encode(
-            self.proxy_settings,
-            serializer,
-        );
-        <Option<crate::rhttp::api::client::RedirectSettings>>::sse_encode(
-            self.redirect_settings,
-            serializer,
-        );
-        <Option<crate::rhttp::api::client::TlsSettings>>::sse_encode(self.tls_settings, serializer);
-        <Option<DnsSettings>>::sse_encode(self.dns_settings, serializer);
-        <Option<String>>::sse_encode(self.user_agent, serializer);
-    }
-}
-
-impl SseEncode for crate::rhttp::api::client::CookieSettings {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.store_cookies, serializer);
-    }
-}
-
-impl SseEncode for crate::rhttp::api::client::CustomProxy {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <String>::sse_encode(self.url, serializer);
-        <crate::rhttp::api::client::ProxyCondition>::sse_encode(self.condition, serializer);
     }
 }
 
@@ -5252,43 +4210,19 @@ impl SseEncode for crate::logger::platform::FileRotation {
     }
 }
 
-impl SseEncode for crate::rhttp::api::http::HttpBody {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        match self {
-            crate::rhttp::api::http::HttpBody::Text(field0) => {
-                <i32>::sse_encode(0, serializer);
-                <String>::sse_encode(field0, serializer);
-            }
-            crate::rhttp::api::http::HttpBody::Bytes(field0) => {
-                <i32>::sse_encode(1, serializer);
-                <Vec<u8>>::sse_encode(field0, serializer);
-            }
-            crate::rhttp::api::http::HttpBody::BytesStream => {
-                <i32>::sse_encode(2, serializer);
-            }
-            crate::rhttp::api::http::HttpBody::Form(field0) => {
-                <i32>::sse_encode(3, serializer);
-                <std::collections::HashMap<String, String>>::sse_encode(field0, serializer);
-            }
-            crate::rhttp::api::http::HttpBody::Multipart(field0) => {
-                <i32>::sse_encode(4, serializer);
-                <crate::rhttp::api::http::MultipartPayload>::sse_encode(field0, serializer);
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
-    }
-}
-
-impl SseEncode for crate::rhttp::api::http::HttpExpectBody {
+impl SseEncode for crate::matrix::file_send_progress::FileSendPhase {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <i32>::sse_encode(
             match self {
-                crate::rhttp::api::http::HttpExpectBody::Text => 0,
-                crate::rhttp::api::http::HttpExpectBody::Bytes => 1,
+                crate::matrix::file_send_progress::FileSendPhase::VideoCompress => 0,
+                crate::matrix::file_send_progress::FileSendPhase::MainUpload => 1,
+                crate::matrix::file_send_progress::FileSendPhase::ThumbnailUpload => 2,
+                crate::matrix::file_send_progress::FileSendPhase::SendingMessage => 3,
+                crate::matrix::file_send_progress::FileSendPhase::EncryptedQueued => 4,
+                crate::matrix::file_send_progress::FileSendPhase::Done => 5,
+                crate::matrix::file_send_progress::FileSendPhase::Cancelled => 6,
+                crate::matrix::file_send_progress::FileSendPhase::Failed => 7,
                 _ => {
                     unimplemented!("");
                 }
@@ -5298,101 +4232,13 @@ impl SseEncode for crate::rhttp::api::http::HttpExpectBody {
     }
 }
 
-impl SseEncode for crate::rhttp::api::http::HttpHeaders {
+impl SseEncode for crate::matrix::file_send_progress::FileSendProgress {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        match self {
-            crate::rhttp::api::http::HttpHeaders::Map(field0) => {
-                <i32>::sse_encode(0, serializer);
-                <std::collections::HashMap<String, String>>::sse_encode(field0, serializer);
-            }
-            crate::rhttp::api::http::HttpHeaders::List(field0) => {
-                <i32>::sse_encode(1, serializer);
-                <Vec<(String, String)>>::sse_encode(field0, serializer);
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
-    }
-}
-
-impl SseEncode for crate::rhttp::api::http::HttpMethod {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <String>::sse_encode(self.method, serializer);
-    }
-}
-
-impl SseEncode for crate::rhttp::api::http::HttpResponse {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <Option<String>>::sse_encode(self.remote_ip, serializer);
-        <Vec<(String, String)>>::sse_encode(self.headers, serializer);
-        <crate::rhttp::api::http::HttpVersion>::sse_encode(self.version, serializer);
-        <u16>::sse_encode(self.status_code, serializer);
-        <crate::rhttp::api::http::HttpResponseBody>::sse_encode(self.body, serializer);
-    }
-}
-
-impl SseEncode for crate::rhttp::api::http::HttpResponseBody {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        match self {
-            crate::rhttp::api::http::HttpResponseBody::Text(field0) => {
-                <i32>::sse_encode(0, serializer);
-                <String>::sse_encode(field0, serializer);
-            }
-            crate::rhttp::api::http::HttpResponseBody::Bytes(field0) => {
-                <i32>::sse_encode(1, serializer);
-                <Vec<u8>>::sse_encode(field0, serializer);
-            }
-            crate::rhttp::api::http::HttpResponseBody::Stream => {
-                <i32>::sse_encode(2, serializer);
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
-    }
-}
-
-impl SseEncode for crate::rhttp::api::http::HttpVersion {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <i32>::sse_encode(
-            match self {
-                crate::rhttp::api::http::HttpVersion::Http09 => 0,
-                crate::rhttp::api::http::HttpVersion::Http10 => 1,
-                crate::rhttp::api::http::HttpVersion::Http11 => 2,
-                crate::rhttp::api::http::HttpVersion::Http2 => 3,
-                crate::rhttp::api::http::HttpVersion::Http3 => 4,
-                crate::rhttp::api::http::HttpVersion::Other => 5,
-                _ => {
-                    unimplemented!("");
-                }
-            },
-            serializer,
-        );
-    }
-}
-
-impl SseEncode for crate::rhttp::api::http::HttpVersionPref {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <i32>::sse_encode(
-            match self {
-                crate::rhttp::api::http::HttpVersionPref::Http10 => 0,
-                crate::rhttp::api::http::HttpVersionPref::Http11 => 1,
-                crate::rhttp::api::http::HttpVersionPref::Http2 => 2,
-                crate::rhttp::api::http::HttpVersionPref::Http3 => 3,
-                crate::rhttp::api::http::HttpVersionPref::All => 4,
-                _ => {
-                    unimplemented!("");
-                }
-            },
-            serializer,
-        );
+        <crate::matrix::file_send_progress::FileSendPhase>::sse_encode(self.phase, serializer);
+        <u64>::sse_encode(self.current, serializer);
+        <u64>::sse_encode(self.total, serializer);
+        <String>::sse_encode(self.message, serializer);
     }
 }
 
@@ -5407,16 +4253,6 @@ impl SseEncode for i64 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         serializer.cursor.write_i64::<NativeEndian>(self).unwrap();
-    }
-}
-
-impl SseEncode for isize {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        serializer
-            .cursor
-            .write_i64::<NativeEndian>(self as _)
-            .unwrap();
     }
 }
 
@@ -5436,26 +4272,6 @@ impl SseEncode for Vec<String> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <String>::sse_encode(item, serializer);
-        }
-    }
-}
-
-impl SseEncode for Vec<crate::rhttp::api::client::CustomProxy> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <i32>::sse_encode(self.len() as _, serializer);
-        for item in self {
-            <crate::rhttp::api::client::CustomProxy>::sse_encode(item, serializer);
-        }
-    }
-}
-
-impl SseEncode for Vec<Vec<u8>> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <i32>::sse_encode(self.len() as _, serializer);
-        for item in self {
-            <Vec<u8>>::sse_encode(item, serializer);
         }
     }
 }
@@ -5480,32 +4296,22 @@ impl SseEncode for Vec<u8> {
     }
 }
 
-impl SseEncode for Vec<(String, Vec<String>)> {
+impl SseEncode for Vec<crate::matrix::room_info::RoomFileItem> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
-            <(String, Vec<String>)>::sse_encode(item, serializer);
+            <crate::matrix::room_info::RoomFileItem>::sse_encode(item, serializer);
         }
     }
 }
 
-impl SseEncode for Vec<(String, crate::rhttp::api::http::MultipartItem)> {
+impl SseEncode for Vec<crate::matrix::room_info::RoomMemberRow> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
-            <(String, crate::rhttp::api::http::MultipartItem)>::sse_encode(item, serializer);
-        }
-    }
-}
-
-impl SseEncode for Vec<(String, String)> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <i32>::sse_encode(self.len() as _, serializer);
-        for item in self {
-            <(String, String)>::sse_encode(item, serializer);
+            <crate::matrix::room_info::RoomMemberRow>::sse_encode(item, serializer);
         }
     }
 }
@@ -5563,10 +4369,18 @@ impl SseEncode for crate::matrix::timelines::Message {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <String>::sse_encode(self.event_id, serializer);
+        <String>::sse_encode(self.transaction_id, serializer);
         <String>::sse_encode(self.sender, serializer);
         <String>::sse_encode(self.content, serializer);
         <u64>::sse_encode(self.timestamp, serializer);
         <crate::matrix::timelines::MessageType>::sse_encode(self.message_type, serializer);
+        <crate::matrix::timelines::RoomMessageKind>::sse_encode(self.room_msg_kind, serializer);
+        <crate::matrix::timelines::EventSendStateKind>::sse_encode(self.send_state, serializer);
+        <String>::sse_encode(self.send_error, serializer);
+        <bool>::sse_encode(self.send_recoverable, serializer);
+        <bool>::sse_encode(self.is_own, serializer);
+        <String>::sse_encode(self.media_mimetype, serializer);
+        <u64>::sse_encode(self.media_size_bytes, serializer);
     }
 }
 
@@ -5628,81 +4442,12 @@ impl SseEncode for crate::matrix::timelines::MessageUpdateType {
     }
 }
 
-impl SseEncode for crate::rhttp::api::http::MultipartItem {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <crate::rhttp::api::http::MultipartValue>::sse_encode(self.value, serializer);
-        <Option<String>>::sse_encode(self.file_name, serializer);
-        <Option<String>>::sse_encode(self.content_type, serializer);
-    }
-}
-
-impl SseEncode for crate::rhttp::api::http::MultipartPayload {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <Vec<(String, crate::rhttp::api::http::MultipartItem)>>::sse_encode(self.parts, serializer);
-    }
-}
-
-impl SseEncode for crate::rhttp::api::http::MultipartValue {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        match self {
-            crate::rhttp::api::http::MultipartValue::Text(field0) => {
-                <i32>::sse_encode(0, serializer);
-                <String>::sse_encode(field0, serializer);
-            }
-            crate::rhttp::api::http::MultipartValue::Bytes(field0) => {
-                <i32>::sse_encode(1, serializer);
-                <Vec<u8>>::sse_encode(field0, serializer);
-            }
-            crate::rhttp::api::http::MultipartValue::File(field0) => {
-                <i32>::sse_encode(2, serializer);
-                <String>::sse_encode(field0, serializer);
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
-    }
-}
-
 impl SseEncode for Option<String> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <String>::sse_encode(value, serializer);
-        }
-    }
-}
-
-impl SseEncode for Option<Dart2RustStreamReceiver> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <Dart2RustStreamReceiver>::sse_encode(value, serializer);
-        }
-    }
-}
-
-impl SseEncode for Option<DnsSettings> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <DnsSettings>::sse_encode(value, serializer);
-        }
-    }
-}
-
-impl SseEncode for Option<RequestClient> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <RequestClient>::sse_encode(value, serializer);
         }
     }
 }
@@ -5717,66 +4462,6 @@ impl SseEncode for Option<bool> {
     }
 }
 
-impl SseEncode for Option<crate::rhttp::api::client::ClientCertificate> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <crate::rhttp::api::client::ClientCertificate>::sse_encode(value, serializer);
-        }
-    }
-}
-
-impl SseEncode for Option<crate::rhttp::api::client::ClientSettings> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <crate::rhttp::api::client::ClientSettings>::sse_encode(value, serializer);
-        }
-    }
-}
-
-impl SseEncode for Option<crate::rhttp::api::client::CookieSettings> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <crate::rhttp::api::client::CookieSettings>::sse_encode(value, serializer);
-        }
-    }
-}
-
-impl SseEncode for Option<crate::rhttp::api::http::HttpBody> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <crate::rhttp::api::http::HttpBody>::sse_encode(value, serializer);
-        }
-    }
-}
-
-impl SseEncode for Option<crate::rhttp::api::http::HttpHeaders> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <crate::rhttp::api::http::HttpHeaders>::sse_encode(value, serializer);
-        }
-    }
-}
-
-impl SseEncode for Option<i64> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <i64>::sse_encode(value, serializer);
-        }
-    }
-}
-
 impl SseEncode for Option<crate::matrix::timelines::Message> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -5787,62 +4472,12 @@ impl SseEncode for Option<crate::matrix::timelines::Message> {
     }
 }
 
-impl SseEncode for Option<crate::rhttp::api::client::ProxySettings> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <crate::rhttp::api::client::ProxySettings>::sse_encode(value, serializer);
-        }
-    }
-}
-
-impl SseEncode for Option<crate::rhttp::api::client::RedirectSettings> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <crate::rhttp::api::client::RedirectSettings>::sse_encode(value, serializer);
-        }
-    }
-}
-
 impl SseEncode for Option<crate::matrix::rooms::RoomUpdate> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <crate::matrix::rooms::RoomUpdate>::sse_encode(value, serializer);
-        }
-    }
-}
-
-impl SseEncode for Option<crate::rhttp::api::client::TimeoutSettings> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <crate::rhttp::api::client::TimeoutSettings>::sse_encode(value, serializer);
-        }
-    }
-}
-
-impl SseEncode for Option<crate::rhttp::api::client::TlsSettings> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <crate::rhttp::api::client::TlsSettings>::sse_encode(value, serializer);
-        }
-    }
-}
-
-impl SseEncode for Option<crate::rhttp::api::client::TlsVersion> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <crate::rhttp::api::client::TlsVersion>::sse_encode(value, serializer);
         }
     }
 }
@@ -5897,24 +4532,30 @@ impl SseEncode for Option<Vec<crate::matrix::timelines::Message>> {
     }
 }
 
-impl SseEncode for Option<Vec<(String, String)>> {
+impl SseEncode for crate::matrix::room_info::RoomDetails {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <Vec<(String, String)>>::sse_encode(value, serializer);
-        }
+        <String>::sse_encode(self.room_id, serializer);
+        <String>::sse_encode(self.display_name, serializer);
+        <String>::sse_encode(self.topic, serializer);
+        <bool>::sse_encode(self.is_direct, serializer);
+        <bool>::sse_encode(self.is_encrypted, serializer);
+        <u32>::sse_encode(self.member_count, serializer);
+        <Vec<crate::matrix::room_info::RoomMemberRow>>::sse_encode(self.members, serializer);
+        <String>::sse_encode(self.current_user_id, serializer);
+        <bool>::sse_encode(self.current_user_is_admin, serializer);
+        <bool>::sse_encode(self.current_user_is_moderator, serializer);
     }
 }
 
-impl SseEncode for crate::rhttp::api::client::ProxyCondition {
+impl SseEncode for crate::matrix::room_info::RoomFileFilter {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <i32>::sse_encode(
             match self {
-                crate::rhttp::api::client::ProxyCondition::Http => 0,
-                crate::rhttp::api::client::ProxyCondition::Https => 1,
-                crate::rhttp::api::client::ProxyCondition::All => 2,
+                crate::matrix::room_info::RoomFileFilter::All => 0,
+                crate::matrix::room_info::RoomFileFilter::Received => 1,
+                crate::matrix::room_info::RoomFileFilter::Sent => 2,
                 _ => {
                     unimplemented!("");
                 }
@@ -5924,109 +4565,67 @@ impl SseEncode for crate::rhttp::api::client::ProxyCondition {
     }
 }
 
-impl SseEncode for crate::rhttp::api::client::ProxySettings {
+impl SseEncode for crate::matrix::room_info::RoomFileItem {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        match self {
-            crate::rhttp::api::client::ProxySettings::NoProxy => {
-                <i32>::sse_encode(0, serializer);
-            }
-            crate::rhttp::api::client::ProxySettings::CustomProxyList(field0) => {
-                <i32>::sse_encode(1, serializer);
-                <Vec<crate::rhttp::api::client::CustomProxy>>::sse_encode(field0, serializer);
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
+        <String>::sse_encode(self.event_id, serializer);
+        <String>::sse_encode(self.transaction_id, serializer);
+        <String>::sse_encode(self.sender, serializer);
+        <String>::sse_encode(self.caption, serializer);
+        <u64>::sse_encode(self.timestamp, serializer);
+        <crate::matrix::timelines::RoomMessageKind>::sse_encode(self.kind, serializer);
+        <bool>::sse_encode(self.is_outgoing, serializer);
+        <u64>::sse_encode(self.size_bytes, serializer);
     }
 }
 
-impl SseEncode for (Dart2RustStreamSink, Dart2RustStreamReceiver) {
+impl SseEncode for crate::matrix::room_info::RoomMemberRoleDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <Dart2RustStreamSink>::sse_encode(self.0, serializer);
-        <Dart2RustStreamReceiver>::sse_encode(self.1, serializer);
+        <i32>::sse_encode(
+            match self {
+                crate::matrix::room_info::RoomMemberRoleDto::Creator => 0,
+                crate::matrix::room_info::RoomMemberRoleDto::Administrator => 1,
+                crate::matrix::room_info::RoomMemberRoleDto::Moderator => 2,
+                crate::matrix::room_info::RoomMemberRoleDto::User => 3,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
     }
 }
 
-impl SseEncode for (String, Vec<String>) {
+impl SseEncode for crate::matrix::room_info::RoomMemberRow {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <String>::sse_encode(self.0, serializer);
-        <Vec<String>>::sse_encode(self.1, serializer);
+        <String>::sse_encode(self.user_id, serializer);
+        <String>::sse_encode(self.display_name, serializer);
+        <i64>::sse_encode(self.power_level, serializer);
+        <crate::matrix::room_info::RoomMemberRoleDto>::sse_encode(self.role, serializer);
+        <bool>::sse_encode(self.is_self, serializer);
+        <bool>::sse_encode(self.current_user_can_kick, serializer);
     }
 }
 
-impl SseEncode for (String, crate::rhttp::api::http::MultipartItem) {
+impl SseEncode for crate::matrix::timelines::RoomMessageKind {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <String>::sse_encode(self.0, serializer);
-        <crate::rhttp::api::http::MultipartItem>::sse_encode(self.1, serializer);
-    }
-}
-
-impl SseEncode for (String, String) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <String>::sse_encode(self.0, serializer);
-        <String>::sse_encode(self.1, serializer);
-    }
-}
-
-impl SseEncode for crate::rhttp::api::client::RedirectSettings {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        match self {
-            crate::rhttp::api::client::RedirectSettings::NoRedirect => {
-                <i32>::sse_encode(0, serializer);
-            }
-            crate::rhttp::api::client::RedirectSettings::LimitedRedirects(field0) => {
-                <i32>::sse_encode(1, serializer);
-                <i32>::sse_encode(field0, serializer);
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
-    }
-}
-
-impl SseEncode for crate::rhttp::api::error::RhttpError {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        match self {
-            crate::rhttp::api::error::RhttpError::RhttpCancelError => {
-                <i32>::sse_encode(0, serializer);
-            }
-            crate::rhttp::api::error::RhttpError::RhttpTimeoutError => {
-                <i32>::sse_encode(1, serializer);
-            }
-            crate::rhttp::api::error::RhttpError::RhttpRedirectError => {
-                <i32>::sse_encode(2, serializer);
-            }
-            crate::rhttp::api::error::RhttpError::RhttpStatusCodeError(field0, field1, field2) => {
-                <i32>::sse_encode(3, serializer);
-                <u16>::sse_encode(field0, serializer);
-                <Vec<(String, String)>>::sse_encode(field1, serializer);
-                <crate::rhttp::api::http::HttpResponseBody>::sse_encode(field2, serializer);
-            }
-            crate::rhttp::api::error::RhttpError::RhttpInvalidCertificateError(field0) => {
-                <i32>::sse_encode(4, serializer);
-                <String>::sse_encode(field0, serializer);
-            }
-            crate::rhttp::api::error::RhttpError::RhttpConnectionError(field0) => {
-                <i32>::sse_encode(5, serializer);
-                <String>::sse_encode(field0, serializer);
-            }
-            crate::rhttp::api::error::RhttpError::RhttpUnknownError(field0) => {
-                <i32>::sse_encode(6, serializer);
-                <String>::sse_encode(field0, serializer);
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
+        <i32>::sse_encode(
+            match self {
+                crate::matrix::timelines::RoomMessageKind::Text => 0,
+                crate::matrix::timelines::RoomMessageKind::Image => 1,
+                crate::matrix::timelines::RoomMessageKind::File => 2,
+                crate::matrix::timelines::RoomMessageKind::Video => 3,
+                crate::matrix::timelines::RoomMessageKind::Audio => 4,
+                crate::matrix::timelines::RoomMessageKind::Other => 5,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
     }
 }
 
@@ -6046,14 +4645,6 @@ impl SseEncode for crate::matrix::rooms::RoomUpdate {
     }
 }
 
-impl SseEncode for crate::rhttp::api::client::StaticDnsSettings {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <std::collections::HashMap<String, Vec<String>>>::sse_encode(self.overrides, serializer);
-        <Option<String>>::sse_encode(self.fallback, serializer);
-    }
-}
-
 impl SseEncode for crate::matrix::sync_service::SyncState {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -6064,54 +4655,6 @@ impl SseEncode for crate::matrix::sync_service::SyncState {
                 crate::matrix::sync_service::SyncState::Terminated => 2,
                 crate::matrix::sync_service::SyncState::Error => 3,
                 crate::matrix::sync_service::SyncState::Offline => 4,
-                _ => {
-                    unimplemented!("");
-                }
-            },
-            serializer,
-        );
-    }
-}
-
-impl SseEncode for crate::rhttp::api::client::TimeoutSettings {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <Option<i64>>::sse_encode(self.timeout_ms, serializer);
-        <Option<i64>>::sse_encode(self.connect_timeout_ms, serializer);
-        <Option<i64>>::sse_encode(self.keep_alive_timeout_ms, serializer);
-        <Option<i64>>::sse_encode(self.keep_alive_ping_ms, serializer);
-    }
-}
-
-impl SseEncode for crate::rhttp::api::client::TlsSettings {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.trust_root_certificates, serializer);
-        <Vec<Vec<u8>>>::sse_encode(self.trusted_root_certificates, serializer);
-        <bool>::sse_encode(self.verify_certificates, serializer);
-        <Option<crate::rhttp::api::client::ClientCertificate>>::sse_encode(
-            self.client_certificate,
-            serializer,
-        );
-        <Option<crate::rhttp::api::client::TlsVersion>>::sse_encode(
-            self.min_tls_version,
-            serializer,
-        );
-        <Option<crate::rhttp::api::client::TlsVersion>>::sse_encode(
-            self.max_tls_version,
-            serializer,
-        );
-        <bool>::sse_encode(self.sni, serializer);
-    }
-}
-
-impl SseEncode for crate::rhttp::api::client::TlsVersion {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <i32>::sse_encode(
-            match self {
-                crate::rhttp::api::client::TlsVersion::Tls1_2 => 0,
-                crate::rhttp::api::client::TlsVersion::Tls1_3 => 1,
                 _ => {
                     unimplemented!("");
                 }
@@ -6254,8 +4797,6 @@ mod io {
     use super::*;
     use crate::api::matrix_client::*;
     use crate::logger::platform::*;
-    use crate::rhttp::api::client::*;
-    use crate::rhttp::api::stream::*;
     use crate::*;
     use flutter_rust_bridge::for_generated::byteorder::{
         NativeEndian, ReadBytesExt, WriteBytesExt,
@@ -6277,65 +4818,11 @@ mod io {
             unimplemented!()
         }
     }
-    impl CstDecode<RustAutoOpaqueNom<RequestClient>> for usize {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> RustAutoOpaqueNom<RequestClient> {
-            flutter_rust_bridge::for_generated::rust_auto_opaque_explicit_decode(self.cst_decode())
-        }
-    }
-    impl CstDecode<CancellationToken> for usize {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> CancellationToken {
-            flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(CstDecode::<
-                RustOpaqueNom<
-                    flutter_rust_bridge::for_generated::RustAutoOpaqueInner<CancellationToken>,
-                >,
-            >::cst_decode(
-                self
-            ))
-        }
-    }
     impl CstDecode<Certificate> for usize {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> Certificate {
             flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(CstDecode::<
                 RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Certificate>>,
-            >::cst_decode(
-                self
-            ))
-        }
-    }
-    impl CstDecode<Dart2RustStreamReceiver> for usize {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> Dart2RustStreamReceiver {
-            flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(CstDecode::<
-                RustOpaqueNom<
-                    flutter_rust_bridge::for_generated::RustAutoOpaqueInner<
-                        Dart2RustStreamReceiver,
-                    >,
-                >,
-            >::cst_decode(
-                self
-            ))
-        }
-    }
-    impl CstDecode<Dart2RustStreamSink> for usize {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> Dart2RustStreamSink {
-            flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(CstDecode::<
-                RustOpaqueNom<
-                    flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamSink>,
-                >,
-            >::cst_decode(
-                self
-            ))
-        }
-    }
-    impl CstDecode<DnsSettings> for usize {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> DnsSettings {
-            flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(CstDecode::<
-                RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<DnsSettings>>,
             >::cst_decode(
                 self
             ))
@@ -6367,57 +4854,6 @@ mod io {
             ))
         }
     }
-    impl CstDecode<RequestClient> for usize {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> RequestClient {
-            flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(CstDecode::<
-                RustOpaqueNom<
-                    flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RequestClient>,
-                >,
-            >::cst_decode(
-                self
-            ))
-        }
-    }
-    impl CstDecode<flutter_rust_bridge::DartOpaque> for *const std::ffi::c_void {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> flutter_rust_bridge::DartOpaque {
-            unsafe { flutter_rust_bridge::for_generated::cst_decode_dart_opaque(self as _) }
-        }
-    }
-    impl CstDecode<std::collections::HashMap<String, String>>
-        for *mut wire_cst_list_record_string_string
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> std::collections::HashMap<String, String> {
-            let vec: Vec<(String, String)> = self.cst_decode();
-            vec.into_iter().collect()
-        }
-    }
-    impl CstDecode<std::collections::HashMap<String, Vec<String>>>
-        for *mut wire_cst_list_record_string_list_string
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> std::collections::HashMap<String, Vec<String>> {
-            let vec: Vec<(String, Vec<String>)> = self.cst_decode();
-            vec.into_iter().collect()
-        }
-    }
-    impl
-        CstDecode<
-            RustOpaqueNom<
-                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<CancellationToken>,
-            >,
-        > for usize
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(
-            self,
-        ) -> RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<CancellationToken>>
-        {
-            unsafe { decode_rust_opaque_nom(self as _) }
-        }
-    }
     impl
         CstDecode<
             RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Certificate>>,
@@ -6427,51 +4863,6 @@ mod io {
         fn cst_decode(
             self,
         ) -> RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Certificate>>
-        {
-            unsafe { decode_rust_opaque_nom(self as _) }
-        }
-    }
-    impl
-        CstDecode<
-            RustOpaqueNom<
-                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamReceiver>,
-            >,
-        > for usize
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(
-            self,
-        ) -> RustOpaqueNom<
-            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamReceiver>,
-        > {
-            unsafe { decode_rust_opaque_nom(self as _) }
-        }
-    }
-    impl
-        CstDecode<
-            RustOpaqueNom<
-                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamSink>,
-            >,
-        > for usize
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(
-            self,
-        ) -> RustOpaqueNom<
-            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamSink>,
-        > {
-            unsafe { decode_rust_opaque_nom(self as _) }
-        }
-    }
-    impl
-        CstDecode<
-            RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<DnsSettings>>,
-        > for usize
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(
-            self,
-        ) -> RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<DnsSettings>>
         {
             unsafe { decode_rust_opaque_nom(self as _) }
         }
@@ -6505,24 +4896,30 @@ mod io {
             unsafe { decode_rust_opaque_nom(self as _) }
         }
     }
-    impl
-        CstDecode<
-            RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RequestClient>>,
-        > for usize
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(
-            self,
-        ) -> RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RequestClient>>
-        {
-            unsafe { decode_rust_opaque_nom(self as _) }
-        }
-    }
     impl CstDecode<StreamSink<String, flutter_rust_bridge::for_generated::DcoCodec>>
         for *mut wire_cst_list_prim_u_8_strict
     {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> StreamSink<String, flutter_rust_bridge::for_generated::DcoCodec> {
+            let raw: String = self.cst_decode();
+            StreamSink::deserialize(raw)
+        }
+    }
+    impl
+        CstDecode<
+            StreamSink<
+                crate::matrix::file_send_progress::FileSendProgress,
+                flutter_rust_bridge::for_generated::DcoCodec,
+            >,
+        > for *mut wire_cst_list_prim_u_8_strict
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(
+            self,
+        ) -> StreamSink<
+            crate::matrix::file_send_progress::FileSendProgress,
+            flutter_rust_bridge::for_generated::DcoCodec,
+        > {
             let raw: String = self.cst_decode();
             StreamSink::deserialize(raw)
         }
@@ -6542,15 +4939,6 @@ mod io {
             Vec<crate::matrix::timelines::Message>,
             flutter_rust_bridge::for_generated::DcoCodec,
         > {
-            let raw: String = self.cst_decode();
-            StreamSink::deserialize(raw)
-        }
-    }
-    impl CstDecode<StreamSink<Vec<u8>, flutter_rust_bridge::for_generated::DcoCodec>>
-        for *mut wire_cst_list_prim_u_8_strict
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> StreamSink<Vec<u8>, flutter_rust_bridge::for_generated::DcoCodec> {
             let raw: String = self.cst_decode();
             StreamSink::deserialize(raw)
         }
@@ -6638,38 +5026,10 @@ mod io {
             String::from_utf8(vec).unwrap()
         }
     }
-    impl CstDecode<Dart2RustStreamReceiver> for *mut usize {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> Dart2RustStreamReceiver {
-            let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
-            CstDecode::<Dart2RustStreamReceiver>::cst_decode(*wrap).into()
-        }
-    }
-    impl CstDecode<DnsSettings> for *mut usize {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> DnsSettings {
-            let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
-            CstDecode::<DnsSettings>::cst_decode(*wrap).into()
-        }
-    }
-    impl CstDecode<RequestClient> for *mut usize {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> RequestClient {
-            let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
-            CstDecode::<RequestClient>::cst_decode(*wrap).into()
-        }
-    }
     impl CstDecode<bool> for *mut bool {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> bool {
             unsafe { *flutter_rust_bridge::for_generated::box_from_leak_ptr(self) }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::ClientCertificate> for *mut wire_cst_client_certificate {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::ClientCertificate {
-            let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
-            CstDecode::<crate::rhttp::api::client::ClientCertificate>::cst_decode(*wrap).into()
         }
     }
     impl CstDecode<crate::matrix::client::ClientConfig> for *mut wire_cst_client_config {
@@ -6679,54 +5039,6 @@ mod io {
             CstDecode::<crate::matrix::client::ClientConfig>::cst_decode(*wrap).into()
         }
     }
-    impl CstDecode<crate::rhttp::api::client::ClientSettings> for *mut wire_cst_client_settings {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::ClientSettings {
-            let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
-            CstDecode::<crate::rhttp::api::client::ClientSettings>::cst_decode(*wrap).into()
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::CookieSettings> for *mut wire_cst_cookie_settings {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::CookieSettings {
-            let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
-            CstDecode::<crate::rhttp::api::client::CookieSettings>::cst_decode(*wrap).into()
-        }
-    }
-    impl CstDecode<crate::rhttp::api::http::HttpBody> for *mut wire_cst_http_body {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::HttpBody {
-            let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
-            CstDecode::<crate::rhttp::api::http::HttpBody>::cst_decode(*wrap).into()
-        }
-    }
-    impl CstDecode<crate::rhttp::api::http::HttpHeaders> for *mut wire_cst_http_headers {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::HttpHeaders {
-            let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
-            CstDecode::<crate::rhttp::api::http::HttpHeaders>::cst_decode(*wrap).into()
-        }
-    }
-    impl CstDecode<crate::rhttp::api::http::HttpMethod> for *mut wire_cst_http_method {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::HttpMethod {
-            let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
-            CstDecode::<crate::rhttp::api::http::HttpMethod>::cst_decode(*wrap).into()
-        }
-    }
-    impl CstDecode<crate::rhttp::api::http::HttpResponseBody> for *mut wire_cst_http_response_body {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::HttpResponseBody {
-            let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
-            CstDecode::<crate::rhttp::api::http::HttpResponseBody>::cst_decode(*wrap).into()
-        }
-    }
-    impl CstDecode<i64> for *mut i64 {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> i64 {
-            unsafe { *flutter_rust_bridge::for_generated::box_from_leak_ptr(self) }
-        }
-    }
     impl CstDecode<crate::matrix::timelines::Message> for *mut wire_cst_message {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> crate::matrix::timelines::Message {
@@ -6734,60 +5046,11 @@ mod io {
             CstDecode::<crate::matrix::timelines::Message>::cst_decode(*wrap).into()
         }
     }
-    impl CstDecode<crate::rhttp::api::http::MultipartPayload> for *mut wire_cst_multipart_payload {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::MultipartPayload {
-            let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
-            CstDecode::<crate::rhttp::api::http::MultipartPayload>::cst_decode(*wrap).into()
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::ProxySettings> for *mut wire_cst_proxy_settings {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::ProxySettings {
-            let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
-            CstDecode::<crate::rhttp::api::client::ProxySettings>::cst_decode(*wrap).into()
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::RedirectSettings> for *mut wire_cst_redirect_settings {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::RedirectSettings {
-            let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
-            CstDecode::<crate::rhttp::api::client::RedirectSettings>::cst_decode(*wrap).into()
-        }
-    }
     impl CstDecode<crate::matrix::rooms::RoomUpdate> for *mut wire_cst_room_update {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> crate::matrix::rooms::RoomUpdate {
             let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
             CstDecode::<crate::matrix::rooms::RoomUpdate>::cst_decode(*wrap).into()
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::StaticDnsSettings> for *mut wire_cst_static_dns_settings {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::StaticDnsSettings {
-            let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
-            CstDecode::<crate::rhttp::api::client::StaticDnsSettings>::cst_decode(*wrap).into()
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::TimeoutSettings> for *mut wire_cst_timeout_settings {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::TimeoutSettings {
-            let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
-            CstDecode::<crate::rhttp::api::client::TimeoutSettings>::cst_decode(*wrap).into()
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::TlsSettings> for *mut wire_cst_tls_settings {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::TlsSettings {
-            let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
-            CstDecode::<crate::rhttp::api::client::TlsSettings>::cst_decode(*wrap).into()
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::TlsVersion> for *mut i32 {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::TlsVersion {
-            let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
-            CstDecode::<crate::rhttp::api::client::TlsVersion>::cst_decode(*wrap).into()
         }
     }
     impl CstDecode<crate::logger::platform::TracingConfiguration>
@@ -6820,15 +5083,6 @@ mod io {
             unsafe { *flutter_rust_bridge::for_generated::box_from_leak_ptr(self) }
         }
     }
-    impl CstDecode<crate::rhttp::api::client::ClientCertificate> for wire_cst_client_certificate {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::ClientCertificate {
-            crate::rhttp::api::client::ClientCertificate {
-                certificate: self.certificate.cst_decode(),
-                private_key: self.private_key.cst_decode(),
-            }
-        }
-    }
     impl CstDecode<crate::matrix::client::ClientConfig> for wire_cst_client_config {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> crate::matrix::client::ClientConfig {
@@ -6838,7 +5092,6 @@ mod io {
                 root_certificates: self.root_certificates.cst_decode(),
                 proxy: self.proxy.cst_decode(),
                 passphrase: self.passphrase.cst_decode(),
-                rhttp_client: self.rhttp_client.cst_decode(),
             }
         }
     }
@@ -6857,114 +5110,16 @@ mod io {
             }
         }
     }
-    impl CstDecode<crate::rhttp::api::client::ClientSettings> for wire_cst_client_settings {
+    impl CstDecode<crate::matrix::file_send_progress::FileSendProgress>
+        for wire_cst_file_send_progress
+    {
         // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::ClientSettings {
-            crate::rhttp::api::client::ClientSettings {
-                cookie_settings: self.cookie_settings.cst_decode(),
-                http_version_pref: self.http_version_pref.cst_decode(),
-                timeout_settings: self.timeout_settings.cst_decode(),
-                throw_on_status_code: self.throw_on_status_code.cst_decode(),
-                proxy_settings: self.proxy_settings.cst_decode(),
-                redirect_settings: self.redirect_settings.cst_decode(),
-                tls_settings: self.tls_settings.cst_decode(),
-                dns_settings: self.dns_settings.cst_decode(),
-                user_agent: self.user_agent.cst_decode(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::CookieSettings> for wire_cst_cookie_settings {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::CookieSettings {
-            crate::rhttp::api::client::CookieSettings {
-                store_cookies: self.store_cookies.cst_decode(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::CustomProxy> for wire_cst_custom_proxy {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::CustomProxy {
-            crate::rhttp::api::client::CustomProxy {
-                url: self.url.cst_decode(),
-                condition: self.condition.cst_decode(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::http::HttpBody> for wire_cst_http_body {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::HttpBody {
-            match self.tag {
-                0 => {
-                    let ans = unsafe { self.kind.Text };
-                    crate::rhttp::api::http::HttpBody::Text(ans.field0.cst_decode())
-                }
-                1 => {
-                    let ans = unsafe { self.kind.Bytes };
-                    crate::rhttp::api::http::HttpBody::Bytes(ans.field0.cst_decode())
-                }
-                2 => crate::rhttp::api::http::HttpBody::BytesStream,
-                3 => {
-                    let ans = unsafe { self.kind.Form };
-                    crate::rhttp::api::http::HttpBody::Form(ans.field0.cst_decode())
-                }
-                4 => {
-                    let ans = unsafe { self.kind.Multipart };
-                    crate::rhttp::api::http::HttpBody::Multipart(ans.field0.cst_decode())
-                }
-                _ => unreachable!(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::http::HttpHeaders> for wire_cst_http_headers {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::HttpHeaders {
-            match self.tag {
-                0 => {
-                    let ans = unsafe { self.kind.Map };
-                    crate::rhttp::api::http::HttpHeaders::Map(ans.field0.cst_decode())
-                }
-                1 => {
-                    let ans = unsafe { self.kind.List };
-                    crate::rhttp::api::http::HttpHeaders::List(ans.field0.cst_decode())
-                }
-                _ => unreachable!(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::http::HttpMethod> for wire_cst_http_method {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::HttpMethod {
-            crate::rhttp::api::http::HttpMethod {
-                method: self.method.cst_decode(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::http::HttpResponse> for wire_cst_http_response {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::HttpResponse {
-            crate::rhttp::api::http::HttpResponse {
-                remote_ip: self.remote_ip.cst_decode(),
-                headers: self.headers.cst_decode(),
-                version: self.version.cst_decode(),
-                status_code: self.status_code.cst_decode(),
-                body: self.body.cst_decode(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::http::HttpResponseBody> for wire_cst_http_response_body {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::HttpResponseBody {
-            match self.tag {
-                0 => {
-                    let ans = unsafe { self.kind.Text };
-                    crate::rhttp::api::http::HttpResponseBody::Text(ans.field0.cst_decode())
-                }
-                1 => {
-                    let ans = unsafe { self.kind.Bytes };
-                    crate::rhttp::api::http::HttpResponseBody::Bytes(ans.field0.cst_decode())
-                }
-                2 => crate::rhttp::api::http::HttpResponseBody::Stream,
-                _ => unreachable!(),
+        fn cst_decode(self) -> crate::matrix::file_send_progress::FileSendProgress {
+            crate::matrix::file_send_progress::FileSendProgress {
+                phase: self.phase.cst_decode(),
+                current: self.current.cst_decode(),
+                total: self.total.cst_decode(),
+                message: self.message.cst_decode(),
             }
         }
     }
@@ -6981,26 +5136,6 @@ mod io {
     impl CstDecode<Vec<String>> for *mut wire_cst_list_String {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> Vec<String> {
-            let vec = unsafe {
-                let wrap = flutter_rust_bridge::for_generated::box_from_leak_ptr(self);
-                flutter_rust_bridge::for_generated::vec_from_leak_ptr(wrap.ptr, wrap.len)
-            };
-            vec.into_iter().map(CstDecode::cst_decode).collect()
-        }
-    }
-    impl CstDecode<Vec<crate::rhttp::api::client::CustomProxy>> for *mut wire_cst_list_custom_proxy {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> Vec<crate::rhttp::api::client::CustomProxy> {
-            let vec = unsafe {
-                let wrap = flutter_rust_bridge::for_generated::box_from_leak_ptr(self);
-                flutter_rust_bridge::for_generated::vec_from_leak_ptr(wrap.ptr, wrap.len)
-            };
-            vec.into_iter().map(CstDecode::cst_decode).collect()
-        }
-    }
-    impl CstDecode<Vec<Vec<u8>>> for *mut wire_cst_list_list_prim_u_8_strict {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> Vec<Vec<u8>> {
             let vec = unsafe {
                 let wrap = flutter_rust_bridge::for_generated::box_from_leak_ptr(self);
                 flutter_rust_bridge::for_generated::vec_from_leak_ptr(wrap.ptr, wrap.len)
@@ -7036,9 +5171,9 @@ mod io {
             }
         }
     }
-    impl CstDecode<Vec<(String, Vec<String>)>> for *mut wire_cst_list_record_string_list_string {
+    impl CstDecode<Vec<crate::matrix::room_info::RoomFileItem>> for *mut wire_cst_list_room_file_item {
         // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> Vec<(String, Vec<String>)> {
+        fn cst_decode(self) -> Vec<crate::matrix::room_info::RoomFileItem> {
             let vec = unsafe {
                 let wrap = flutter_rust_bridge::for_generated::box_from_leak_ptr(self);
                 flutter_rust_bridge::for_generated::vec_from_leak_ptr(wrap.ptr, wrap.len)
@@ -7046,21 +5181,11 @@ mod io {
             vec.into_iter().map(CstDecode::cst_decode).collect()
         }
     }
-    impl CstDecode<Vec<(String, crate::rhttp::api::http::MultipartItem)>>
-        for *mut wire_cst_list_record_string_multipart_item
+    impl CstDecode<Vec<crate::matrix::room_info::RoomMemberRow>>
+        for *mut wire_cst_list_room_member_row
     {
         // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> Vec<(String, crate::rhttp::api::http::MultipartItem)> {
-            let vec = unsafe {
-                let wrap = flutter_rust_bridge::for_generated::box_from_leak_ptr(self);
-                flutter_rust_bridge::for_generated::vec_from_leak_ptr(wrap.ptr, wrap.len)
-            };
-            vec.into_iter().map(CstDecode::cst_decode).collect()
-        }
-    }
-    impl CstDecode<Vec<(String, String)>> for *mut wire_cst_list_record_string_string {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> Vec<(String, String)> {
+        fn cst_decode(self) -> Vec<crate::matrix::room_info::RoomMemberRow> {
             let vec = unsafe {
                 let wrap = flutter_rust_bridge::for_generated::box_from_leak_ptr(self);
                 flutter_rust_bridge::for_generated::vec_from_leak_ptr(wrap.ptr, wrap.len)
@@ -7103,10 +5228,18 @@ mod io {
         fn cst_decode(self) -> crate::matrix::timelines::Message {
             crate::matrix::timelines::Message {
                 event_id: self.event_id.cst_decode(),
+                transaction_id: self.transaction_id.cst_decode(),
                 sender: self.sender.cst_decode(),
                 content: self.content.cst_decode(),
                 timestamp: self.timestamp.cst_decode(),
                 message_type: self.message_type.cst_decode(),
+                room_msg_kind: self.room_msg_kind.cst_decode(),
+                send_state: self.send_state.cst_decode(),
+                send_error: self.send_error.cst_decode(),
+                send_recoverable: self.send_recoverable.cst_decode(),
+                is_own: self.is_own.cst_decode(),
+                media_mimetype: self.media_mimetype.cst_decode(),
+                media_size_bytes: self.media_size_bytes.cst_decode(),
             }
         }
     }
@@ -7121,132 +5254,48 @@ mod io {
             }
         }
     }
-    impl CstDecode<crate::rhttp::api::http::MultipartItem> for wire_cst_multipart_item {
+    impl CstDecode<crate::matrix::room_info::RoomDetails> for wire_cst_room_details {
         // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::MultipartItem {
-            crate::rhttp::api::http::MultipartItem {
-                value: self.value.cst_decode(),
-                file_name: self.file_name.cst_decode(),
-                content_type: self.content_type.cst_decode(),
+        fn cst_decode(self) -> crate::matrix::room_info::RoomDetails {
+            crate::matrix::room_info::RoomDetails {
+                room_id: self.room_id.cst_decode(),
+                display_name: self.display_name.cst_decode(),
+                topic: self.topic.cst_decode(),
+                is_direct: self.is_direct.cst_decode(),
+                is_encrypted: self.is_encrypted.cst_decode(),
+                member_count: self.member_count.cst_decode(),
+                members: self.members.cst_decode(),
+                current_user_id: self.current_user_id.cst_decode(),
+                current_user_is_admin: self.current_user_is_admin.cst_decode(),
+                current_user_is_moderator: self.current_user_is_moderator.cst_decode(),
             }
         }
     }
-    impl CstDecode<crate::rhttp::api::http::MultipartPayload> for wire_cst_multipart_payload {
+    impl CstDecode<crate::matrix::room_info::RoomFileItem> for wire_cst_room_file_item {
         // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::MultipartPayload {
-            crate::rhttp::api::http::MultipartPayload {
-                parts: self.parts.cst_decode(),
+        fn cst_decode(self) -> crate::matrix::room_info::RoomFileItem {
+            crate::matrix::room_info::RoomFileItem {
+                event_id: self.event_id.cst_decode(),
+                transaction_id: self.transaction_id.cst_decode(),
+                sender: self.sender.cst_decode(),
+                caption: self.caption.cst_decode(),
+                timestamp: self.timestamp.cst_decode(),
+                kind: self.kind.cst_decode(),
+                is_outgoing: self.is_outgoing.cst_decode(),
+                size_bytes: self.size_bytes.cst_decode(),
             }
         }
     }
-    impl CstDecode<crate::rhttp::api::http::MultipartValue> for wire_cst_multipart_value {
+    impl CstDecode<crate::matrix::room_info::RoomMemberRow> for wire_cst_room_member_row {
         // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::MultipartValue {
-            match self.tag {
-                0 => {
-                    let ans = unsafe { self.kind.Text };
-                    crate::rhttp::api::http::MultipartValue::Text(ans.field0.cst_decode())
-                }
-                1 => {
-                    let ans = unsafe { self.kind.Bytes };
-                    crate::rhttp::api::http::MultipartValue::Bytes(ans.field0.cst_decode())
-                }
-                2 => {
-                    let ans = unsafe { self.kind.File };
-                    crate::rhttp::api::http::MultipartValue::File(ans.field0.cst_decode())
-                }
-                _ => unreachable!(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::ProxySettings> for wire_cst_proxy_settings {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::ProxySettings {
-            match self.tag {
-                0 => crate::rhttp::api::client::ProxySettings::NoProxy,
-                1 => {
-                    let ans = unsafe { self.kind.CustomProxyList };
-                    crate::rhttp::api::client::ProxySettings::CustomProxyList(
-                        ans.field0.cst_decode(),
-                    )
-                }
-                _ => unreachable!(),
-            }
-        }
-    }
-    impl CstDecode<(Dart2RustStreamSink,Dart2RustStreamReceiver,)> for wire_cst_record_auto_owned_rust_opaque_flutter_rust_bridgefor_generated_rust_auto_opaque_inner_dart_2_rust_stream_sink_auto_owned_rust_opaque_flutter_rust_bridgefor_generated_rust_auto_opaque_inner_dart_2_rust_stream_receiver {
-            // Codec=Cst (C-struct based), see doc to use other codecs
-            fn cst_decode(self) -> (Dart2RustStreamSink,Dart2RustStreamReceiver,) {
-                (self.field0.cst_decode(),self.field1.cst_decode(),)
-            }
-        }
-    impl CstDecode<(String, Vec<String>)> for wire_cst_record_string_list_string {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> (String, Vec<String>) {
-            (self.field0.cst_decode(), self.field1.cst_decode())
-        }
-    }
-    impl CstDecode<(String, crate::rhttp::api::http::MultipartItem)>
-        for wire_cst_record_string_multipart_item
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> (String, crate::rhttp::api::http::MultipartItem) {
-            (self.field0.cst_decode(), self.field1.cst_decode())
-        }
-    }
-    impl CstDecode<(String, String)> for wire_cst_record_string_string {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> (String, String) {
-            (self.field0.cst_decode(), self.field1.cst_decode())
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::RedirectSettings> for wire_cst_redirect_settings {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::RedirectSettings {
-            match self.tag {
-                0 => crate::rhttp::api::client::RedirectSettings::NoRedirect,
-                1 => {
-                    let ans = unsafe { self.kind.LimitedRedirects };
-                    crate::rhttp::api::client::RedirectSettings::LimitedRedirects(
-                        ans.field0.cst_decode(),
-                    )
-                }
-                _ => unreachable!(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::error::RhttpError> for wire_cst_rhttp_error {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::error::RhttpError {
-            match self.tag {
-                0 => crate::rhttp::api::error::RhttpError::RhttpCancelError,
-                1 => crate::rhttp::api::error::RhttpError::RhttpTimeoutError,
-                2 => crate::rhttp::api::error::RhttpError::RhttpRedirectError,
-                3 => {
-                    let ans = unsafe { self.kind.RhttpStatusCodeError };
-                    crate::rhttp::api::error::RhttpError::RhttpStatusCodeError(
-                        ans.field0.cst_decode(),
-                        ans.field1.cst_decode(),
-                        ans.field2.cst_decode(),
-                    )
-                }
-                4 => {
-                    let ans = unsafe { self.kind.RhttpInvalidCertificateError };
-                    crate::rhttp::api::error::RhttpError::RhttpInvalidCertificateError(
-                        ans.field0.cst_decode(),
-                    )
-                }
-                5 => {
-                    let ans = unsafe { self.kind.RhttpConnectionError };
-                    crate::rhttp::api::error::RhttpError::RhttpConnectionError(
-                        ans.field0.cst_decode(),
-                    )
-                }
-                6 => {
-                    let ans = unsafe { self.kind.RhttpUnknownError };
-                    crate::rhttp::api::error::RhttpError::RhttpUnknownError(ans.field0.cst_decode())
-                }
-                _ => unreachable!(),
+        fn cst_decode(self) -> crate::matrix::room_info::RoomMemberRow {
+            crate::matrix::room_info::RoomMemberRow {
+                user_id: self.user_id.cst_decode(),
+                display_name: self.display_name.cst_decode(),
+                power_level: self.power_level.cst_decode(),
+                role: self.role.cst_decode(),
+                is_self: self.is_self.cst_decode(),
+                current_user_can_kick: self.current_user_can_kick.cst_decode(),
             }
         }
     }
@@ -7264,40 +5313,6 @@ mod io {
                 unread_mentions: self.unread_mentions.cst_decode(),
                 unread_messages: self.unread_messages.cst_decode(),
                 message: self.message.cst_decode(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::StaticDnsSettings> for wire_cst_static_dns_settings {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::StaticDnsSettings {
-            crate::rhttp::api::client::StaticDnsSettings {
-                overrides: self.overrides.cst_decode(),
-                fallback: self.fallback.cst_decode(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::TimeoutSettings> for wire_cst_timeout_settings {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::TimeoutSettings {
-            crate::rhttp::api::client::TimeoutSettings {
-                timeout_ms: self.timeout_ms.cst_decode(),
-                connect_timeout_ms: self.connect_timeout_ms.cst_decode(),
-                keep_alive_timeout_ms: self.keep_alive_timeout_ms.cst_decode(),
-                keep_alive_ping_ms: self.keep_alive_ping_ms.cst_decode(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::TlsSettings> for wire_cst_tls_settings {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::TlsSettings {
-            crate::rhttp::api::client::TlsSettings {
-                trust_root_certificates: self.trust_root_certificates.cst_decode(),
-                trusted_root_certificates: self.trusted_root_certificates.cst_decode(),
-                verify_certificates: self.verify_certificates.cst_decode(),
-                client_certificate: self.client_certificate.cst_decode(),
-                min_tls_version: self.min_tls_version.cst_decode(),
-                max_tls_version: self.max_tls_version.cst_decode(),
-                sni: self.sni.cst_decode(),
             }
         }
     }
@@ -7346,19 +5361,6 @@ mod io {
             }
         }
     }
-    impl NewWithNullPtr for wire_cst_client_certificate {
-        fn new_with_null_ptr() -> Self {
-            Self {
-                certificate: core::ptr::null_mut(),
-                private_key: core::ptr::null_mut(),
-            }
-        }
-    }
-    impl Default for wire_cst_client_certificate {
-        fn default() -> Self {
-            Self::new_with_null_ptr()
-        }
-    }
     impl NewWithNullPtr for wire_cst_client_config {
         fn new_with_null_ptr() -> Self {
             Self {
@@ -7367,7 +5369,6 @@ mod io {
                 root_certificates: core::ptr::null_mut(),
                 proxy: core::ptr::null_mut(),
                 passphrase: core::ptr::null_mut(),
-                rhttp_client: core::ptr::null_mut(),
             }
         }
     }
@@ -7389,114 +5390,17 @@ mod io {
             Self::new_with_null_ptr()
         }
     }
-    impl NewWithNullPtr for wire_cst_client_settings {
+    impl NewWithNullPtr for wire_cst_file_send_progress {
         fn new_with_null_ptr() -> Self {
             Self {
-                cookie_settings: core::ptr::null_mut(),
-                http_version_pref: Default::default(),
-                timeout_settings: core::ptr::null_mut(),
-                throw_on_status_code: Default::default(),
-                proxy_settings: core::ptr::null_mut(),
-                redirect_settings: core::ptr::null_mut(),
-                tls_settings: core::ptr::null_mut(),
-                dns_settings: core::ptr::null_mut(),
-                user_agent: core::ptr::null_mut(),
+                phase: Default::default(),
+                current: Default::default(),
+                total: Default::default(),
+                message: core::ptr::null_mut(),
             }
         }
     }
-    impl Default for wire_cst_client_settings {
-        fn default() -> Self {
-            Self::new_with_null_ptr()
-        }
-    }
-    impl NewWithNullPtr for wire_cst_cookie_settings {
-        fn new_with_null_ptr() -> Self {
-            Self {
-                store_cookies: Default::default(),
-            }
-        }
-    }
-    impl Default for wire_cst_cookie_settings {
-        fn default() -> Self {
-            Self::new_with_null_ptr()
-        }
-    }
-    impl NewWithNullPtr for wire_cst_custom_proxy {
-        fn new_with_null_ptr() -> Self {
-            Self {
-                url: core::ptr::null_mut(),
-                condition: Default::default(),
-            }
-        }
-    }
-    impl Default for wire_cst_custom_proxy {
-        fn default() -> Self {
-            Self::new_with_null_ptr()
-        }
-    }
-    impl NewWithNullPtr for wire_cst_http_body {
-        fn new_with_null_ptr() -> Self {
-            Self {
-                tag: -1,
-                kind: HttpBodyKind { nil__: () },
-            }
-        }
-    }
-    impl Default for wire_cst_http_body {
-        fn default() -> Self {
-            Self::new_with_null_ptr()
-        }
-    }
-    impl NewWithNullPtr for wire_cst_http_headers {
-        fn new_with_null_ptr() -> Self {
-            Self {
-                tag: -1,
-                kind: HttpHeadersKind { nil__: () },
-            }
-        }
-    }
-    impl Default for wire_cst_http_headers {
-        fn default() -> Self {
-            Self::new_with_null_ptr()
-        }
-    }
-    impl NewWithNullPtr for wire_cst_http_method {
-        fn new_with_null_ptr() -> Self {
-            Self {
-                method: core::ptr::null_mut(),
-            }
-        }
-    }
-    impl Default for wire_cst_http_method {
-        fn default() -> Self {
-            Self::new_with_null_ptr()
-        }
-    }
-    impl NewWithNullPtr for wire_cst_http_response {
-        fn new_with_null_ptr() -> Self {
-            Self {
-                remote_ip: core::ptr::null_mut(),
-                headers: core::ptr::null_mut(),
-                version: Default::default(),
-                status_code: Default::default(),
-                body: Default::default(),
-            }
-        }
-    }
-    impl Default for wire_cst_http_response {
-        fn default() -> Self {
-            Self::new_with_null_ptr()
-        }
-    }
-    impl NewWithNullPtr for wire_cst_http_response_body {
-        fn new_with_null_ptr() -> Self {
-            Self {
-                tag: -1,
-                kind: HttpResponseBodyKind { nil__: () },
-            }
-        }
-    }
-    impl Default for wire_cst_http_response_body {
+    impl Default for wire_cst_file_send_progress {
         fn default() -> Self {
             Self::new_with_null_ptr()
         }
@@ -7505,10 +5409,18 @@ mod io {
         fn new_with_null_ptr() -> Self {
             Self {
                 event_id: core::ptr::null_mut(),
+                transaction_id: core::ptr::null_mut(),
                 sender: core::ptr::null_mut(),
                 content: core::ptr::null_mut(),
                 timestamp: Default::default(),
                 message_type: Default::default(),
+                room_msg_kind: Default::default(),
+                send_state: Default::default(),
+                send_error: core::ptr::null_mut(),
+                send_recoverable: Default::default(),
+                is_own: Default::default(),
+                media_mimetype: core::ptr::null_mut(),
+                media_size_bytes: Default::default(),
             }
         }
     }
@@ -7532,130 +5444,59 @@ mod io {
             Self::new_with_null_ptr()
         }
     }
-    impl NewWithNullPtr for wire_cst_multipart_item {
+    impl NewWithNullPtr for wire_cst_room_details {
         fn new_with_null_ptr() -> Self {
             Self {
-                value: Default::default(),
-                file_name: core::ptr::null_mut(),
-                content_type: core::ptr::null_mut(),
+                room_id: core::ptr::null_mut(),
+                display_name: core::ptr::null_mut(),
+                topic: core::ptr::null_mut(),
+                is_direct: Default::default(),
+                is_encrypted: Default::default(),
+                member_count: Default::default(),
+                members: core::ptr::null_mut(),
+                current_user_id: core::ptr::null_mut(),
+                current_user_is_admin: Default::default(),
+                current_user_is_moderator: Default::default(),
             }
         }
     }
-    impl Default for wire_cst_multipart_item {
+    impl Default for wire_cst_room_details {
         fn default() -> Self {
             Self::new_with_null_ptr()
         }
     }
-    impl NewWithNullPtr for wire_cst_multipart_payload {
+    impl NewWithNullPtr for wire_cst_room_file_item {
         fn new_with_null_ptr() -> Self {
             Self {
-                parts: core::ptr::null_mut(),
+                event_id: core::ptr::null_mut(),
+                transaction_id: core::ptr::null_mut(),
+                sender: core::ptr::null_mut(),
+                caption: core::ptr::null_mut(),
+                timestamp: Default::default(),
+                kind: Default::default(),
+                is_outgoing: Default::default(),
+                size_bytes: Default::default(),
             }
         }
     }
-    impl Default for wire_cst_multipart_payload {
+    impl Default for wire_cst_room_file_item {
         fn default() -> Self {
             Self::new_with_null_ptr()
         }
     }
-    impl NewWithNullPtr for wire_cst_multipart_value {
+    impl NewWithNullPtr for wire_cst_room_member_row {
         fn new_with_null_ptr() -> Self {
             Self {
-                tag: -1,
-                kind: MultipartValueKind { nil__: () },
+                user_id: core::ptr::null_mut(),
+                display_name: core::ptr::null_mut(),
+                power_level: Default::default(),
+                role: Default::default(),
+                is_self: Default::default(),
+                current_user_can_kick: Default::default(),
             }
         }
     }
-    impl Default for wire_cst_multipart_value {
-        fn default() -> Self {
-            Self::new_with_null_ptr()
-        }
-    }
-    impl NewWithNullPtr for wire_cst_proxy_settings {
-        fn new_with_null_ptr() -> Self {
-            Self {
-                tag: -1,
-                kind: ProxySettingsKind { nil__: () },
-            }
-        }
-    }
-    impl Default for wire_cst_proxy_settings {
-        fn default() -> Self {
-            Self::new_with_null_ptr()
-        }
-    }
-    impl NewWithNullPtr for wire_cst_record_auto_owned_rust_opaque_flutter_rust_bridgefor_generated_rust_auto_opaque_inner_dart_2_rust_stream_sink_auto_owned_rust_opaque_flutter_rust_bridgefor_generated_rust_auto_opaque_inner_dart_2_rust_stream_receiver {
-            fn new_with_null_ptr() -> Self {
-                Self { field0: Default::default(),
-field1: Default::default(), }
-            }
-        }
-    impl Default for wire_cst_record_auto_owned_rust_opaque_flutter_rust_bridgefor_generated_rust_auto_opaque_inner_dart_2_rust_stream_sink_auto_owned_rust_opaque_flutter_rust_bridgefor_generated_rust_auto_opaque_inner_dart_2_rust_stream_receiver {
-            fn default() -> Self {
-                Self::new_with_null_ptr()
-            }
-        }
-    impl NewWithNullPtr for wire_cst_record_string_list_string {
-        fn new_with_null_ptr() -> Self {
-            Self {
-                field0: core::ptr::null_mut(),
-                field1: core::ptr::null_mut(),
-            }
-        }
-    }
-    impl Default for wire_cst_record_string_list_string {
-        fn default() -> Self {
-            Self::new_with_null_ptr()
-        }
-    }
-    impl NewWithNullPtr for wire_cst_record_string_multipart_item {
-        fn new_with_null_ptr() -> Self {
-            Self {
-                field0: core::ptr::null_mut(),
-                field1: Default::default(),
-            }
-        }
-    }
-    impl Default for wire_cst_record_string_multipart_item {
-        fn default() -> Self {
-            Self::new_with_null_ptr()
-        }
-    }
-    impl NewWithNullPtr for wire_cst_record_string_string {
-        fn new_with_null_ptr() -> Self {
-            Self {
-                field0: core::ptr::null_mut(),
-                field1: core::ptr::null_mut(),
-            }
-        }
-    }
-    impl Default for wire_cst_record_string_string {
-        fn default() -> Self {
-            Self::new_with_null_ptr()
-        }
-    }
-    impl NewWithNullPtr for wire_cst_redirect_settings {
-        fn new_with_null_ptr() -> Self {
-            Self {
-                tag: -1,
-                kind: RedirectSettingsKind { nil__: () },
-            }
-        }
-    }
-    impl Default for wire_cst_redirect_settings {
-        fn default() -> Self {
-            Self::new_with_null_ptr()
-        }
-    }
-    impl NewWithNullPtr for wire_cst_rhttp_error {
-        fn new_with_null_ptr() -> Self {
-            Self {
-                tag: -1,
-                kind: RhttpErrorKind { nil__: () },
-            }
-        }
-    }
-    impl Default for wire_cst_rhttp_error {
+    impl Default for wire_cst_room_member_row {
         fn default() -> Self {
             Self::new_with_null_ptr()
         }
@@ -7677,52 +5518,6 @@ field1: Default::default(), }
         }
     }
     impl Default for wire_cst_room_update {
-        fn default() -> Self {
-            Self::new_with_null_ptr()
-        }
-    }
-    impl NewWithNullPtr for wire_cst_static_dns_settings {
-        fn new_with_null_ptr() -> Self {
-            Self {
-                overrides: core::ptr::null_mut(),
-                fallback: core::ptr::null_mut(),
-            }
-        }
-    }
-    impl Default for wire_cst_static_dns_settings {
-        fn default() -> Self {
-            Self::new_with_null_ptr()
-        }
-    }
-    impl NewWithNullPtr for wire_cst_timeout_settings {
-        fn new_with_null_ptr() -> Self {
-            Self {
-                timeout_ms: core::ptr::null_mut(),
-                connect_timeout_ms: core::ptr::null_mut(),
-                keep_alive_timeout_ms: core::ptr::null_mut(),
-                keep_alive_ping_ms: core::ptr::null_mut(),
-            }
-        }
-    }
-    impl Default for wire_cst_timeout_settings {
-        fn default() -> Self {
-            Self::new_with_null_ptr()
-        }
-    }
-    impl NewWithNullPtr for wire_cst_tls_settings {
-        fn new_with_null_ptr() -> Self {
-            Self {
-                trust_root_certificates: Default::default(),
-                trusted_root_certificates: core::ptr::null_mut(),
-                verify_certificates: Default::default(),
-                client_certificate: core::ptr::null_mut(),
-                min_tls_version: core::ptr::null_mut(),
-                max_tls_version: core::ptr::null_mut(),
-                sni: Default::default(),
-            }
-        }
-    }
-    impl Default for wire_cst_tls_settings {
         fn default() -> Self {
             Self::new_with_null_ptr()
         }
@@ -7788,27 +5583,18 @@ field1: Default::default(), }
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_wire__crate__rhttp__api__stream__Dart2RustStreamSink_add(
-        port_: i64,
-        that: usize,
-        data: *mut wire_cst_list_prim_u_8_loose,
-    ) {
-        wire__crate__rhttp__api__stream__Dart2RustStreamSink_add_impl(port_, that, data)
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_wire__crate__rhttp__api__stream__Dart2RustStreamSink_close(
-        port_: i64,
-        that: usize,
-    ) {
-        wire__crate__rhttp__api__stream__Dart2RustStreamSink_close_impl(port_, that)
-    }
-
-    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_wire__crate__logger__platform__FieldsFormatterForFiles_default(
         port_: i64,
     ) {
         wire__crate__logger__platform__FieldsFormatterForFiles_default_impl(port_)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_cancel_timeline_file_send(
+        port_: i64,
+        that: usize,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_cancel_timeline_file_send_impl(port_, that)
     }
 
     #[unsafe(no_mangle)]
@@ -7841,6 +5627,19 @@ field1: Default::default(), }
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_fetch_room_message_media(
+        port_: i64,
+        that: usize,
+        room_id: *mut wire_cst_list_prim_u_8_strict,
+        event_id: *mut wire_cst_list_prim_u_8_strict,
+        thumbnail: bool,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_fetch_room_message_media_impl(
+            port_, that, room_id, event_id, thumbnail,
+        )
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_all_rooms(
         port_: i64,
         that: usize,
@@ -7857,6 +5656,17 @@ field1: Default::default(), }
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_existing_dm_room_id(
+        port_: i64,
+        that: usize,
+        user_id: *mut wire_cst_list_prim_u_8_strict,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_get_existing_dm_room_id_impl(
+            port_, that, user_id,
+        )
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_older_messages(
         port_: i64,
         that: usize,
@@ -7866,6 +5676,15 @@ field1: Default::default(), }
         wire__crate__api__matrix_client__MatrixClient_get_older_messages_impl(
             port_, that, room_id, count,
         )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_room_details(
+        port_: i64,
+        that: usize,
+        room_id: *mut wire_cst_list_prim_u_8_strict,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_get_room_details_impl(port_, that, room_id)
     }
 
     #[unsafe(no_mangle)]
@@ -7897,12 +5716,47 @@ field1: Default::default(), }
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_kick_room_member(
+        port_: i64,
+        that: usize,
+        room_id: *mut wire_cst_list_prim_u_8_strict,
+        user_id: *mut wire_cst_list_prim_u_8_strict,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_kick_room_member_impl(
+            port_, that, room_id, user_id,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_leave_and_forget_room(
+        port_: i64,
+        that: usize,
+        room_id: *mut wire_cst_list_prim_u_8_strict,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_leave_and_forget_room_impl(
+            port_, that, room_id,
+        )
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_leave_room(
         port_: i64,
         that: usize,
         room_id: *mut wire_cst_list_prim_u_8_strict,
     ) {
         wire__crate__api__matrix_client__MatrixClient_leave_room_impl(port_, that, room_id)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_list_room_files(
+        port_: i64,
+        that: usize,
+        room_id: *mut wire_cst_list_prim_u_8_strict,
+        filter: i32,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_list_room_files_impl(
+            port_, that, room_id, filter,
+        )
     }
 
     #[unsafe(no_mangle)]
@@ -7976,6 +5830,32 @@ field1: Default::default(), }
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_retry_failed_send(
+        port_: i64,
+        that: usize,
+        room_id: *mut wire_cst_list_prim_u_8_strict,
+        transaction_id: *mut wire_cst_list_prim_u_8_strict,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_retry_failed_send_impl(
+            port_,
+            that,
+            room_id,
+            transaction_id,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_room_list_subscribe_to_rooms(
+        port_: i64,
+        that: usize,
+        room_id: *mut wire_cst_list_prim_u_8_strict,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_room_list_subscribe_to_rooms_impl(
+            port_, that, room_id,
+        )
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_search_users(
         port_: i64,
         that: usize,
@@ -7997,6 +5877,46 @@ field1: Default::default(), }
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_timeline_file(
+        port_: i64,
+        that: usize,
+        room_id: *mut wire_cst_list_prim_u_8_strict,
+        file_path: *mut wire_cst_list_prim_u_8_strict,
+        caption: *mut wire_cst_list_prim_u_8_strict,
+        app_thumbnail_jpeg_path: *mut wire_cst_list_prim_u_8_strict,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_send_timeline_file_impl(
+            port_,
+            that,
+            room_id,
+            file_path,
+            caption,
+            app_thumbnail_jpeg_path,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_timeline_file_with_progress(
+        port_: i64,
+        that: usize,
+        room_id: *mut wire_cst_list_prim_u_8_strict,
+        file_path: *mut wire_cst_list_prim_u_8_strict,
+        caption: *mut wire_cst_list_prim_u_8_strict,
+        app_thumbnail_jpeg_path: *mut wire_cst_list_prim_u_8_strict,
+        progress: *mut wire_cst_list_prim_u_8_strict,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_send_timeline_file_with_progress_impl(
+            port_,
+            that,
+            room_id,
+            file_path,
+            caption,
+            app_thumbnail_jpeg_path,
+            progress,
+        )
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_display_name(
         port_: i64,
         that: usize,
@@ -8006,6 +5926,23 @@ field1: Default::default(), }
             port_,
             that,
             display_name,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_room_member_power_level(
+        port_: i64,
+        that: usize,
+        room_id: *mut wire_cst_list_prim_u_8_strict,
+        user_id: *mut wire_cst_list_prim_u_8_strict,
+        power_level: i64,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_set_room_member_power_level_impl(
+            port_,
+            that,
+            room_id,
+            user_id,
+            power_level,
         )
     }
 
@@ -8093,51 +6030,12 @@ field1: Default::default(), }
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_wire__crate__rhttp__api__http__cancel_request(
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__document_preview__document_preview_json(
         port_: i64,
-        token: usize,
+        extension: *mut wire_cst_list_prim_u_8_strict,
+        data: *mut wire_cst_list_prim_u_8_loose,
     ) {
-        wire__crate__rhttp__api__http__cancel_request_impl(port_, token)
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_wire__crate__rhttp__api__http__cancel_running_requests(
-        port_: i64,
-        client: usize,
-    ) {
-        wire__crate__rhttp__api__http__cancel_running_requests_impl(port_, client)
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_wire__crate__rhttp__api__client__client_settings_default(
-        port_: i64,
-    ) {
-        wire__crate__rhttp__api__client__client_settings_default_impl(port_)
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_wire__crate__rhttp__api__client__create_dynamic_resolver_sync(
-        resolver: *const std::ffi::c_void,
-    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
-        wire__crate__rhttp__api__client__create_dynamic_resolver_sync_impl(resolver)
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_wire__crate__rhttp__api__client__create_static_resolver_sync(
-        settings: *mut wire_cst_static_dns_settings,
-    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
-        wire__crate__rhttp__api__client__create_static_resolver_sync_impl(settings)
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_wire__crate__rhttp__api__stream__create_stream(port_: i64) {
-        wire__crate__rhttp__api__stream__create_stream_impl(port_)
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_wire__crate__rhttp__api__client__get_default_client_sync(
-    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
-        wire__crate__rhttp__api__client__get_default_client_sync_impl()
+        wire__crate__api__document_preview__document_preview_json_impl(port_, extension, data)
     }
 
     #[unsafe(no_mangle)]
@@ -8166,92 +6064,26 @@ field1: Default::default(), }
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_wire__crate__rhttp__api__http__make_http_request(
-        port_: i64,
-        client: usize,
-        settings: *mut wire_cst_client_settings,
-        method: *mut wire_cst_http_method,
-        url: *mut wire_cst_list_prim_u_8_strict,
-        query: *mut wire_cst_list_record_string_string,
-        headers: *mut wire_cst_http_headers,
-        body: *mut wire_cst_http_body,
-        body_stream: *mut usize,
-        expect_body: i32,
-        on_cancel_token: *const std::ffi::c_void,
-        cancelable: bool,
-    ) {
-        wire__crate__rhttp__api__http__make_http_request_impl(
-            port_,
-            client,
-            settings,
-            method,
-            url,
-            query,
-            headers,
-            body,
-            body_stream,
-            expect_body,
-            on_cancel_token,
-            cancelable,
-        )
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_wire__crate__rhttp__api__http__make_http_request_receive_stream(
-        port_: i64,
-        client: usize,
-        settings: *mut wire_cst_client_settings,
-        method: *mut wire_cst_http_method,
-        url: *mut wire_cst_list_prim_u_8_strict,
-        query: *mut wire_cst_list_record_string_string,
-        headers: *mut wire_cst_http_headers,
-        body: *mut wire_cst_http_body,
-        body_stream: *mut usize,
-        stream_sink: *mut wire_cst_list_prim_u_8_strict,
-        on_response: *const std::ffi::c_void,
-        on_error: *const std::ffi::c_void,
-        on_cancel_token: *const std::ffi::c_void,
-        cancelable: bool,
-    ) {
-        wire__crate__rhttp__api__http__make_http_request_receive_stream_impl(
-            port_,
-            client,
-            settings,
-            method,
-            url,
-            query,
-            headers,
-            body,
-            body_stream,
-            stream_sink,
-            on_response,
-            on_error,
-            on_cancel_token,
-            cancelable,
-        )
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_wire__crate__rhttp__api__http__register_client(
-        port_: i64,
-        settings: *mut wire_cst_client_settings,
-    ) {
-        wire__crate__rhttp__api__http__register_client_impl(port_, settings)
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_wire__crate__rhttp__api__http__register_client_sync(
-        settings: *mut wire_cst_client_settings,
-    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
-        wire__crate__rhttp__api__http__register_client_sync_impl(settings)
-    }
-
-    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_wire__crate__logger__platform__reload_tracing_file_writer(
         port_: i64,
         configuration: *mut wire_cst_tracing_file_configuration,
     ) {
         wire__crate__logger__platform__reload_tracing_file_writer_impl(port_, configuration)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__native_media_env__set_native_media_env(
+        port_: i64,
+        pdfium_dynamic_lib_path: *mut wire_cst_list_prim_u_8_strict,
+        matrix_pdfium_dir: *mut wire_cst_list_prim_u_8_strict,
+        matrix_ffmpeg_path: *mut wire_cst_list_prim_u_8_strict,
+    ) {
+        wire__crate__api__native_media_env__set_native_media_env_impl(
+            port_,
+            pdfium_dynamic_lib_path,
+            matrix_pdfium_dir,
+            matrix_ffmpeg_path,
+        )
     }
 
     #[unsafe(no_mangle)]
@@ -8271,24 +6103,6 @@ field1: Default::default(), }
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCancellationToken(
-        ptr: *const std::ffi::c_void,
-    ) {
-        unsafe {
-            StdArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<CancellationToken>>::increment_strong_count(ptr as _);
-        }
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCancellationToken(
-        ptr: *const std::ffi::c_void,
-    ) {
-        unsafe {
-            StdArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<CancellationToken>>::decrement_strong_count(ptr as _);
-        }
-    }
-
-    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCertificate(
         ptr: *const std::ffi::c_void,
     ) {
@@ -8303,64 +6117,6 @@ field1: Default::default(), }
     ) {
         unsafe {
             StdArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Certificate>>::decrement_strong_count(ptr as _);
-        }
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDart2RustStreamReceiver(
-        ptr: *const std::ffi::c_void,
-    ) {
-        unsafe {
-            StdArc::<
-                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamReceiver>,
-            >::increment_strong_count(ptr as _);
-        }
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDart2RustStreamReceiver(
-        ptr: *const std::ffi::c_void,
-    ) {
-        unsafe {
-            StdArc::<
-                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamReceiver>,
-            >::decrement_strong_count(ptr as _);
-        }
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDart2RustStreamSink(
-        ptr: *const std::ffi::c_void,
-    ) {
-        unsafe {
-            StdArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamSink>>::increment_strong_count(ptr as _);
-        }
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDart2RustStreamSink(
-        ptr: *const std::ffi::c_void,
-    ) {
-        unsafe {
-            StdArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamSink>>::decrement_strong_count(ptr as _);
-        }
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDnsSettings(
-        ptr: *const std::ffi::c_void,
-    ) {
-        unsafe {
-            StdArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<DnsSettings>>::increment_strong_count(ptr as _);
-        }
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDnsSettings(
-        ptr: *const std::ffi::c_void,
-    ) {
-        unsafe {
-            StdArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<DnsSettings>>::decrement_strong_count(ptr as _);
         }
     }
 
@@ -8405,55 +6161,8 @@ field1: Default::default(), }
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerRequestClient(
-        ptr: *const std::ffi::c_void,
-    ) {
-        unsafe {
-            StdArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RequestClient>>::increment_strong_count(ptr as _);
-        }
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerRequestClient(
-        ptr: *const std::ffi::c_void,
-    ) {
-        unsafe {
-            StdArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RequestClient>>::decrement_strong_count(ptr as _);
-        }
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDart2RustStreamReceiver(
-        value: usize,
-    ) -> *mut usize {
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(value)
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDnsSettings(
-        value: usize,
-    ) -> *mut usize {
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(value)
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_box_autoadd_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerRequestClient(
-        value: usize,
-    ) -> *mut usize {
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(value)
-    }
-
-    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_cst_new_box_autoadd_bool(value: bool) -> *mut bool {
         flutter_rust_bridge::for_generated::new_leak_box_ptr(value)
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_box_autoadd_client_certificate(
-    ) -> *mut wire_cst_client_certificate {
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(
-            wire_cst_client_certificate::new_with_null_ptr(),
-        )
     }
 
     #[unsafe(no_mangle)]
@@ -8465,82 +6174,8 @@ field1: Default::default(), }
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_box_autoadd_client_settings(
-    ) -> *mut wire_cst_client_settings {
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(
-            wire_cst_client_settings::new_with_null_ptr(),
-        )
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_box_autoadd_cookie_settings(
-    ) -> *mut wire_cst_cookie_settings {
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(
-            wire_cst_cookie_settings::new_with_null_ptr(),
-        )
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_box_autoadd_http_body() -> *mut wire_cst_http_body {
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(wire_cst_http_body::new_with_null_ptr())
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_box_autoadd_http_headers(
-    ) -> *mut wire_cst_http_headers {
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(
-            wire_cst_http_headers::new_with_null_ptr(),
-        )
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_box_autoadd_http_method(
-    ) -> *mut wire_cst_http_method {
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(
-            wire_cst_http_method::new_with_null_ptr(),
-        )
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_box_autoadd_http_response_body(
-    ) -> *mut wire_cst_http_response_body {
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(
-            wire_cst_http_response_body::new_with_null_ptr(),
-        )
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_box_autoadd_i_64(value: i64) -> *mut i64 {
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(value)
-    }
-
-    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_cst_new_box_autoadd_message() -> *mut wire_cst_message {
         flutter_rust_bridge::for_generated::new_leak_box_ptr(wire_cst_message::new_with_null_ptr())
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_box_autoadd_multipart_payload(
-    ) -> *mut wire_cst_multipart_payload {
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(
-            wire_cst_multipart_payload::new_with_null_ptr(),
-        )
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_box_autoadd_proxy_settings(
-    ) -> *mut wire_cst_proxy_settings {
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(
-            wire_cst_proxy_settings::new_with_null_ptr(),
-        )
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_box_autoadd_redirect_settings(
-    ) -> *mut wire_cst_redirect_settings {
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(
-            wire_cst_redirect_settings::new_with_null_ptr(),
-        )
     }
 
     #[unsafe(no_mangle)]
@@ -8549,35 +6184,6 @@ field1: Default::default(), }
         flutter_rust_bridge::for_generated::new_leak_box_ptr(
             wire_cst_room_update::new_with_null_ptr(),
         )
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_box_autoadd_static_dns_settings(
-    ) -> *mut wire_cst_static_dns_settings {
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(
-            wire_cst_static_dns_settings::new_with_null_ptr(),
-        )
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_box_autoadd_timeout_settings(
-    ) -> *mut wire_cst_timeout_settings {
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(
-            wire_cst_timeout_settings::new_with_null_ptr(),
-        )
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_box_autoadd_tls_settings(
-    ) -> *mut wire_cst_tls_settings {
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(
-            wire_cst_tls_settings::new_with_null_ptr(),
-        )
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_box_autoadd_tls_version(value: i32) -> *mut i32 {
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(value)
     }
 
     #[unsafe(no_mangle)]
@@ -8625,34 +6231,6 @@ field1: Default::default(), }
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_list_custom_proxy(
-        len: i32,
-    ) -> *mut wire_cst_list_custom_proxy {
-        let wrap = wire_cst_list_custom_proxy {
-            ptr: flutter_rust_bridge::for_generated::new_leak_vec_ptr(
-                <wire_cst_custom_proxy>::new_with_null_ptr(),
-                len,
-            ),
-            len,
-        };
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(wrap)
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_list_list_prim_u_8_strict(
-        len: i32,
-    ) -> *mut wire_cst_list_list_prim_u_8_strict {
-        let wrap = wire_cst_list_list_prim_u_8_strict {
-            ptr: flutter_rust_bridge::for_generated::new_leak_vec_ptr(
-                <*mut wire_cst_list_prim_u_8_strict>::new_with_null_ptr(),
-                len,
-            ),
-            len,
-        };
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(wrap)
-    }
-
-    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_cst_new_list_message(
         len: i32,
     ) -> *mut wire_cst_list_message {
@@ -8689,12 +6267,12 @@ field1: Default::default(), }
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_list_record_string_list_string(
+    pub extern "C" fn frbgen_matrix_sdk_cst_new_list_room_file_item(
         len: i32,
-    ) -> *mut wire_cst_list_record_string_list_string {
-        let wrap = wire_cst_list_record_string_list_string {
+    ) -> *mut wire_cst_list_room_file_item {
+        let wrap = wire_cst_list_room_file_item {
             ptr: flutter_rust_bridge::for_generated::new_leak_vec_ptr(
-                <wire_cst_record_string_list_string>::new_with_null_ptr(),
+                <wire_cst_room_file_item>::new_with_null_ptr(),
                 len,
             ),
             len,
@@ -8703,26 +6281,12 @@ field1: Default::default(), }
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_list_record_string_multipart_item(
+    pub extern "C" fn frbgen_matrix_sdk_cst_new_list_room_member_row(
         len: i32,
-    ) -> *mut wire_cst_list_record_string_multipart_item {
-        let wrap = wire_cst_list_record_string_multipart_item {
+    ) -> *mut wire_cst_list_room_member_row {
+        let wrap = wire_cst_list_room_member_row {
             ptr: flutter_rust_bridge::for_generated::new_leak_vec_ptr(
-                <wire_cst_record_string_multipart_item>::new_with_null_ptr(),
-                len,
-            ),
-            len,
-        };
-        flutter_rust_bridge::for_generated::new_leak_box_ptr(wrap)
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_cst_new_list_record_string_string(
-        len: i32,
-    ) -> *mut wire_cst_list_record_string_string {
-        let wrap = wire_cst_list_record_string_string {
-            ptr: flutter_rust_bridge::for_generated::new_leak_vec_ptr(
-                <wire_cst_record_string_string>::new_with_null_ptr(),
+                <wire_cst_room_member_row>::new_with_null_ptr(),
                 len,
             ),
             len,
@@ -8769,18 +6333,11 @@ field1: Default::default(), }
 
     #[repr(C)]
     #[derive(Clone, Copy)]
-    pub struct wire_cst_client_certificate {
-        certificate: *mut wire_cst_list_prim_u_8_strict,
-        private_key: *mut wire_cst_list_prim_u_8_strict,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
     pub struct wire_cst_client_config { session_path: *mut wire_cst_list_prim_u_8_strict,
 homeserver_url: *mut wire_cst_list_prim_u_8_strict,
 root_certificates: *mut wire_cst_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCertificate,
 proxy: *mut wire_cst_list_prim_u_8_strict,
-passphrase: *mut wire_cst_list_prim_u_8_strict,
-rhttp_client: *mut usize }
+passphrase: *mut wire_cst_list_prim_u_8_strict }
     #[repr(C)]
     #[derive(Clone, Copy)]
     pub struct wire_cst_client_error {
@@ -8801,122 +6358,11 @@ rhttp_client: *mut usize }
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
-    pub struct wire_cst_client_settings {
-        cookie_settings: *mut wire_cst_cookie_settings,
-        http_version_pref: i32,
-        timeout_settings: *mut wire_cst_timeout_settings,
-        throw_on_status_code: bool,
-        proxy_settings: *mut wire_cst_proxy_settings,
-        redirect_settings: *mut wire_cst_redirect_settings,
-        tls_settings: *mut wire_cst_tls_settings,
-        dns_settings: *mut usize,
-        user_agent: *mut wire_cst_list_prim_u_8_strict,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_cookie_settings {
-        store_cookies: bool,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_custom_proxy {
-        url: *mut wire_cst_list_prim_u_8_strict,
-        condition: i32,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_http_body {
-        tag: i32,
-        kind: HttpBodyKind,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub union HttpBodyKind {
-        Text: wire_cst_HttpBody_Text,
-        Bytes: wire_cst_HttpBody_Bytes,
-        Form: wire_cst_HttpBody_Form,
-        Multipart: wire_cst_HttpBody_Multipart,
-        nil__: (),
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_HttpBody_Text {
-        field0: *mut wire_cst_list_prim_u_8_strict,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_HttpBody_Bytes {
-        field0: *mut wire_cst_list_prim_u_8_strict,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_HttpBody_Form {
-        field0: *mut wire_cst_list_record_string_string,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_HttpBody_Multipart {
-        field0: *mut wire_cst_multipart_payload,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_http_headers {
-        tag: i32,
-        kind: HttpHeadersKind,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub union HttpHeadersKind {
-        Map: wire_cst_HttpHeaders_Map,
-        List: wire_cst_HttpHeaders_List,
-        nil__: (),
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_HttpHeaders_Map {
-        field0: *mut wire_cst_list_record_string_string,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_HttpHeaders_List {
-        field0: *mut wire_cst_list_record_string_string,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_http_method {
-        method: *mut wire_cst_list_prim_u_8_strict,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_http_response {
-        remote_ip: *mut wire_cst_list_prim_u_8_strict,
-        headers: *mut wire_cst_list_record_string_string,
-        version: i32,
-        status_code: u16,
-        body: wire_cst_http_response_body,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_http_response_body {
-        tag: i32,
-        kind: HttpResponseBodyKind,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub union HttpResponseBodyKind {
-        Text: wire_cst_HttpResponseBody_Text,
-        Bytes: wire_cst_HttpResponseBody_Bytes,
-        nil__: (),
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_HttpResponseBody_Text {
-        field0: *mut wire_cst_list_prim_u_8_strict,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_HttpResponseBody_Bytes {
-        field0: *mut wire_cst_list_prim_u_8_strict,
+    pub struct wire_cst_file_send_progress {
+        phase: i32,
+        current: u64,
+        total: u64,
+        message: *mut wire_cst_list_prim_u_8_strict,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -8928,18 +6374,6 @@ rhttp_client: *mut usize }
     #[repr(C)]
     #[derive(Clone, Copy)]
     pub struct wire_cst_list_String {
-        ptr: *mut *mut wire_cst_list_prim_u_8_strict,
-        len: i32,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_list_custom_proxy {
-        ptr: *mut wire_cst_custom_proxy,
-        len: i32,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_list_list_prim_u_8_strict {
         ptr: *mut *mut wire_cst_list_prim_u_8_strict,
         len: i32,
     }
@@ -8963,20 +6397,14 @@ rhttp_client: *mut usize }
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
-    pub struct wire_cst_list_record_string_list_string {
-        ptr: *mut wire_cst_record_string_list_string,
+    pub struct wire_cst_list_room_file_item {
+        ptr: *mut wire_cst_room_file_item,
         len: i32,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
-    pub struct wire_cst_list_record_string_multipart_item {
-        ptr: *mut wire_cst_record_string_multipart_item,
-        len: i32,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_list_record_string_string {
-        ptr: *mut wire_cst_record_string_string,
+    pub struct wire_cst_list_room_member_row {
+        ptr: *mut wire_cst_room_member_row,
         len: i32,
     }
     #[repr(C)]
@@ -9001,10 +6429,18 @@ rhttp_client: *mut usize }
     #[derive(Clone, Copy)]
     pub struct wire_cst_message {
         event_id: *mut wire_cst_list_prim_u_8_strict,
+        transaction_id: *mut wire_cst_list_prim_u_8_strict,
         sender: *mut wire_cst_list_prim_u_8_strict,
         content: *mut wire_cst_list_prim_u_8_strict,
         timestamp: u64,
         message_type: i32,
+        room_msg_kind: i32,
+        send_state: i32,
+        send_error: *mut wire_cst_list_prim_u_8_strict,
+        send_recoverable: bool,
+        is_own: bool,
+        media_mimetype: *mut wire_cst_list_prim_u_8_strict,
+        media_size_bytes: u64,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -9016,140 +6452,39 @@ rhttp_client: *mut usize }
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
-    pub struct wire_cst_multipart_item {
-        value: wire_cst_multipart_value,
-        file_name: *mut wire_cst_list_prim_u_8_strict,
-        content_type: *mut wire_cst_list_prim_u_8_strict,
+    pub struct wire_cst_room_details {
+        room_id: *mut wire_cst_list_prim_u_8_strict,
+        display_name: *mut wire_cst_list_prim_u_8_strict,
+        topic: *mut wire_cst_list_prim_u_8_strict,
+        is_direct: bool,
+        is_encrypted: bool,
+        member_count: u32,
+        members: *mut wire_cst_list_room_member_row,
+        current_user_id: *mut wire_cst_list_prim_u_8_strict,
+        current_user_is_admin: bool,
+        current_user_is_moderator: bool,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
-    pub struct wire_cst_multipart_payload {
-        parts: *mut wire_cst_list_record_string_multipart_item,
+    pub struct wire_cst_room_file_item {
+        event_id: *mut wire_cst_list_prim_u_8_strict,
+        transaction_id: *mut wire_cst_list_prim_u_8_strict,
+        sender: *mut wire_cst_list_prim_u_8_strict,
+        caption: *mut wire_cst_list_prim_u_8_strict,
+        timestamp: u64,
+        kind: i32,
+        is_outgoing: bool,
+        size_bytes: u64,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
-    pub struct wire_cst_multipart_value {
-        tag: i32,
-        kind: MultipartValueKind,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub union MultipartValueKind {
-        Text: wire_cst_MultipartValue_Text,
-        Bytes: wire_cst_MultipartValue_Bytes,
-        File: wire_cst_MultipartValue_File,
-        nil__: (),
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_MultipartValue_Text {
-        field0: *mut wire_cst_list_prim_u_8_strict,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_MultipartValue_Bytes {
-        field0: *mut wire_cst_list_prim_u_8_strict,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_MultipartValue_File {
-        field0: *mut wire_cst_list_prim_u_8_strict,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_proxy_settings {
-        tag: i32,
-        kind: ProxySettingsKind,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub union ProxySettingsKind {
-        CustomProxyList: wire_cst_ProxySettings_CustomProxyList,
-        nil__: (),
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_ProxySettings_CustomProxyList {
-        field0: *mut wire_cst_list_custom_proxy,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_record_auto_owned_rust_opaque_flutter_rust_bridgefor_generated_rust_auto_opaque_inner_dart_2_rust_stream_sink_auto_owned_rust_opaque_flutter_rust_bridgefor_generated_rust_auto_opaque_inner_dart_2_rust_stream_receiver
-    {
-        field0: usize,
-        field1: usize,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_record_string_list_string {
-        field0: *mut wire_cst_list_prim_u_8_strict,
-        field1: *mut wire_cst_list_String,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_record_string_multipart_item {
-        field0: *mut wire_cst_list_prim_u_8_strict,
-        field1: wire_cst_multipart_item,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_record_string_string {
-        field0: *mut wire_cst_list_prim_u_8_strict,
-        field1: *mut wire_cst_list_prim_u_8_strict,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_redirect_settings {
-        tag: i32,
-        kind: RedirectSettingsKind,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub union RedirectSettingsKind {
-        LimitedRedirects: wire_cst_RedirectSettings_LimitedRedirects,
-        nil__: (),
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_RedirectSettings_LimitedRedirects {
-        field0: i32,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_rhttp_error {
-        tag: i32,
-        kind: RhttpErrorKind,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub union RhttpErrorKind {
-        RhttpStatusCodeError: wire_cst_RhttpError_RhttpStatusCodeError,
-        RhttpInvalidCertificateError: wire_cst_RhttpError_RhttpInvalidCertificateError,
-        RhttpConnectionError: wire_cst_RhttpError_RhttpConnectionError,
-        RhttpUnknownError: wire_cst_RhttpError_RhttpUnknownError,
-        nil__: (),
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_RhttpError_RhttpStatusCodeError {
-        field0: u16,
-        field1: *mut wire_cst_list_record_string_string,
-        field2: *mut wire_cst_http_response_body,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_RhttpError_RhttpInvalidCertificateError {
-        field0: *mut wire_cst_list_prim_u_8_strict,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_RhttpError_RhttpConnectionError {
-        field0: *mut wire_cst_list_prim_u_8_strict,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_RhttpError_RhttpUnknownError {
-        field0: *mut wire_cst_list_prim_u_8_strict,
+    pub struct wire_cst_room_member_row {
+        user_id: *mut wire_cst_list_prim_u_8_strict,
+        display_name: *mut wire_cst_list_prim_u_8_strict,
+        power_level: i64,
+        role: i32,
+        is_self: bool,
+        current_user_can_kick: bool,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -9164,31 +6499,6 @@ rhttp_client: *mut usize }
         unread_mentions: *mut u64,
         unread_messages: *mut u64,
         message: *mut wire_cst_message,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_static_dns_settings {
-        overrides: *mut wire_cst_list_record_string_list_string,
-        fallback: *mut wire_cst_list_prim_u_8_strict,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_timeout_settings {
-        timeout_ms: *mut i64,
-        connect_timeout_ms: *mut i64,
-        keep_alive_timeout_ms: *mut i64,
-        keep_alive_ping_ms: *mut i64,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    pub struct wire_cst_tls_settings {
-        trust_root_certificates: bool,
-        trusted_root_certificates: *mut wire_cst_list_list_prim_u_8_strict,
-        verify_certificates: bool,
-        client_certificate: *mut wire_cst_client_certificate,
-        min_tls_version: *mut i32,
-        max_tls_version: *mut i32,
-        sni: bool,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -9236,8 +6546,6 @@ mod web {
     use super::*;
     use crate::api::matrix_client::*;
     use crate::logger::platform::*;
-    use crate::rhttp::api::client::*;
-    use crate::rhttp::api::stream::*;
     use crate::*;
     use flutter_rust_bridge::for_generated::byteorder::{
         NativeEndian, ReadBytesExt, WriteBytesExt,
@@ -9259,17 +6567,27 @@ mod web {
             unimplemented!()
         }
     }
-    impl CstDecode<flutter_rust_bridge::DartOpaque>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> flutter_rust_bridge::DartOpaque {
-            unsafe { flutter_rust_bridge::for_generated::cst_decode_dart_opaque(self as _) }
-        }
-    }
     impl CstDecode<StreamSink<String, flutter_rust_bridge::for_generated::DcoCodec>> for String {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> StreamSink<String, flutter_rust_bridge::for_generated::DcoCodec> {
+            StreamSink::deserialize(self)
+        }
+    }
+    impl
+        CstDecode<
+            StreamSink<
+                crate::matrix::file_send_progress::FileSendProgress,
+                flutter_rust_bridge::for_generated::DcoCodec,
+            >,
+        > for String
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(
+            self,
+        ) -> StreamSink<
+            crate::matrix::file_send_progress::FileSendProgress,
+            flutter_rust_bridge::for_generated::DcoCodec,
+        > {
             StreamSink::deserialize(self)
         }
     }
@@ -9288,12 +6606,6 @@ mod web {
             Vec<crate::matrix::timelines::Message>,
             flutter_rust_bridge::for_generated::DcoCodec,
         > {
-            StreamSink::deserialize(self)
-        }
-    }
-    impl CstDecode<StreamSink<Vec<u8>, flutter_rust_bridge::for_generated::DcoCodec>> for String {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> StreamSink<Vec<u8>, flutter_rust_bridge::for_generated::DcoCodec> {
             StreamSink::deserialize(self)
         }
     }
@@ -9375,26 +6687,6 @@ mod web {
             self
         }
     }
-    impl CstDecode<crate::rhttp::api::client::ClientCertificate>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::ClientCertificate {
-            let self_ = self
-                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
-                .unwrap();
-            assert_eq!(
-                self_.length(),
-                2,
-                "Expected 2 elements, got {}",
-                self_.length()
-            );
-            crate::rhttp::api::client::ClientCertificate {
-                certificate: self_.get(0).cst_decode(),
-                private_key: self_.get(1).cst_decode(),
-            }
-        }
-    }
     impl CstDecode<crate::matrix::client::ClientConfig>
         for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
     {
@@ -9405,8 +6697,8 @@ mod web {
                 .unwrap();
             assert_eq!(
                 self_.length(),
-                6,
-                "Expected 6 elements, got {}",
+                5,
+                "Expected 5 elements, got {}",
                 self_.length()
             );
             crate::matrix::client::ClientConfig {
@@ -9415,7 +6707,6 @@ mod web {
                 root_certificates: self_.get(2).cst_decode(),
                 proxy: self_.get(3).cst_decode(),
                 passphrase: self_.get(4).cst_decode(),
-                rhttp_client: self_.get(5).cst_decode(),
             }
         }
     }
@@ -9434,154 +6725,25 @@ mod web {
             }
         }
     }
-    impl CstDecode<crate::rhttp::api::client::ClientSettings>
+    impl CstDecode<crate::matrix::file_send_progress::FileSendProgress>
         for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
     {
         // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::ClientSettings {
+        fn cst_decode(self) -> crate::matrix::file_send_progress::FileSendProgress {
             let self_ = self
                 .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
                 .unwrap();
             assert_eq!(
                 self_.length(),
-                9,
-                "Expected 9 elements, got {}",
+                4,
+                "Expected 4 elements, got {}",
                 self_.length()
             );
-            crate::rhttp::api::client::ClientSettings {
-                cookie_settings: self_.get(0).cst_decode(),
-                http_version_pref: self_.get(1).cst_decode(),
-                timeout_settings: self_.get(2).cst_decode(),
-                throw_on_status_code: self_.get(3).cst_decode(),
-                proxy_settings: self_.get(4).cst_decode(),
-                redirect_settings: self_.get(5).cst_decode(),
-                tls_settings: self_.get(6).cst_decode(),
-                dns_settings: self_.get(7).cst_decode(),
-                user_agent: self_.get(8).cst_decode(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::CookieSettings>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::CookieSettings {
-            let self_ = self
-                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
-                .unwrap();
-            assert_eq!(
-                self_.length(),
-                1,
-                "Expected 1 elements, got {}",
-                self_.length()
-            );
-            crate::rhttp::api::client::CookieSettings {
-                store_cookies: self_.get(0).cst_decode(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::CustomProxy>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::CustomProxy {
-            let self_ = self
-                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
-                .unwrap();
-            assert_eq!(
-                self_.length(),
-                2,
-                "Expected 2 elements, got {}",
-                self_.length()
-            );
-            crate::rhttp::api::client::CustomProxy {
-                url: self_.get(0).cst_decode(),
-                condition: self_.get(1).cst_decode(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::http::HttpBody>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::HttpBody {
-            let self_ = self.unchecked_into::<flutter_rust_bridge::for_generated::js_sys::Array>();
-            match self_.get(0).unchecked_into_f64() as _ {
-                0 => crate::rhttp::api::http::HttpBody::Text(self_.get(1).cst_decode()),
-                1 => crate::rhttp::api::http::HttpBody::Bytes(self_.get(1).cst_decode()),
-                2 => crate::rhttp::api::http::HttpBody::BytesStream,
-                3 => crate::rhttp::api::http::HttpBody::Form(self_.get(1).cst_decode()),
-                4 => crate::rhttp::api::http::HttpBody::Multipart(self_.get(1).cst_decode()),
-                _ => unreachable!(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::http::HttpHeaders>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::HttpHeaders {
-            let self_ = self.unchecked_into::<flutter_rust_bridge::for_generated::js_sys::Array>();
-            match self_.get(0).unchecked_into_f64() as _ {
-                0 => crate::rhttp::api::http::HttpHeaders::Map(self_.get(1).cst_decode()),
-                1 => crate::rhttp::api::http::HttpHeaders::List(self_.get(1).cst_decode()),
-                _ => unreachable!(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::http::HttpMethod>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::HttpMethod {
-            let self_ = self
-                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
-                .unwrap();
-            assert_eq!(
-                self_.length(),
-                1,
-                "Expected 1 elements, got {}",
-                self_.length()
-            );
-            crate::rhttp::api::http::HttpMethod {
-                method: self_.get(0).cst_decode(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::http::HttpResponse>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::HttpResponse {
-            let self_ = self
-                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
-                .unwrap();
-            assert_eq!(
-                self_.length(),
-                5,
-                "Expected 5 elements, got {}",
-                self_.length()
-            );
-            crate::rhttp::api::http::HttpResponse {
-                remote_ip: self_.get(0).cst_decode(),
-                headers: self_.get(1).cst_decode(),
-                version: self_.get(2).cst_decode(),
-                status_code: self_.get(3).cst_decode(),
-                body: self_.get(4).cst_decode(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::http::HttpResponseBody>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::HttpResponseBody {
-            let self_ = self.unchecked_into::<flutter_rust_bridge::for_generated::js_sys::Array>();
-            match self_.get(0).unchecked_into_f64() as _ {
-                0 => crate::rhttp::api::http::HttpResponseBody::Text(self_.get(1).cst_decode()),
-                1 => crate::rhttp::api::http::HttpResponseBody::Bytes(self_.get(1).cst_decode()),
-                2 => crate::rhttp::api::http::HttpResponseBody::Stream,
-                _ => unreachable!(),
+            crate::matrix::file_send_progress::FileSendProgress {
+                phase: self_.get(0).cst_decode(),
+                current: self_.get(1).cst_decode(),
+                total: self_.get(2).cst_decode(),
+                message: self_.get(3).cst_decode(),
             }
         }
     }
@@ -9598,28 +6760,6 @@ mod web {
     impl CstDecode<Vec<String>> for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> Vec<String> {
-            self.dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
-                .unwrap()
-                .iter()
-                .map(CstDecode::cst_decode)
-                .collect()
-        }
-    }
-    impl CstDecode<Vec<crate::rhttp::api::client::CustomProxy>>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> Vec<crate::rhttp::api::client::CustomProxy> {
-            self.dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
-                .unwrap()
-                .iter()
-                .map(CstDecode::cst_decode)
-                .collect()
-        }
-    }
-    impl CstDecode<Vec<Vec<u8>>> for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> Vec<Vec<u8>> {
             self.dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
                 .unwrap()
                 .iter()
@@ -9645,11 +6785,11 @@ mod web {
             self.into_vec()
         }
     }
-    impl CstDecode<Vec<(String, Vec<String>)>>
+    impl CstDecode<Vec<crate::matrix::room_info::RoomFileItem>>
         for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
     {
         // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> Vec<(String, Vec<String>)> {
+        fn cst_decode(self) -> Vec<crate::matrix::room_info::RoomFileItem> {
             self.dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
                 .unwrap()
                 .iter()
@@ -9657,23 +6797,11 @@ mod web {
                 .collect()
         }
     }
-    impl CstDecode<Vec<(String, crate::rhttp::api::http::MultipartItem)>>
+    impl CstDecode<Vec<crate::matrix::room_info::RoomMemberRow>>
         for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
     {
         // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> Vec<(String, crate::rhttp::api::http::MultipartItem)> {
-            self.dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
-                .unwrap()
-                .iter()
-                .map(CstDecode::cst_decode)
-                .collect()
-        }
-    }
-    impl CstDecode<Vec<(String, String)>>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> Vec<(String, String)> {
+        fn cst_decode(self) -> Vec<crate::matrix::room_info::RoomMemberRow> {
             self.dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
                 .unwrap()
                 .iter()
@@ -9727,16 +6855,24 @@ mod web {
                 .unwrap();
             assert_eq!(
                 self_.length(),
-                5,
-                "Expected 5 elements, got {}",
+                13,
+                "Expected 13 elements, got {}",
                 self_.length()
             );
             crate::matrix::timelines::Message {
                 event_id: self_.get(0).cst_decode(),
-                sender: self_.get(1).cst_decode(),
-                content: self_.get(2).cst_decode(),
-                timestamp: self_.get(3).cst_decode(),
-                message_type: self_.get(4).cst_decode(),
+                transaction_id: self_.get(1).cst_decode(),
+                sender: self_.get(2).cst_decode(),
+                content: self_.get(3).cst_decode(),
+                timestamp: self_.get(4).cst_decode(),
+                message_type: self_.get(5).cst_decode(),
+                room_msg_kind: self_.get(6).cst_decode(),
+                send_state: self_.get(7).cst_decode(),
+                send_error: self_.get(8).cst_decode(),
+                send_recoverable: self_.get(9).cst_decode(),
+                is_own: self_.get(10).cst_decode(),
+                media_mimetype: self_.get(11).cst_decode(),
+                media_size_bytes: self_.get(12).cst_decode(),
             }
         }
     }
@@ -9762,187 +6898,87 @@ mod web {
             }
         }
     }
-    impl CstDecode<crate::rhttp::api::http::MultipartItem>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::MultipartItem {
-            let self_ = self
-                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
-                .unwrap();
-            assert_eq!(
-                self_.length(),
-                3,
-                "Expected 3 elements, got {}",
-                self_.length()
-            );
-            crate::rhttp::api::http::MultipartItem {
-                value: self_.get(0).cst_decode(),
-                file_name: self_.get(1).cst_decode(),
-                content_type: self_.get(2).cst_decode(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::http::MultipartPayload>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::MultipartPayload {
-            let self_ = self
-                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
-                .unwrap();
-            assert_eq!(
-                self_.length(),
-                1,
-                "Expected 1 elements, got {}",
-                self_.length()
-            );
-            crate::rhttp::api::http::MultipartPayload {
-                parts: self_.get(0).cst_decode(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::http::MultipartValue>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::MultipartValue {
-            let self_ = self.unchecked_into::<flutter_rust_bridge::for_generated::js_sys::Array>();
-            match self_.get(0).unchecked_into_f64() as _ {
-                0 => crate::rhttp::api::http::MultipartValue::Text(self_.get(1).cst_decode()),
-                1 => crate::rhttp::api::http::MultipartValue::Bytes(self_.get(1).cst_decode()),
-                2 => crate::rhttp::api::http::MultipartValue::File(self_.get(1).cst_decode()),
-                _ => unreachable!(),
-            }
-        }
-    }
     impl CstDecode<Option<String>> for Option<String> {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> Option<String> {
             self.map(CstDecode::cst_decode)
         }
     }
-    impl CstDecode<crate::rhttp::api::client::ProxySettings>
+    impl CstDecode<crate::matrix::room_info::RoomDetails>
         for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
     {
         // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::ProxySettings {
-            let self_ = self.unchecked_into::<flutter_rust_bridge::for_generated::js_sys::Array>();
-            match self_.get(0).unchecked_into_f64() as _ {
-                0 => crate::rhttp::api::client::ProxySettings::NoProxy,
-                1 => crate::rhttp::api::client::ProxySettings::CustomProxyList(
-                    self_.get(1).cst_decode(),
-                ),
-                _ => unreachable!(),
+        fn cst_decode(self) -> crate::matrix::room_info::RoomDetails {
+            let self_ = self
+                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap();
+            assert_eq!(
+                self_.length(),
+                10,
+                "Expected 10 elements, got {}",
+                self_.length()
+            );
+            crate::matrix::room_info::RoomDetails {
+                room_id: self_.get(0).cst_decode(),
+                display_name: self_.get(1).cst_decode(),
+                topic: self_.get(2).cst_decode(),
+                is_direct: self_.get(3).cst_decode(),
+                is_encrypted: self_.get(4).cst_decode(),
+                member_count: self_.get(5).cst_decode(),
+                members: self_.get(6).cst_decode(),
+                current_user_id: self_.get(7).cst_decode(),
+                current_user_is_admin: self_.get(8).cst_decode(),
+                current_user_is_moderator: self_.get(9).cst_decode(),
             }
         }
     }
-    impl CstDecode<(Dart2RustStreamSink, Dart2RustStreamReceiver)>
+    impl CstDecode<crate::matrix::room_info::RoomFileItem>
         for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
     {
         // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> (Dart2RustStreamSink, Dart2RustStreamReceiver) {
+        fn cst_decode(self) -> crate::matrix::room_info::RoomFileItem {
             let self_ = self
                 .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
                 .unwrap();
             assert_eq!(
                 self_.length(),
-                2,
-                "Expected 2 elements, got {}",
+                8,
+                "Expected 8 elements, got {}",
                 self_.length()
             );
-            (self_.get(0).cst_decode(), self_.get(1).cst_decode())
-        }
-    }
-    impl CstDecode<(String, Vec<String>)>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> (String, Vec<String>) {
-            let self_ = self
-                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
-                .unwrap();
-            assert_eq!(
-                self_.length(),
-                2,
-                "Expected 2 elements, got {}",
-                self_.length()
-            );
-            (self_.get(0).cst_decode(), self_.get(1).cst_decode())
-        }
-    }
-    impl CstDecode<(String, crate::rhttp::api::http::MultipartItem)>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> (String, crate::rhttp::api::http::MultipartItem) {
-            let self_ = self
-                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
-                .unwrap();
-            assert_eq!(
-                self_.length(),
-                2,
-                "Expected 2 elements, got {}",
-                self_.length()
-            );
-            (self_.get(0).cst_decode(), self_.get(1).cst_decode())
-        }
-    }
-    impl CstDecode<(String, String)> for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> (String, String) {
-            let self_ = self
-                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
-                .unwrap();
-            assert_eq!(
-                self_.length(),
-                2,
-                "Expected 2 elements, got {}",
-                self_.length()
-            );
-            (self_.get(0).cst_decode(), self_.get(1).cst_decode())
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::RedirectSettings>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::RedirectSettings {
-            let self_ = self.unchecked_into::<flutter_rust_bridge::for_generated::js_sys::Array>();
-            match self_.get(0).unchecked_into_f64() as _ {
-                0 => crate::rhttp::api::client::RedirectSettings::NoRedirect,
-                1 => crate::rhttp::api::client::RedirectSettings::LimitedRedirects(
-                    self_.get(1).cst_decode(),
-                ),
-                _ => unreachable!(),
+            crate::matrix::room_info::RoomFileItem {
+                event_id: self_.get(0).cst_decode(),
+                transaction_id: self_.get(1).cst_decode(),
+                sender: self_.get(2).cst_decode(),
+                caption: self_.get(3).cst_decode(),
+                timestamp: self_.get(4).cst_decode(),
+                kind: self_.get(5).cst_decode(),
+                is_outgoing: self_.get(6).cst_decode(),
+                size_bytes: self_.get(7).cst_decode(),
             }
         }
     }
-    impl CstDecode<crate::rhttp::api::error::RhttpError>
+    impl CstDecode<crate::matrix::room_info::RoomMemberRow>
         for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
     {
         // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::error::RhttpError {
-            let self_ = self.unchecked_into::<flutter_rust_bridge::for_generated::js_sys::Array>();
-            match self_.get(0).unchecked_into_f64() as _ {
-                0 => crate::rhttp::api::error::RhttpError::RhttpCancelError,
-                1 => crate::rhttp::api::error::RhttpError::RhttpTimeoutError,
-                2 => crate::rhttp::api::error::RhttpError::RhttpRedirectError,
-                3 => crate::rhttp::api::error::RhttpError::RhttpStatusCodeError(
-                    self_.get(1).cst_decode(),
-                    self_.get(2).cst_decode(),
-                    self_.get(3).cst_decode(),
-                ),
-                4 => crate::rhttp::api::error::RhttpError::RhttpInvalidCertificateError(
-                    self_.get(1).cst_decode(),
-                ),
-                5 => crate::rhttp::api::error::RhttpError::RhttpConnectionError(
-                    self_.get(1).cst_decode(),
-                ),
-                6 => crate::rhttp::api::error::RhttpError::RhttpUnknownError(
-                    self_.get(1).cst_decode(),
-                ),
-                _ => unreachable!(),
+        fn cst_decode(self) -> crate::matrix::room_info::RoomMemberRow {
+            let self_ = self
+                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap();
+            assert_eq!(
+                self_.length(),
+                6,
+                "Expected 6 elements, got {}",
+                self_.length()
+            );
+            crate::matrix::room_info::RoomMemberRow {
+                user_id: self_.get(0).cst_decode(),
+                display_name: self_.get(1).cst_decode(),
+                power_level: self_.get(2).cst_decode(),
+                role: self_.get(3).cst_decode(),
+                is_self: self_.get(4).cst_decode(),
+                current_user_can_kick: self_.get(5).cst_decode(),
             }
         }
     }
@@ -9971,73 +7007,6 @@ mod web {
                 unread_mentions: self_.get(7).cst_decode(),
                 unread_messages: self_.get(8).cst_decode(),
                 message: self_.get(9).cst_decode(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::StaticDnsSettings>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::StaticDnsSettings {
-            let self_ = self
-                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
-                .unwrap();
-            assert_eq!(
-                self_.length(),
-                2,
-                "Expected 2 elements, got {}",
-                self_.length()
-            );
-            crate::rhttp::api::client::StaticDnsSettings {
-                overrides: self_.get(0).cst_decode(),
-                fallback: self_.get(1).cst_decode(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::TimeoutSettings>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::TimeoutSettings {
-            let self_ = self
-                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
-                .unwrap();
-            assert_eq!(
-                self_.length(),
-                4,
-                "Expected 4 elements, got {}",
-                self_.length()
-            );
-            crate::rhttp::api::client::TimeoutSettings {
-                timeout_ms: self_.get(0).cst_decode(),
-                connect_timeout_ms: self_.get(1).cst_decode(),
-                keep_alive_timeout_ms: self_.get(2).cst_decode(),
-                keep_alive_ping_ms: self_.get(3).cst_decode(),
-            }
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::TlsSettings>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::TlsSettings {
-            let self_ = self
-                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
-                .unwrap();
-            assert_eq!(
-                self_.length(),
-                7,
-                "Expected 7 elements, got {}",
-                self_.length()
-            );
-            crate::rhttp::api::client::TlsSettings {
-                trust_root_certificates: self_.get(0).cst_decode(),
-                trusted_root_certificates: self_.get(1).cst_decode(),
-                verify_certificates: self_.get(2).cst_decode(),
-                client_certificate: self_.get(3).cst_decode(),
-                min_tls_version: self_.get(4).cst_decode(),
-                max_tls_version: self_.get(5).cst_decode(),
-                sni: self_.get(6).cst_decode(),
             }
         }
     }
@@ -10136,69 +7105,11 @@ mod web {
             unimplemented!()
         }
     }
-    impl CstDecode<RustAutoOpaqueNom<RequestClient>>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> RustAutoOpaqueNom<RequestClient> {
-            flutter_rust_bridge::for_generated::rust_auto_opaque_explicit_decode(self.cst_decode())
-        }
-    }
-    impl CstDecode<CancellationToken> for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> CancellationToken {
-            flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(CstDecode::<
-                RustOpaqueNom<
-                    flutter_rust_bridge::for_generated::RustAutoOpaqueInner<CancellationToken>,
-                >,
-            >::cst_decode(
-                self
-            ))
-        }
-    }
     impl CstDecode<Certificate> for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> Certificate {
             flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(CstDecode::<
                 RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Certificate>>,
-            >::cst_decode(
-                self
-            ))
-        }
-    }
-    impl CstDecode<Dart2RustStreamReceiver>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> Dart2RustStreamReceiver {
-            flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(CstDecode::<
-                RustOpaqueNom<
-                    flutter_rust_bridge::for_generated::RustAutoOpaqueInner<
-                        Dart2RustStreamReceiver,
-                    >,
-                >,
-            >::cst_decode(
-                self
-            ))
-        }
-    }
-    impl CstDecode<Dart2RustStreamSink> for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> Dart2RustStreamSink {
-            flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(CstDecode::<
-                RustOpaqueNom<
-                    flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamSink>,
-                >,
-            >::cst_decode(
-                self
-            ))
-        }
-    }
-    impl CstDecode<DnsSettings> for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> DnsSettings {
-            flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(CstDecode::<
-                RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<DnsSettings>>,
             >::cst_decode(
                 self
             ))
@@ -10232,55 +7143,6 @@ mod web {
             ))
         }
     }
-    impl CstDecode<RequestClient> for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> RequestClient {
-            flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(CstDecode::<
-                RustOpaqueNom<
-                    flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RequestClient>,
-                >,
-            >::cst_decode(
-                self
-            ))
-        }
-    }
-    impl CstDecode<std::collections::HashMap<String, String>>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> std::collections::HashMap<String, String> {
-            let vec: Vec<(String, String)> = self.cst_decode();
-            vec.into_iter().collect()
-        }
-    }
-    impl CstDecode<std::collections::HashMap<String, Vec<String>>>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> std::collections::HashMap<String, Vec<String>> {
-            let vec: Vec<(String, Vec<String>)> = self.cst_decode();
-            vec.into_iter().collect()
-        }
-    }
-    impl
-        CstDecode<
-            RustOpaqueNom<
-                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<CancellationToken>,
-            >,
-        > for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(
-            self,
-        ) -> RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<CancellationToken>>
-        {
-            #[cfg(target_pointer_width = "64")]
-            {
-                compile_error!("64-bit pointers are not supported.");
-            }
-            unsafe { decode_rust_opaque_nom((self.as_f64().unwrap() as usize) as _) }
-        }
-    }
     impl
         CstDecode<
             RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Certificate>>,
@@ -10290,63 +7152,6 @@ mod web {
         fn cst_decode(
             self,
         ) -> RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Certificate>>
-        {
-            #[cfg(target_pointer_width = "64")]
-            {
-                compile_error!("64-bit pointers are not supported.");
-            }
-            unsafe { decode_rust_opaque_nom((self.as_f64().unwrap() as usize) as _) }
-        }
-    }
-    impl
-        CstDecode<
-            RustOpaqueNom<
-                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamReceiver>,
-            >,
-        > for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(
-            self,
-        ) -> RustOpaqueNom<
-            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamReceiver>,
-        > {
-            #[cfg(target_pointer_width = "64")]
-            {
-                compile_error!("64-bit pointers are not supported.");
-            }
-            unsafe { decode_rust_opaque_nom((self.as_f64().unwrap() as usize) as _) }
-        }
-    }
-    impl
-        CstDecode<
-            RustOpaqueNom<
-                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamSink>,
-            >,
-        > for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(
-            self,
-        ) -> RustOpaqueNom<
-            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamSink>,
-        > {
-            #[cfg(target_pointer_width = "64")]
-            {
-                compile_error!("64-bit pointers are not supported.");
-            }
-            unsafe { decode_rust_opaque_nom((self.as_f64().unwrap() as usize) as _) }
-        }
-    }
-    impl
-        CstDecode<
-            RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<DnsSettings>>,
-        > for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(
-            self,
-        ) -> RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<DnsSettings>>
         {
             #[cfg(target_pointer_width = "64")]
             {
@@ -10392,28 +7197,29 @@ mod web {
             unsafe { decode_rust_opaque_nom((self.as_f64().unwrap() as usize) as _) }
         }
     }
-    impl
-        CstDecode<
-            RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RequestClient>>,
-        > for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(
-            self,
-        ) -> RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RequestClient>>
-        {
-            #[cfg(target_pointer_width = "64")]
-            {
-                compile_error!("64-bit pointers are not supported.");
-            }
-            unsafe { decode_rust_opaque_nom((self.as_f64().unwrap() as usize) as _) }
-        }
-    }
     impl CstDecode<StreamSink<String, flutter_rust_bridge::for_generated::DcoCodec>>
         for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
     {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> StreamSink<String, flutter_rust_bridge::for_generated::DcoCodec> {
+            StreamSink::deserialize(self.as_string().expect("should be a string"))
+        }
+    }
+    impl
+        CstDecode<
+            StreamSink<
+                crate::matrix::file_send_progress::FileSendProgress,
+                flutter_rust_bridge::for_generated::DcoCodec,
+            >,
+        > for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(
+            self,
+        ) -> StreamSink<
+            crate::matrix::file_send_progress::FileSendProgress,
+            flutter_rust_bridge::for_generated::DcoCodec,
+        > {
             StreamSink::deserialize(self.as_string().expect("should be a string"))
         }
     }
@@ -10432,14 +7238,6 @@ mod web {
             Vec<crate::matrix::timelines::Message>,
             flutter_rust_bridge::for_generated::DcoCodec,
         > {
-            StreamSink::deserialize(self.as_string().expect("should be a string"))
-        }
-    }
-    impl CstDecode<StreamSink<Vec<u8>, flutter_rust_bridge::for_generated::DcoCodec>>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> StreamSink<Vec<u8>, flutter_rust_bridge::for_generated::DcoCodec> {
             StreamSink::deserialize(self.as_string().expect("should be a string"))
         }
     }
@@ -10527,6 +7325,14 @@ mod web {
             self.is_truthy()
         }
     }
+    impl CstDecode<crate::matrix::timelines::EventSendStateKind>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::matrix::timelines::EventSendStateKind {
+            (self.unchecked_into_f64() as i32).cst_decode()
+        }
+    }
     impl CstDecode<crate::logger::platform::FileRotation>
         for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
     {
@@ -10535,27 +7341,11 @@ mod web {
             (self.unchecked_into_f64() as i32).cst_decode()
         }
     }
-    impl CstDecode<crate::rhttp::api::http::HttpExpectBody>
+    impl CstDecode<crate::matrix::file_send_progress::FileSendPhase>
         for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
     {
         // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::HttpExpectBody {
-            (self.unchecked_into_f64() as i32).cst_decode()
-        }
-    }
-    impl CstDecode<crate::rhttp::api::http::HttpVersion>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::HttpVersion {
-            (self.unchecked_into_f64() as i32).cst_decode()
-        }
-    }
-    impl CstDecode<crate::rhttp::api::http::HttpVersionPref>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::http::HttpVersionPref {
+        fn cst_decode(self) -> crate::matrix::file_send_progress::FileSendPhase {
             (self.unchecked_into_f64() as i32).cst_decode()
         }
     }
@@ -10568,12 +7358,6 @@ mod web {
     impl CstDecode<i64> for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> i64 {
-            ::std::convert::TryInto::<i64>::try_into(self).unwrap() as _
-        }
-    }
-    impl CstDecode<isize> for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> isize {
             ::std::convert::TryInto::<i64>::try_into(self).unwrap() as _
         }
     }
@@ -10609,11 +7393,27 @@ mod web {
             (self.unchecked_into_f64() as i32).cst_decode()
         }
     }
-    impl CstDecode<crate::rhttp::api::client::ProxyCondition>
+    impl CstDecode<crate::matrix::room_info::RoomFileFilter>
         for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
     {
         // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::ProxyCondition {
+        fn cst_decode(self) -> crate::matrix::room_info::RoomFileFilter {
+            (self.unchecked_into_f64() as i32).cst_decode()
+        }
+    }
+    impl CstDecode<crate::matrix::room_info::RoomMemberRoleDto>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::matrix::room_info::RoomMemberRoleDto {
+            (self.unchecked_into_f64() as i32).cst_decode()
+        }
+    }
+    impl CstDecode<crate::matrix::timelines::RoomMessageKind>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::matrix::timelines::RoomMessageKind {
             (self.unchecked_into_f64() as i32).cst_decode()
         }
     }
@@ -10622,14 +7422,6 @@ mod web {
     {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> crate::matrix::sync_service::SyncState {
-            (self.unchecked_into_f64() as i32).cst_decode()
-        }
-    }
-    impl CstDecode<crate::rhttp::api::client::TlsVersion>
-        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
-    {
-        // Codec=Cst (C-struct based), see doc to use other codecs
-        fn cst_decode(self) -> crate::rhttp::api::client::TlsVersion {
             (self.unchecked_into_f64() as i32).cst_decode()
         }
     }
@@ -10681,27 +7473,18 @@ mod web {
     }
 
     #[wasm_bindgen]
-    pub fn wire__crate__rhttp__api__stream__Dart2RustStreamSink_add(
-        port_: flutter_rust_bridge::for_generated::MessagePort,
-        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-        data: Box<[u8]>,
-    ) {
-        wire__crate__rhttp__api__stream__Dart2RustStreamSink_add_impl(port_, that, data)
-    }
-
-    #[wasm_bindgen]
-    pub fn wire__crate__rhttp__api__stream__Dart2RustStreamSink_close(
-        port_: flutter_rust_bridge::for_generated::MessagePort,
-        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-    ) {
-        wire__crate__rhttp__api__stream__Dart2RustStreamSink_close_impl(port_, that)
-    }
-
-    #[wasm_bindgen]
     pub fn wire__crate__logger__platform__FieldsFormatterForFiles_default(
         port_: flutter_rust_bridge::for_generated::MessagePort,
     ) {
         wire__crate__logger__platform__FieldsFormatterForFiles_default_impl(port_)
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_cancel_timeline_file_send(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_cancel_timeline_file_send_impl(port_, that)
     }
 
     #[wasm_bindgen]
@@ -10734,6 +7517,19 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_fetch_room_message_media(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        room_id: String,
+        event_id: String,
+        thumbnail: bool,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_fetch_room_message_media_impl(
+            port_, that, room_id, event_id, thumbnail,
+        )
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__matrix_client__MatrixClient_get_all_rooms(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -10750,6 +7546,17 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_get_existing_dm_room_id(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        user_id: String,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_get_existing_dm_room_id_impl(
+            port_, that, user_id,
+        )
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__matrix_client__MatrixClient_get_older_messages(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -10759,6 +7566,15 @@ mod web {
         wire__crate__api__matrix_client__MatrixClient_get_older_messages_impl(
             port_, that, room_id, count,
         )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_get_room_details(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        room_id: String,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_get_room_details_impl(port_, that, room_id)
     }
 
     #[wasm_bindgen]
@@ -10790,12 +7606,47 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_kick_room_member(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        room_id: String,
+        user_id: String,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_kick_room_member_impl(
+            port_, that, room_id, user_id,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_leave_and_forget_room(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        room_id: String,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_leave_and_forget_room_impl(
+            port_, that, room_id,
+        )
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__matrix_client__MatrixClient_leave_room(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         room_id: String,
     ) {
         wire__crate__api__matrix_client__MatrixClient_leave_room_impl(port_, that, room_id)
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_list_room_files(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        room_id: String,
+        filter: i32,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_list_room_files_impl(
+            port_, that, room_id, filter,
+        )
     }
 
     #[wasm_bindgen]
@@ -10869,6 +7720,32 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_retry_failed_send(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        room_id: String,
+        transaction_id: String,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_retry_failed_send_impl(
+            port_,
+            that,
+            room_id,
+            transaction_id,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_room_list_subscribe_to_rooms(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        room_id: String,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_room_list_subscribe_to_rooms_impl(
+            port_, that, room_id,
+        )
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__matrix_client__MatrixClient_search_users(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -10890,6 +7767,46 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_send_timeline_file(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        room_id: String,
+        file_path: String,
+        caption: Option<String>,
+        app_thumbnail_jpeg_path: Option<String>,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_send_timeline_file_impl(
+            port_,
+            that,
+            room_id,
+            file_path,
+            caption,
+            app_thumbnail_jpeg_path,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_send_timeline_file_with_progress(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        room_id: String,
+        file_path: String,
+        caption: Option<String>,
+        app_thumbnail_jpeg_path: Option<String>,
+        progress: String,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_send_timeline_file_with_progress_impl(
+            port_,
+            that,
+            room_id,
+            file_path,
+            caption,
+            app_thumbnail_jpeg_path,
+            progress,
+        )
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__matrix_client__MatrixClient_set_display_name(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -10899,6 +7816,23 @@ mod web {
             port_,
             that,
             display_name,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_set_room_member_power_level(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        room_id: String,
+        user_id: String,
+        power_level: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_set_room_member_power_level_impl(
+            port_,
+            that,
+            room_id,
+            user_id,
+            power_level,
         )
     }
 
@@ -10986,53 +7920,12 @@ mod web {
     }
 
     #[wasm_bindgen]
-    pub fn wire__crate__rhttp__api__http__cancel_request(
+    pub fn wire__crate__api__document_preview__document_preview_json(
         port_: flutter_rust_bridge::for_generated::MessagePort,
-        token: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        extension: String,
+        data: Box<[u8]>,
     ) {
-        wire__crate__rhttp__api__http__cancel_request_impl(port_, token)
-    }
-
-    #[wasm_bindgen]
-    pub fn wire__crate__rhttp__api__http__cancel_running_requests(
-        port_: flutter_rust_bridge::for_generated::MessagePort,
-        client: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-    ) {
-        wire__crate__rhttp__api__http__cancel_running_requests_impl(port_, client)
-    }
-
-    #[wasm_bindgen]
-    pub fn wire__crate__rhttp__api__client__client_settings_default(
-        port_: flutter_rust_bridge::for_generated::MessagePort,
-    ) {
-        wire__crate__rhttp__api__client__client_settings_default_impl(port_)
-    }
-
-    #[wasm_bindgen]
-    pub fn wire__crate__rhttp__api__client__create_dynamic_resolver_sync(
-        resolver: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
-        wire__crate__rhttp__api__client__create_dynamic_resolver_sync_impl(resolver)
-    }
-
-    #[wasm_bindgen]
-    pub fn wire__crate__rhttp__api__client__create_static_resolver_sync(
-        settings: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
-        wire__crate__rhttp__api__client__create_static_resolver_sync_impl(settings)
-    }
-
-    #[wasm_bindgen]
-    pub fn wire__crate__rhttp__api__stream__create_stream(
-        port_: flutter_rust_bridge::for_generated::MessagePort,
-    ) {
-        wire__crate__rhttp__api__stream__create_stream_impl(port_)
-    }
-
-    #[wasm_bindgen]
-    pub fn wire__crate__rhttp__api__client__get_default_client_sync(
-    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
-        wire__crate__rhttp__api__client__get_default_client_sync_impl()
+        wire__crate__api__document_preview__document_preview_json_impl(port_, extension, data)
     }
 
     #[wasm_bindgen]
@@ -11061,92 +7954,26 @@ mod web {
     }
 
     #[wasm_bindgen]
-    pub fn wire__crate__rhttp__api__http__make_http_request(
-        port_: flutter_rust_bridge::for_generated::MessagePort,
-        client: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-        settings: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-        method: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-        url: String,
-        query: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-        headers: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-        body: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-        body_stream: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-        expect_body: i32,
-        on_cancel_token: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-        cancelable: bool,
-    ) {
-        wire__crate__rhttp__api__http__make_http_request_impl(
-            port_,
-            client,
-            settings,
-            method,
-            url,
-            query,
-            headers,
-            body,
-            body_stream,
-            expect_body,
-            on_cancel_token,
-            cancelable,
-        )
-    }
-
-    #[wasm_bindgen]
-    pub fn wire__crate__rhttp__api__http__make_http_request_receive_stream(
-        port_: flutter_rust_bridge::for_generated::MessagePort,
-        client: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-        settings: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-        method: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-        url: String,
-        query: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-        headers: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-        body: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-        body_stream: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-        stream_sink: String,
-        on_response: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-        on_error: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-        on_cancel_token: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-        cancelable: bool,
-    ) {
-        wire__crate__rhttp__api__http__make_http_request_receive_stream_impl(
-            port_,
-            client,
-            settings,
-            method,
-            url,
-            query,
-            headers,
-            body,
-            body_stream,
-            stream_sink,
-            on_response,
-            on_error,
-            on_cancel_token,
-            cancelable,
-        )
-    }
-
-    #[wasm_bindgen]
-    pub fn wire__crate__rhttp__api__http__register_client(
-        port_: flutter_rust_bridge::for_generated::MessagePort,
-        settings: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-    ) {
-        wire__crate__rhttp__api__http__register_client_impl(port_, settings)
-    }
-
-    #[wasm_bindgen]
-    pub fn wire__crate__rhttp__api__http__register_client_sync(
-        settings: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
-    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
-        wire__crate__rhttp__api__http__register_client_sync_impl(settings)
-    }
-
-    #[wasm_bindgen]
     pub fn wire__crate__logger__platform__reload_tracing_file_writer(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         configuration: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
     ) {
         wire__crate__logger__platform__reload_tracing_file_writer_impl(port_, configuration)
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__native_media_env__set_native_media_env(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        pdfium_dynamic_lib_path: Option<String>,
+        matrix_pdfium_dir: Option<String>,
+        matrix_ffmpeg_path: Option<String>,
+    ) {
+        wire__crate__api__native_media_env__set_native_media_env_impl(
+            port_,
+            pdfium_dynamic_lib_path,
+            matrix_pdfium_dir,
+            matrix_ffmpeg_path,
+        )
     }
 
     #[wasm_bindgen]
@@ -11166,24 +7993,6 @@ mod web {
     }
 
     #[wasm_bindgen]
-    pub fn rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCancellationToken(
-        ptr: *const std::ffi::c_void,
-    ) {
-        unsafe {
-            StdArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<CancellationToken>>::increment_strong_count(ptr as _);
-        }
-    }
-
-    #[wasm_bindgen]
-    pub fn rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCancellationToken(
-        ptr: *const std::ffi::c_void,
-    ) {
-        unsafe {
-            StdArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<CancellationToken>>::decrement_strong_count(ptr as _);
-        }
-    }
-
-    #[wasm_bindgen]
     pub fn rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCertificate(
         ptr: *const std::ffi::c_void,
     ) {
@@ -11198,64 +8007,6 @@ mod web {
     ) {
         unsafe {
             StdArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Certificate>>::decrement_strong_count(ptr as _);
-        }
-    }
-
-    #[wasm_bindgen]
-    pub fn rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDart2RustStreamReceiver(
-        ptr: *const std::ffi::c_void,
-    ) {
-        unsafe {
-            StdArc::<
-                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamReceiver>,
-            >::increment_strong_count(ptr as _);
-        }
-    }
-
-    #[wasm_bindgen]
-    pub fn rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDart2RustStreamReceiver(
-        ptr: *const std::ffi::c_void,
-    ) {
-        unsafe {
-            StdArc::<
-                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamReceiver>,
-            >::decrement_strong_count(ptr as _);
-        }
-    }
-
-    #[wasm_bindgen]
-    pub fn rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDart2RustStreamSink(
-        ptr: *const std::ffi::c_void,
-    ) {
-        unsafe {
-            StdArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamSink>>::increment_strong_count(ptr as _);
-        }
-    }
-
-    #[wasm_bindgen]
-    pub fn rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDart2RustStreamSink(
-        ptr: *const std::ffi::c_void,
-    ) {
-        unsafe {
-            StdArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Dart2RustStreamSink>>::decrement_strong_count(ptr as _);
-        }
-    }
-
-    #[wasm_bindgen]
-    pub fn rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDnsSettings(
-        ptr: *const std::ffi::c_void,
-    ) {
-        unsafe {
-            StdArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<DnsSettings>>::increment_strong_count(ptr as _);
-        }
-    }
-
-    #[wasm_bindgen]
-    pub fn rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDnsSettings(
-        ptr: *const std::ffi::c_void,
-    ) {
-        unsafe {
-            StdArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<DnsSettings>>::decrement_strong_count(ptr as _);
         }
     }
 
@@ -11296,24 +8047,6 @@ mod web {
     ) {
         unsafe {
             StdArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>::decrement_strong_count(ptr as _);
-        }
-    }
-
-    #[wasm_bindgen]
-    pub fn rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerRequestClient(
-        ptr: *const std::ffi::c_void,
-    ) {
-        unsafe {
-            StdArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RequestClient>>::increment_strong_count(ptr as _);
-        }
-    }
-
-    #[wasm_bindgen]
-    pub fn rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerRequestClient(
-        ptr: *const std::ffi::c_void,
-    ) {
-        unsafe {
-            StdArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<RequestClient>>::decrement_strong_count(ptr as _);
         }
     }
 }
