@@ -1,9 +1,12 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_linkify/flutter_linkify.dart';
+import 'package:matrix/src/core/open_in_app_url.dart';
+import 'package:matrix/src/core/timeline_local_hidden_store.dart';
 import 'package:matrix/src/core/presentation/widgets/terminal_container.dart';
+import 'package:matrix/src/features/conversation/presentation/widgets/link_preview_cards.dart';
 import 'package:matrix/src/features/conversation/domain/services/conversation_service.dart';
-import 'package:matrix/src/theme/matrix_theme.dart';
 import 'package:matrix/src/features/conversation/presentation/widgets/attachment_viewer.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
 import 'package:matrix_sdk/matrix_sdk.dart';
@@ -21,38 +24,37 @@ class RoomInfoNavResult {
   final String? focusEventId;
 }
 
-/// Room info UI: denser Matrix terminal readout (greens + teal accent).
-abstract final class _RoomInfoTerminal {
-  static const EdgeInsets screenPadding =
-      EdgeInsets.symmetric(horizontal: 20, vertical: 18);
-  static const EdgeInsets blockPadding = EdgeInsets.all(18);
+/// Room info uses the same [ThemeData] / [ColorScheme] patterns as the chat
+/// listing and conversation screens (primary borders, textTheme,
+/// surfaceContainerHighest panels).
+abstract final class _RoomInfoStyles {
+  static const EdgeInsets listPadding = EdgeInsets.all(16);
+  static const EdgeInsets blockPadding = EdgeInsets.all(16);
 
-  static TextStyle promptLabel(BuildContext context) =>
-      MatrixTheme.labelStyle.copyWith(
-        color: MatrixTheme.matrixAccent,
-        fontSize: 11,
-        letterSpacing: 2,
+  static TextStyle prompt(ThemeData t) =>
+      t.textTheme.labelMedium!.copyWith(
+        color: t.colorScheme.primary,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 0.35,
       );
 
-  static TextStyle sectionTitle(BuildContext context) =>
-      MatrixTheme.labelStyle.copyWith(
-        color: MatrixTheme.matrixLightGreen,
-        fontSize: 12,
-        letterSpacing: 3,
-      );
+  static TextStyle sectionHeader(ThemeData t) => t.textTheme.titleLarge!;
 
-  static TextStyle bodyDim(BuildContext context) =>
-      (Theme.of(context).textTheme.bodyMedium ?? const TextStyle()).copyWith(
-        color: MatrixTheme.matrixGreen.withValues(alpha: 0.85),
-        fontFamily: MatrixTheme.fontFamily,
+  static TextStyle bodyMuted(ThemeData t) => t.textTheme.bodyMedium!.copyWith(
+        color: t.colorScheme.onSurface.withValues(alpha: 0.88),
         height: 1.45,
       );
 
-  static TextStyle metaLine(BuildContext context) =>
-      MatrixTheme.captionStyle.copyWith(
-        color: MatrixTheme.matrixDarkGreen,
-        fontSize: 11,
+  static TextStyle captionMuted(ThemeData t) => t.textTheme.bodySmall!.copyWith(
+        color: t.colorScheme.onSurface.withValues(alpha: 0.72),
         height: 1.35,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      );
+
+  static Widget sectionDivider(ThemeData t) => Divider(
+        height: 1,
+        thickness: 1,
+        color: t.colorScheme.outline.withValues(alpha: 0.35),
       );
 }
 
@@ -67,6 +69,8 @@ IconData _roomFileIcon(RoomMessageKind k) {
     case RoomMessageKind.file:
       return Icons.insert_drive_file_outlined;
     case RoomMessageKind.text:
+    case RoomMessageKind.poll:
+      return Icons.poll_outlined;
     case RoomMessageKind.other:
       return Icons.attach_file_outlined;
   }
@@ -124,23 +128,71 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
     );
   }
 
-  Future<void> _kick(RoomMemberRow m) async {
-    final ok = await showDialog<bool>(
+  Future<bool?> _terminalConfirm({
+    required String title,
+    required String body,
+    String cancelLabel = 'CANCEL',
+    String confirmLabel = 'CONFIRM',
+    bool destructive = false,
+  }) {
+    return showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Remove member'),
-        content: Text('Kick ${m.displayName} from this room?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (ctx) {
+        final t = Theme.of(ctx);
+        final scheme = t.colorScheme;
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+          child: TerminalContainer(
+            showBorder: true,
+            showGlow: false,
+            borderColor: destructive ? scheme.error : scheme.primary,
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  title.toUpperCase(),
+                  style: _RoomInfoStyles.sectionHeader(t),
+                ),
+                const SizedBox(height: 12),
+                Text(body, style: _RoomInfoStyles.bodyMuted(t)),
+                const SizedBox(height: 22),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TerminalButton(
+                        text: cancelLabel,
+                        onPressed: () => Navigator.pop(ctx, false),
+                        isPrimary: false,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TerminalButton(
+                        text: confirmLabel,
+                        onPressed: () => Navigator.pop(ctx, true),
+                        isPrimary: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Kick'),
-          ),
-        ],
-      ),
+        );
+      },
+    );
+  }
+
+  Future<void> _kick(RoomMemberRow m) async {
+    final ok = await _terminalConfirm(
+      title: 'remove_node',
+      body: 'Kick ${m.displayName} from this room?',
+      confirmLabel: 'KICK',
+      destructive: true,
     );
     if (ok != true || !mounted) return;
     final r = await _service.kickRoomMember(
@@ -193,26 +245,13 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
     required bool forget,
     BuildContext? sheetContext,
   }) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(forget ? 'Leave and remove' : 'Leave room'),
-        content: Text(
-          forget
-              ? 'You will leave this room and it will be removed from your room list.'
-              : 'You will leave this room. It may stay in your list until forgotten.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(forget ? 'Leave & remove' : 'Leave'),
-          ),
-        ],
-      ),
+    final ok = await _terminalConfirm(
+      title: forget ? 'leave_purge' : 'leave_session',
+      body: forget
+          ? 'You will leave this room and it will be removed from your room list.'
+          : 'You will leave this room. It may stay in your list until forgotten.',
+      confirmLabel: forget ? 'LEAVE & PURGE' : 'LEAVE',
+      destructive: forget,
     );
     if (ok != true || !mounted) return;
 
@@ -254,15 +293,14 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final title = (_details?.displayName ?? widget.initialTitle ?? 'ROOM')
-        .toUpperCase();
+    final title =
+        (_details?.displayName ?? widget.initialTitle ?? 'ROOM').toUpperCase();
 
     return TerminalScreen(
       title: title,
       actions: [
         IconButton(
           icon: const Icon(Icons.refresh),
-          color: MatrixTheme.matrixGreen,
           onPressed: _loadDetails,
           tooltip: 'Refresh',
         ),
@@ -270,18 +308,18 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
       child: _loading
           ? Center(
               child: CircularProgressIndicator(
-                color: MatrixTheme.matrixAccent,
+                color: theme.colorScheme.primary,
                 strokeWidth: 2,
               ),
             )
           : _error != null
           ? Center(
               child: Padding(
-                padding: _RoomInfoTerminal.screenPadding,
+                padding: _RoomInfoStyles.listPadding,
                 child: Text(
                   _error!,
-                  style: MatrixTheme.errorStyle.copyWith(
-                    fontSize: 14,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.error,
                     height: 1.4,
                   ),
                   textAlign: TextAlign.center,
@@ -294,72 +332,113 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
 
   Widget _buildInfoTab(ThemeData theme) {
     final d = _details!;
+    final scheme = theme.colorScheme;
     return ListView(
-      padding: _RoomInfoTerminal.screenPadding,
+      padding: _RoomInfoStyles.listPadding,
       children: [
+        Text('ROOM', style: _RoomInfoStyles.sectionHeader(theme)),
+        const SizedBox(height: 8),
         Text(
-          '> ROOM_MANIFEST // SECURE_CHANNEL',
-          style: _RoomInfoTerminal.promptLabel(context),
+          '> ROOM DETAILS',
+          style: _RoomInfoStyles.prompt(theme),
         ),
-        const SizedBox(height: 10),
-        TerminalContainer(
-          padding: _RoomInfoTerminal.blockPadding,
-          showGlow: true,
-          borderColor: MatrixTheme.matrixAccent.withValues(alpha: 0.65),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '[ DISPLAY_NAME ]',
-                style: _RoomInfoTerminal.promptLabel(context),
-              ),
-              const SizedBox(height: 10),
-              SelectableText(
-                d.displayName,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: MatrixTheme.matrixLightGreen,
-                  fontFamily: MatrixTheme.fontFamily,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              if (d.topic.isNotEmpty) ...[
-                const SizedBox(height: 18),
-                Text(
-                  '[ TOPIC ]',
-                  style: _RoomInfoTerminal.promptLabel(context),
-                ),
+        const SizedBox(height: 6),
+        SelectableText(
+          d.roomId,
+          style: _RoomInfoStyles.captionMuted(theme).copyWith(fontSize: 11),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Signed in as ${d.currentUserId}',
+          style: _RoomInfoStyles.captionMuted(theme).copyWith(fontSize: 11),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 16),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+            border: Border(
+              left: BorderSide(color: scheme.primary, width: 3),
+            ),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Padding(
+            padding: _RoomInfoStyles.blockPadding,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('DISPLAY NAME', style: _RoomInfoStyles.prompt(theme)),
                 const SizedBox(height: 8),
                 SelectableText(
-                  d.topic,
-                  style: _RoomInfoTerminal.bodyDim(context),
+                  d.displayName,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (d.topic.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  _RoomInfoStyles.sectionDivider(theme),
+                  const SizedBox(height: 12),
+                  Text('TOPIC', style: _RoomInfoStyles.prompt(theme)),
+                  const SizedBox(height: 6),
+                  SelectableText(
+                    d.topic,
+                    style: _RoomInfoStyles.bodyMuted(theme),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: scheme.primary.withValues(alpha: 0.55),
+                    ),
+                    color: scheme.primary.withValues(alpha: 0.1),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: Text(
+                      'Encrypted: ${d.isEncrypted ? "yes" : "no"} · '
+                      'Members: ${d.memberCount} · '
+                      '${d.isDirect ? "Direct" : "Group"}',
+                      style: _RoomInfoStyles.captionMuted(theme).copyWith(
+                        color: scheme.onSurface.withValues(alpha: 0.85),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
                 ),
               ],
-              const SizedBox(height: 18),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: MatrixTheme.statusDecoration,
-                child: Text(
-                  'encrypted: ${d.isEncrypted ? "true" : "false"}  │  '
-                  'nodes: ${d.memberCount}  │  '
-                  'topology: ${d.isDirect ? "1:1" : "mesh"}',
-                  style: _RoomInfoTerminal.metaLine(context),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
         const SizedBox(height: 20),
-        Text('// ROOM', style: _RoomInfoTerminal.sectionTitle(context)),
-        const SizedBox(height: 10),
+        Text('MORE', style: _RoomInfoStyles.sectionHeader(theme)),
+        _RoomInfoStyles.sectionDivider(theme),
+        const SizedBox(height: 8),
         _roomLinkRow(
           theme,
           label: 'Media',
           icon: Icons.perm_media_outlined,
           onTap: () => _showMediaBottomSheet(theme),
         ),
-        const SizedBox(height: 8),
+        _roomLinkRow(
+          theme,
+          label: 'Links',
+          icon: Icons.link_outlined,
+          onTap: () => _showLinksBottomSheet(theme),
+        ),
+        if (!d.isDirect)
+          _roomLinkRow(
+            theme,
+            label: 'Polls',
+            icon: Icons.poll_outlined,
+            onTap: () => _showPollsBottomSheet(theme),
+          ),
         _roomLinkRow(
           theme,
           label: 'Actions',
@@ -367,17 +446,18 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
           onTap: _showActionsBottomSheet,
         ),
         if (!d.isDirect && d.members.isNotEmpty) ...[
-          const SizedBox(height: 22),
-          Text('// MEMBER_REGISTRY', style: _RoomInfoTerminal.sectionTitle(context)),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+          Text('MEMBERS', style: _RoomInfoStyles.sectionHeader(theme)),
+          _RoomInfoStyles.sectionDivider(theme),
+          const SizedBox(height: 8),
           ...d.members.map((m) => _memberTile(theme, d, m)),
         ],
         if (!d.isDirect && d.members.isEmpty)
           Padding(
-            padding: const EdgeInsets.only(top: 20),
+            padding: const EdgeInsets.only(top: 16),
             child: Text(
-              '… member index pending sync',
-              style: _RoomInfoTerminal.metaLine(context),
+              'Member list will appear after sync.',
+              style: _RoomInfoStyles.captionMuted(theme),
             ),
           ),
       ],
@@ -390,37 +470,33 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
     required IconData icon,
     required VoidCallback onTap,
   }) {
-    return TerminalContainer(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-      borderColor: MatrixTheme.matrixGreen.withValues(alpha: 0.45),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(2),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Row(
-              children: [
-                Icon(icon, color: MatrixTheme.matrixAccent, size: 22),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: MatrixTheme.matrixLightGreen,
-                      fontFamily: MatrixTheme.fontFamily,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                Icon(
-                  Icons.chevron_right,
-                  color: MatrixTheme.matrixDarkGreen.withValues(alpha: 0.85),
-                ),
-              ],
+    final scheme = theme.colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: InkWell(
+        onTap: onTap,
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                border: Border.all(color: scheme.primary, width: 1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Icon(icon, color: scheme.primary, size: 20),
             ),
-          ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                label,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            Icon(Icons.chevron_right, color: scheme.primary, size: 22),
+          ],
         ),
       ),
     );
@@ -442,27 +518,55 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
     );
   }
 
+  void _showLinksBottomSheet(ThemeData theme) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return _RoomInfoLinksBottomSheet(
+          roomId: widget.roomId,
+          service: _service,
+          theme: theme,
+          rootContext: context,
+        );
+      },
+    );
+  }
+
+  void _showPollsBottomSheet(ThemeData theme) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return _RoomInfoPollsBottomSheet(
+          roomId: widget.roomId,
+          service: _service,
+          theme: theme,
+          rootContext: context,
+        );
+      },
+    );
+  }
+
   void _showActionsBottomSheet() {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        final scheme = theme.colorScheme;
         final r = MediaQuery.of(sheetContext).padding;
         return Padding(
           padding: EdgeInsets.fromLTRB(16, 8, 16, 8 + r.bottom),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: MatrixTheme.terminalBlack.withValues(alpha: 0.97),
+              color: scheme.surface,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: MatrixTheme.matrixGreen.withValues(alpha: 0.4),
+                color: scheme.primary.withValues(alpha: 0.55),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: MatrixTheme.matrixAccent.withValues(alpha: 0.1),
-                  blurRadius: 16,
-                ),
-              ],
             ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
@@ -476,23 +580,33 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
                       height: 4,
                       margin: const EdgeInsets.only(bottom: 14),
                       decoration: BoxDecoration(
-                        color: MatrixTheme.matrixDarkGreen.withValues(alpha: 0.55),
+                        color: scheme.outline.withValues(alpha: 0.45),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
                   ),
                   Text(
-                    '> SESSION_CONTROL',
-                    style: _RoomInfoTerminal.promptLabel(context),
+                    'LEAVE ROOM',
+                    style: _RoomInfoStyles.sectionHeader(theme),
                   ),
                   const SizedBox(height: 12),
-                  TerminalContainer(
-                    padding: _RoomInfoTerminal.blockPadding,
-                    borderColor: MatrixTheme.warningOrange.withValues(alpha: 0.55),
-                    child: Text(
-                      'disconnect: leave room on homeserver.\n'
-                      'purge: leave + forget → drops local room index.',
-                      style: _RoomInfoTerminal.metaLine(context).copyWith(fontSize: 12),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: scheme.error.withValues(alpha: 0.65),
+                      ),
+                      color: scheme.error.withValues(alpha: 0.08),
+                    ),
+                    child: Padding(
+                      padding: _RoomInfoStyles.blockPadding,
+                      child: Text(
+                        'Leave disconnects you on the homeserver.\n'
+                        'Remove from list also forgets the room locally.',
+                        style: _RoomInfoStyles.captionMuted(theme).copyWith(
+                          fontSize: 12,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -528,21 +642,22 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
     final admin = d.currentUserIsAdmin;
     final showMenu =
         !m.isSelf && (admin || m.currentUserCanKick);
-    return TerminalContainer(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      borderColor: MatrixTheme.matrixGreen.withValues(alpha: 0.45),
+    final scheme = theme.colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 3,
-            height: 44,
-            margin: const EdgeInsets.only(right: 12),
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
-              color: MatrixTheme.matrixAccent.withValues(alpha: 0.85),
-              borderRadius: BorderRadius.circular(1),
+              border: Border.all(color: scheme.primary, width: 1),
+              borderRadius: BorderRadius.circular(4),
             ),
+            child: Icon(Icons.person, color: scheme.primary, size: 20),
           ),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -552,40 +667,56 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
                     Expanded(
                       child: Text(
                         m.displayName,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: MatrixTheme.matrixGreen,
-                          fontFamily: MatrixTheme.fontFamily,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (m.isSelf)
-                      Text(
-                        '⟨local⟩',
-                        style: _RoomInfoTerminal.promptLabel(context),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(2),
+                          border: Border.all(
+                            color: scheme.primary.withValues(alpha: 0.85),
+                          ),
+                          color: scheme.primary.withValues(alpha: 0.15),
+                        ),
+                        child: Text(
+                          'YOU',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: scheme.primary,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                            fontSize: 9,
+                          ),
+                        ),
                       ),
                   ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
-                  m.userId,
-                  style: _RoomInfoTerminal.metaLine(context).copyWith(
-                    color: MatrixTheme.matrixDarkGreen,
-                    fontSize: 10,
+                  m.userIdDisplay,
+                  style: _RoomInfoStyles.captionMuted(theme).copyWith(
+                    fontSize: 11,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  'role=${_roleLabel(m.role).toLowerCase()}  pl=${m.powerLevel}',
-                  style: _RoomInfoTerminal.metaLine(context),
+                  '${_roleLabel(m.role)} · power ${m.powerLevel}',
+                  style: _RoomInfoStyles.captionMuted(theme),
                 ),
               ],
             ),
           ),
           if (showMenu)
             PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert, color: MatrixTheme.matrixGreen.withValues(alpha: 0.8)),
+              icon: Icon(Icons.more_vert, color: scheme.primary),
               onSelected: (value) async {
                 switch (value) {
                   case 'kick':
@@ -609,9 +740,18 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
                     child: Text('Kick / remove'),
                   ),
                 if (admin) ...[
-                  const PopupMenuItem(value: 'mod', child: Text('Make moderator')),
-                  const PopupMenuItem(value: 'admin', child: Text('Make admin')),
-                  const PopupMenuItem(value: 'user', child: Text('Make member')),
+                  const PopupMenuItem(
+                    value: 'mod',
+                    child: Text('Make moderator'),
+                  ),
+                  const PopupMenuItem(
+                    value: 'admin',
+                    child: Text('Make admin'),
+                  ),
+                  const PopupMenuItem(
+                    value: 'user',
+                    child: Text('Make member'),
+                  ),
                 ],
               ],
             ),
@@ -649,20 +789,29 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
   @override
   void initState() {
     super.initState();
+    TimelineLocalHiddenStore.revision.addListener(_onLocalHiddenChanged);
     _loadFiles();
   }
 
   @override
   void dispose() {
+    TimelineLocalHiddenStore.revision.removeListener(_onLocalHiddenChanged);
     _listScrollController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadFiles() async {
-    setState(() {
-      _filesLoading = true;
-      _filesError = null;
-    });
+  void _onLocalHiddenChanged() {
+    if (!mounted) return;
+    _loadFiles(showLoadingIndicator: false);
+  }
+
+  Future<void> _loadFiles({bool showLoadingIndicator = true}) async {
+    if (showLoadingIndicator) {
+      setState(() {
+        _filesLoading = true;
+        _filesError = null;
+      });
+    }
     final r = await widget.service.listRoomFiles(
       roomId: widget.roomId,
       filter: _fileFilter,
@@ -672,9 +821,12 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
       (list) => setState(() {
         _files = list;
         _filesLoading = false;
+        _filesError = null;
       }),
       (f) => setState(() {
-        _filesError = f.toString();
+        if (showLoadingIndicator) {
+          _filesError = f.toString();
+        }
         _filesLoading = false;
       }),
     );
@@ -692,6 +844,8 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
         return 'Video';
       case RoomMessageKind.audio:
         return 'Audio';
+      case RoomMessageKind.poll:
+        return 'Poll';
       case RoomMessageKind.other:
         return 'Other';
     }
@@ -804,8 +958,10 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
     required String tooltip,
     required IconData icon,
   }) {
+    final t = widget.theme;
+    final scheme = t.colorScheme;
     final selected = _fileFilter == filter;
-    final dim = MatrixTheme.matrixDarkGreen.withValues(alpha: 0.88);
+    final dim = scheme.onSurface.withValues(alpha: 0.5);
     return Expanded(
       child: Tooltip(
         message: tooltip,
@@ -824,13 +980,11 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
               decoration: BoxDecoration(
                 color: selected
-                    ? MatrixTheme.matrixDarkGreen.withValues(alpha: 0.42)
-                    : MatrixTheme.terminalBlack.withValues(alpha: 0.25),
+                    ? scheme.primary.withValues(alpha: 0.12)
+                    : scheme.surface.withValues(alpha: 0.2),
                 border: Border(
                   bottom: BorderSide(
-                    color: selected
-                        ? MatrixTheme.matrixAccent
-                        : Colors.transparent,
+                    color: selected ? scheme.primary : Colors.transparent,
                     width: 2,
                   ),
                 ),
@@ -841,19 +995,19 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
                   Icon(
                     icon,
                     size: 20,
-                    color: selected ? MatrixTheme.matrixLightGreen : dim,
+                    color: selected ? scheme.primary : dim,
                   ),
                   const SizedBox(height: 5),
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(
                       label,
-                      style: MatrixTheme.captionStyle.copyWith(
+                      style: t.textTheme.bodySmall?.copyWith(
                         fontSize: 10,
                         letterSpacing: 0.8,
                         fontWeight:
                             selected ? FontWeight.w800 : FontWeight.w500,
-                        color: selected ? MatrixTheme.matrixGreen : dim,
+                        color: selected ? scheme.primary : dim,
                       ),
                       maxLines: 1,
                       textAlign: TextAlign.center,
@@ -871,20 +1025,14 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
   static const double _kFileFilterBarHeight = 72;
 
   Widget _buildFileFilterBar() {
-    final edge = MatrixTheme.matrixGreen.withValues(alpha: 0.42);
-    final div = MatrixTheme.matrixGreen.withValues(alpha: 0.22);
+    final scheme = widget.theme.colorScheme;
+    final edge = scheme.primary.withValues(alpha: 0.55);
+    final div = scheme.outline.withValues(alpha: 0.35);
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: edge, width: 1),
-        color: MatrixTheme.terminalBlack.withValues(alpha: 0.78),
-        boxShadow: [
-          BoxShadow(
-            color: MatrixTheme.matrixAccent.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: scheme.surfaceContainerHighest,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(3),
@@ -922,10 +1070,11 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
 
   Widget _buildFilesList() {
     final theme = widget.theme;
+    final scheme = theme.colorScheme;
     if (_filesLoading) {
       return Center(
         child: CircularProgressIndicator(
-          color: MatrixTheme.matrixAccent,
+          color: scheme.primary,
           strokeWidth: 2,
         ),
       );
@@ -933,10 +1082,13 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
     if (_filesError != null) {
       return Center(
         child: Padding(
-          padding: _RoomInfoTerminal.screenPadding,
+          padding: _RoomInfoStyles.listPadding,
           child: Text(
             _filesError!,
-            style: MatrixTheme.errorStyle.copyWith(height: 1.4),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.error,
+              height: 1.4,
+            ),
             textAlign: TextAlign.center,
           ),
         ),
@@ -945,14 +1097,11 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
     if (_files.isEmpty) {
       return Center(
         child: Padding(
-          padding: _RoomInfoTerminal.screenPadding,
+          padding: _RoomInfoStyles.listPadding,
           child: Text(
             '∅ no blobs in local event cache for this shard.\n'
             'sync room; ciphertext resolves after decrypt.',
-            style: _RoomInfoTerminal.metaLine(context).copyWith(
-              fontSize: 12,
-              color: MatrixTheme.matrixDarkGreen,
-            ),
+            style: _RoomInfoStyles.captionMuted(theme).copyWith(fontSize: 12),
             textAlign: TextAlign.center,
           ),
         ),
@@ -960,107 +1109,110 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
     }
     return ListView.builder(
       controller: _listScrollController,
-      padding: _RoomInfoTerminal.screenPadding.copyWith(top: 0, bottom: 24),
+      padding: _RoomInfoStyles.listPadding.copyWith(top: 0, bottom: 24),
       itemCount: _files.length,
       itemBuilder: (ctx, i) {
         final f = _files[i];
         final t = _fileTime(f);
-        return TerminalContainer(
-          margin: const EdgeInsets.only(bottom: 6),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          showBorder: false,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _RoomFileThumbnail(
-                item: f,
-                loadThumbnail: _fetchRoomMedia,
-                extLower: _captionExtLower(f),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          _roomFileIcon(f.kind),
-                          size: 15,
-                          color: MatrixTheme.matrixAccent,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            f.caption.isEmpty ? '⟨untitled⟩' : f.caption,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: MatrixTheme.matrixLightGreen,
-                              fontFamily: MatrixTheme.fontFamily,
-                              fontWeight: FontWeight.w600,
-                              height: 1.2,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Material(
+            color: scheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _RoomFileThumbnail(
+                    item: f,
+                    theme: theme,
+                    loadThumbnail: _fetchRoomMedia,
+                    extLower: _captionExtLower(f),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(
-                          child: Text(
-                            '${_kindLabel(f.kind)} · '
-                            '${f.isOutgoing ? "Sent" : "Received"} · '
-                            '${_fileListTimeLabel(t)} · '
-                            '${_fileSizeLabel(f)}',
-                            style: _RoomInfoTerminal.metaLine(context)
-                                .copyWith(fontSize: 10),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        Row(
+                          children: [
+                            Icon(
+                              _roomFileIcon(f.kind),
+                              size: 15,
+                              color: scheme.primary,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                f.caption.isEmpty ? '⟨untitled⟩' : f.caption,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.2,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
-                        if (f.eventId.isNotEmpty) ...[
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            constraints: const BoxConstraints(
-                              minWidth: 28,
-                              minHeight: 28,
+                        const SizedBox(height: 4),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${_kindLabel(f.kind)} · '
+                                '${f.isOutgoing ? "Sent" : "Received"} · '
+                                '${_fileListTimeLabel(t)} · '
+                                '${_fileSizeLabel(f)}',
+                                style: _RoomInfoStyles.captionMuted(theme)
+                                    .copyWith(fontSize: 10),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                            padding: EdgeInsets.zero,
-                            tooltip: 'Preview',
-                            onPressed: () => _previewRoomFile(f),
-                            icon: Icon(
-                              Icons.visibility_outlined,
-                              size: 18,
-                              color: MatrixTheme.matrixAccent,
-                            ),
-                          ),
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            constraints: const BoxConstraints(
-                              minWidth: 28,
-                              minHeight: 28,
-                            ),
-                            padding: EdgeInsets.zero,
-                            tooltip: 'Jump to message',
-                            onPressed: () => _jumpToMessageInChat(f),
-                            icon: Icon(
-                              Icons.chat_bubble_outline,
-                              size: 18,
-                              color: MatrixTheme.matrixGreen
-                                  .withValues(alpha: 0.9),
-                            ),
-                          ),
-                        ],
+                            if (f.eventId.isNotEmpty) ...[
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                constraints: const BoxConstraints(
+                                  minWidth: 28,
+                                  minHeight: 28,
+                                ),
+                                padding: EdgeInsets.zero,
+                                tooltip: 'Preview',
+                                onPressed: () => _previewRoomFile(f),
+                                icon: Icon(
+                                  Icons.visibility_outlined,
+                                  size: 18,
+                                  color: scheme.primary,
+                                ),
+                              ),
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                constraints: const BoxConstraints(
+                                  minWidth: 28,
+                                  minHeight: 28,
+                                ),
+                                padding: EdgeInsets.zero,
+                                tooltip: 'Jump to message',
+                                onPressed: () => _jumpToMessageInChat(f),
+                                icon: Icon(
+                                  Icons.chat_bubble_outline,
+                                  size: 18,
+                                  color: scheme.primary,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         );
       },
@@ -1069,6 +1221,8 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = widget.theme;
+    final scheme = theme.colorScheme;
     final sheetHeight = MediaQuery.sizeOf(context).height * 0.9;
     return Align(
       alignment: Alignment.bottomCenter,
@@ -1076,17 +1230,11 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
         height: sheetHeight,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: MatrixTheme.terminalBlack.withValues(alpha: 0.98),
+            color: scheme.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             border: Border.all(
-              color: MatrixTheme.matrixGreen.withValues(alpha: 0.4),
+              color: scheme.primary.withValues(alpha: 0.55),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: MatrixTheme.matrixAccent.withValues(alpha: 0.15),
-                blurRadius: 20,
-              ),
-            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1097,7 +1245,7 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: MatrixTheme.matrixDarkGreen.withValues(alpha: 0.55),
+                    color: scheme.outline.withValues(alpha: 0.45),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -1110,13 +1258,13 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
                   children: [
                     Expanded(
                       child: Text(
-                        '> MEDIA // OBJECT_STORE',
-                        style: _RoomInfoTerminal.promptLabel(context),
+                        'MEDIA',
+                        style: _RoomInfoStyles.sectionHeader(theme),
                       ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close),
-                      color: MatrixTheme.matrixGreen,
+                      color: scheme.primary,
                       tooltip: 'Close',
                       onPressed: () => Navigator.of(context).pop(),
                     ),
@@ -1125,7 +1273,7 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
               ),
               const SizedBox(height: 10),
               Padding(
-                padding: _RoomInfoTerminal.screenPadding.copyWith(
+                padding: _RoomInfoStyles.listPadding.copyWith(
                   top: 0,
                   bottom: 10,
                 ),
@@ -1134,6 +1282,489 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
               Expanded(
                 child: _buildFilesList(),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RoomInfoLinksBottomSheet extends StatefulWidget {
+  const _RoomInfoLinksBottomSheet({
+    required this.roomId,
+    required this.service,
+    required this.theme,
+    required this.rootContext,
+  });
+
+  final String roomId;
+  final ConversationService service;
+  final ThemeData theme;
+  final BuildContext rootContext;
+
+  @override
+  State<_RoomInfoLinksBottomSheet> createState() =>
+      _RoomInfoLinksBottomSheetState();
+}
+
+class _RoomInfoLinksBottomSheetState extends State<_RoomInfoLinksBottomSheet> {
+  RoomFileFilter _filter = RoomFileFilter.all;
+  List<RoomLinkItem> _links = [];
+  bool _loading = true;
+  String? _error;
+  final ScrollController _scroll = ScrollController();
+
+  static const _filterIcons = (
+    all: Icons.grid_view_rounded,
+    received: Icons.south_west_rounded,
+    sent: Icons.north_east_rounded,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    TimelineLocalHiddenStore.revision.addListener(_onLocalHiddenChanged);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    TimelineLocalHiddenStore.revision.removeListener(_onLocalHiddenChanged);
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _onLocalHiddenChanged() {
+    if (!mounted) return;
+    _load(showLoadingIndicator: false);
+  }
+
+  Future<void> _load({bool showLoadingIndicator = true}) async {
+    if (showLoadingIndicator) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+    final r = await widget.service.listRoomLinks(
+      roomId: widget.roomId,
+      filter: _filter,
+    );
+    if (!mounted) return;
+    r.fold(
+      (list) => setState(() {
+        _links = list;
+        _loading = false;
+        _error = null;
+      }),
+      (f) => setState(() {
+        if (showLoadingIndicator) {
+          _error = f.toString();
+        }
+        _loading = false;
+      }),
+    );
+  }
+
+  DateTime? _linkTime(RoomLinkItem item) {
+    try {
+      final t = item.timestamp;
+      // ignore: dead_code, unnecessary_type_check — BigInt on web, int on IO.
+      final int ms = t is BigInt ? t.toInt() : t as int;
+      return DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true).toLocal();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _listTimeLabel(DateTime? t) {
+    if (t == null) return '?';
+    final s = t.toLocal().toString();
+    if (s.length <= 19) return s;
+    return s.substring(0, 19);
+  }
+
+  void _jumpToMessageInChat(RoomLinkItem item) {
+    if (item.eventId.isEmpty) return;
+    final root = widget.rootContext;
+    if (!root.mounted) return;
+    Navigator.of(root).pop();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!root.mounted) return;
+      Navigator.of(root).pop(
+        RoomInfoNavResult(focusEventId: item.eventId),
+      );
+    });
+  }
+
+  Widget _linksFilterDivider(Color c) {
+    return Container(width: 1, color: c);
+  }
+
+  Widget _linksFilterSegment({
+    required RoomFileFilter filter,
+    required String label,
+    required String tooltip,
+    required IconData icon,
+  }) {
+    final t = widget.theme;
+    final scheme = t.colorScheme;
+    final selected = _filter == filter;
+    final dim = scheme.onSurface.withValues(alpha: 0.5);
+    return Expanded(
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              if (_filter == filter) return;
+              setState(() => _filter = filter);
+              _load();
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOut,
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+              decoration: BoxDecoration(
+                color: selected
+                    ? scheme.primary.withValues(alpha: 0.12)
+                    : scheme.surface.withValues(alpha: 0.2),
+                border: Border(
+                  bottom: BorderSide(
+                    color: selected ? scheme.primary : Colors.transparent,
+                    width: 2,
+                  ),
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    size: 20,
+                    color: selected ? scheme.primary : dim,
+                  ),
+                  const SizedBox(height: 5),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      style: t.textTheme.bodySmall?.copyWith(
+                        fontSize: 10,
+                        letterSpacing: 0.8,
+                        fontWeight:
+                            selected ? FontWeight.w800 : FontWeight.w500,
+                        color: selected ? scheme.primary : dim,
+                      ),
+                      maxLines: 1,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static const double _kLinksFilterBarHeight = 72;
+
+  Widget _buildLinksFilterBar() {
+    final scheme = widget.theme.colorScheme;
+    final edge = scheme.primary.withValues(alpha: 0.55);
+    final div = scheme.outline.withValues(alpha: 0.35);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: edge, width: 1),
+        color: scheme.surfaceContainerHighest,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(3),
+        child: SizedBox(
+          height: _kLinksFilterBarHeight,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _linksFilterSegment(
+                filter: RoomFileFilter.all,
+                label: 'ALL',
+                tooltip: 'All link messages',
+                icon: _filterIcons.all,
+              ),
+              _linksFilterDivider(div),
+              _linksFilterSegment(
+                filter: RoomFileFilter.received,
+                label: 'RECEIVED',
+                tooltip: 'Received from others',
+                icon: _filterIcons.received,
+              ),
+              _linksFilterDivider(div),
+              _linksFilterSegment(
+                filter: RoomFileFilter.sent,
+                label: 'SENT',
+                tooltip: 'Sent by you',
+                icon: _filterIcons.sent,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _linkListThumb() {
+    const size = 40.0;
+    final scheme = widget.theme.colorScheme;
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: scheme.primary.withValues(alpha: 0.35)),
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+      ),
+      child: Icon(
+        Icons.link_rounded,
+        size: 22,
+        color: scheme.primary,
+      ),
+    );
+  }
+
+  Widget _buildLinksList() {
+    final theme = widget.theme;
+    final scheme = theme.colorScheme;
+    if (_loading) {
+      return Center(
+        child: CircularProgressIndicator(
+          color: scheme.primary,
+          strokeWidth: 2,
+        ),
+      );
+    }
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: _RoomInfoStyles.listPadding,
+          child: Text(
+            _error!,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.error,
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    if (_links.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: _RoomInfoStyles.listPadding,
+          child: Text(
+            '∅ no link messages in local event cache for this shard.\n'
+            'sync room; URLs are indexed from decrypted timeline.',
+            style: _RoomInfoStyles.captionMuted(theme).copyWith(fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    return ListView.builder(
+      controller: _scroll,
+      padding: _RoomInfoStyles.listPadding.copyWith(top: 0, bottom: 24),
+      itemCount: _links.length,
+      itemBuilder: (ctx, i) {
+        final item = _links[i];
+        final t = _linkTime(item);
+        final accent = scheme.primary;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Material(
+            color: scheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _linkListThumb(),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.link,
+                                  size: 15,
+                                  color: accent,
+                                ),
+                                const SizedBox(width: 6),
+                                if (item.isLinkMessage)
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 6),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 5,
+                                        vertical: 1,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: accent.withValues(alpha: 0.45),
+                                        ),
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                      child: Text(
+                                        'PREVIEW',
+                                        style: _RoomInfoStyles.captionMuted(theme)
+                                            .copyWith(
+                                          fontSize: 8,
+                                          color: accent,
+                                          letterSpacing: 0.6,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                Expanded(
+                                  child: SelectableLinkify(
+                                    text: item.body.isEmpty
+                                        ? '⟨empty⟩'
+                                        : item.body,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.2,
+                                    ),
+                                    linkStyle: theme.textTheme.bodyMedium?.copyWith(
+                                      color: accent,
+                                      decoration: TextDecoration.underline,
+                                      decorationColor: accent,
+                                    ),
+                                    onOpen: (link) =>
+                                        openMatrixUrl(context, link.url),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${item.isOutgoing ? "Sent" : "Received"} · '
+                              '${_listTimeLabel(t)}',
+                              style: _RoomInfoStyles.captionMuted(theme)
+                                  .copyWith(fontSize: 10),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (item.eventId.isNotEmpty)
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints(
+                            minWidth: 28,
+                            minHeight: 28,
+                          ),
+                          padding: EdgeInsets.zero,
+                          tooltip: 'Jump to message',
+                          onPressed: () => _jumpToMessageInChat(item),
+                          icon: Icon(
+                            Icons.chat_bubble_outline,
+                            size: 18,
+                            color: accent,
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (matrixLinkPreviewsJsonHasData(item.linkPreviewsJson))
+                    MatrixLinkPreviewCards(
+                      linkPreviewsJson: item.linkPreviewsJson,
+                      accentColor: accent,
+                      compact: false,
+                      onOpenUrl: (u) => openMatrixUrl(context, u),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    final scheme = theme.colorScheme;
+    final sheetHeight = MediaQuery.sizeOf(context).height * 0.9;
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: SizedBox(
+        height: sheetHeight,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            border: Border.all(
+              color: scheme.primary.withValues(alpha: 0.55),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 10),
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: scheme.outline.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.only(left: 20, right: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'LINKS',
+                        style: _RoomInfoStyles.sectionHeader(theme),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      color: scheme.primary,
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Padding(
+                padding: _RoomInfoStyles.listPadding.copyWith(
+                  top: 0,
+                  bottom: 10,
+                ),
+                child: _buildLinksFilterBar(),
+              ),
+              Expanded(child: _buildLinksList()),
             ],
           ),
         ),
@@ -1186,11 +1817,13 @@ bool _isRoomInfoRasterBytes(Uint8List data) {
 class _RoomFileThumbnail extends StatefulWidget {
   const _RoomFileThumbnail({
     required this.item,
+    required this.theme,
     required this.loadThumbnail,
     required this.extLower,
   });
 
   final RoomFileItem item;
+  final ThemeData theme;
   final Future<Uint8List?> Function(String eventId, {bool thumbnail})
       loadThumbnail;
   final String extLower;
@@ -1252,25 +1885,29 @@ class _RoomFileThumbnailState extends State<_RoomFileThumbnail> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = widget.theme.colorScheme;
     const size = 40.0;
     const iconSize = 20.0;
+    final dim = scheme.onSurface.withValues(alpha: 0.55);
     if (widget.item.eventId.isEmpty) {
       return _thumbShell(
         size,
+        scheme,
         Icon(
           _roomFileIcon(widget.item.kind),
           size: iconSize,
-          color: MatrixTheme.matrixDarkGreen,
+          color: dim,
         ),
       );
     }
     if (widget.item.kind == RoomMessageKind.audio) {
       return _thumbShell(
         size,
+        scheme,
         Icon(
           Icons.audiotrack,
           size: iconSize,
-          color: MatrixTheme.matrixAccent,
+          color: scheme.primary,
         ),
       );
     }
@@ -1284,7 +1921,7 @@ class _RoomFileThumbnailState extends State<_RoomFileThumbnail> {
             height: 16,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: MatrixTheme.matrixAccent,
+              color: scheme.primary,
             ),
           ),
         ),
@@ -1293,6 +1930,7 @@ class _RoomFileThumbnailState extends State<_RoomFileThumbnail> {
     if (_bytes != null && _bytes!.isNotEmpty) {
       return _thumbShell(
         size,
+        scheme,
         ClipRRect(
           borderRadius: BorderRadius.circular(3),
           child: Image.memory(
@@ -1304,7 +1942,7 @@ class _RoomFileThumbnailState extends State<_RoomFileThumbnail> {
             errorBuilder: (_, __, ___) => Icon(
               _roomFileIcon(widget.item.kind),
               size: iconSize,
-              color: MatrixTheme.matrixDarkGreen,
+              color: dim,
             ),
           ),
         ),
@@ -1312,24 +1950,494 @@ class _RoomFileThumbnailState extends State<_RoomFileThumbnail> {
     }
     return _thumbShell(
       size,
+      scheme,
       Icon(
         _roomFileIcon(widget.item.kind),
         size: iconSize,
-        color: MatrixTheme.matrixDarkGreen,
+        color: dim,
       ),
     );
   }
 
-  Widget _thumbShell(double size, Widget child) {
+  Widget _thumbShell(double size, ColorScheme scheme, Widget child) {
     return Container(
       width: size,
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(3),
-        color: MatrixTheme.terminalBackground.withValues(alpha: 0.85),
+        border: Border.all(color: scheme.primary.withValues(alpha: 0.35)),
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
       ),
       child: child,
+    );
+  }
+}
+
+class _RoomInfoPollsBottomSheet extends StatefulWidget {
+  const _RoomInfoPollsBottomSheet({
+    required this.roomId,
+    required this.service,
+    required this.theme,
+    required this.rootContext,
+  });
+
+  final String roomId;
+  final ConversationService service;
+  final ThemeData theme;
+  final BuildContext rootContext;
+
+  @override
+  State<_RoomInfoPollsBottomSheet> createState() =>
+      _RoomInfoPollsBottomSheetState();
+}
+
+class _RoomInfoPollsBottomSheetState extends State<_RoomInfoPollsBottomSheet> {
+  RoomFileFilter _filter = RoomFileFilter.all;
+  List<RoomPollItem> _polls = [];
+  bool _loading = true;
+  String? _error;
+  final ScrollController _scroll = ScrollController();
+
+  static const _filterIcons = (
+    all: Icons.grid_view_rounded,
+    received: Icons.south_west_rounded,
+    sent: Icons.north_east_rounded,
+  );
+
+  static const double _kPollsFilterBarHeight = 72;
+
+  @override
+  void initState() {
+    super.initState();
+    TimelineLocalHiddenStore.revision.addListener(_onLocalHiddenChanged);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    TimelineLocalHiddenStore.revision.removeListener(_onLocalHiddenChanged);
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _onLocalHiddenChanged() {
+    if (!mounted) return;
+    _load(showLoadingIndicator: false);
+  }
+
+  Future<void> _load({bool showLoadingIndicator = true}) async {
+    if (showLoadingIndicator) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+    final r = await widget.service.listRoomPolls(
+      roomId: widget.roomId,
+      filter: _filter,
+    );
+    if (!mounted) return;
+    r.fold(
+      (list) => setState(() {
+        _polls = list;
+        _loading = false;
+        _error = null;
+      }),
+      (f) => setState(() {
+        if (showLoadingIndicator) {
+          _error = f.toString();
+        }
+        _loading = false;
+      }),
+    );
+  }
+
+  DateTime? _pollTime(RoomPollItem item) {
+    try {
+      final t = item.timestamp;
+      // ignore: dead_code, unnecessary_type_check — BigInt on web, int on IO.
+      final int ms = t is BigInt ? t.toInt() : t as int;
+      return DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true).toLocal();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _listTimeLabel(DateTime? t) {
+    if (t == null) return '?';
+    final s = t.toLocal().toString();
+    if (s.length <= 19) return s;
+    return s.substring(0, 19);
+  }
+
+  void _jumpToPollInChat(RoomPollItem item) {
+    if (item.eventId.isEmpty) return;
+    final root = widget.rootContext;
+    if (!root.mounted) return;
+    Navigator.of(root).pop();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!root.mounted) return;
+      Navigator.of(root).pop(
+        RoomInfoNavResult(focusEventId: item.eventId),
+      );
+    });
+  }
+
+  Widget _pollsFilterDivider(Color c) {
+    return Container(width: 1, color: c);
+  }
+
+  Widget _pollsFilterSegment({
+    required RoomFileFilter filter,
+    required String label,
+    required String tooltip,
+    required IconData icon,
+  }) {
+    final t = widget.theme;
+    final scheme = t.colorScheme;
+    final selected = _filter == filter;
+    final dim = scheme.onSurface.withValues(alpha: 0.5);
+    return Expanded(
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              if (_filter == filter) return;
+              setState(() => _filter = filter);
+              _load();
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOut,
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+              decoration: BoxDecoration(
+                color: selected
+                    ? scheme.primary.withValues(alpha: 0.12)
+                    : scheme.surface.withValues(alpha: 0.2),
+                border: Border(
+                  bottom: BorderSide(
+                    color: selected ? scheme.primary : Colors.transparent,
+                    width: 2,
+                  ),
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    size: 20,
+                    color: selected ? scheme.primary : dim,
+                  ),
+                  const SizedBox(height: 5),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      style: t.textTheme.bodySmall?.copyWith(
+                        fontSize: 10,
+                        letterSpacing: 0.8,
+                        fontWeight:
+                            selected ? FontWeight.w800 : FontWeight.w500,
+                        color: selected ? scheme.primary : dim,
+                      ),
+                      maxLines: 1,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPollsFilterBar() {
+    final scheme = widget.theme.colorScheme;
+    final edge = scheme.primary.withValues(alpha: 0.55);
+    final div = scheme.outline.withValues(alpha: 0.35);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: edge, width: 1),
+        color: scheme.surfaceContainerHighest,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(3),
+        child: SizedBox(
+          height: _kPollsFilterBarHeight,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _pollsFilterSegment(
+                filter: RoomFileFilter.all,
+                label: 'ALL',
+                tooltip: 'All polls',
+                icon: _filterIcons.all,
+              ),
+              _pollsFilterDivider(div),
+              _pollsFilterSegment(
+                filter: RoomFileFilter.received,
+                label: 'RECEIVED',
+                tooltip: 'Received from others',
+                icon: _filterIcons.received,
+              ),
+              _pollsFilterDivider(div),
+              _pollsFilterSegment(
+                filter: RoomFileFilter.sent,
+                label: 'SENT',
+                tooltip: 'Sent by you',
+                icon: _filterIcons.sent,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _pollListThumb() {
+    const size = 40.0;
+    final scheme = widget.theme.colorScheme;
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: scheme.primary.withValues(alpha: 0.35)),
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+      ),
+      child: Icon(
+        Icons.poll_rounded,
+        size: 22,
+        color: scheme.primary,
+      ),
+    );
+  }
+
+  Widget _buildPollsList() {
+    final theme = widget.theme;
+    final scheme = theme.colorScheme;
+    if (_loading) {
+      return Center(
+        child: CircularProgressIndicator(
+          color: scheme.primary,
+          strokeWidth: 2,
+        ),
+      );
+    }
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: _RoomInfoStyles.listPadding,
+          child: Text(
+            _error!,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.error,
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    if (_polls.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: _RoomInfoStyles.listPadding,
+          child: Text(
+            '∅ no poll events in local event cache for this shard.\n'
+            'sync room; polls are indexed from MSC3381 poll.start.',
+            style: _RoomInfoStyles.captionMuted(theme).copyWith(fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    return ListView.builder(
+      controller: _scroll,
+      padding: _RoomInfoStyles.listPadding.copyWith(top: 0, bottom: 24),
+      itemCount: _polls.length,
+      itemBuilder: (ctx, i) {
+        final p = _polls[i];
+        final t = _pollTime(p);
+        final accent = scheme.primary;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Material(
+            color: scheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _pollListThumb(),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.how_to_vote_outlined,
+                                  size: 15,
+                                  color: accent,
+                                ),
+                                const SizedBox(width: 6),
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 6),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 5,
+                                      vertical: 1,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: accent.withValues(alpha: 0.45),
+                                      ),
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                    child: Text(
+                                      'POLL',
+                                      style: _RoomInfoStyles.captionMuted(theme)
+                                          .copyWith(
+                                        fontSize: 8,
+                                        color: accent,
+                                        letterSpacing: 0.6,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    p.question.isNotEmpty ? p.question : '⟨poll⟩',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.2,
+                                    ),
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${p.isOutgoing ? "Sent" : "Received"} · '
+                              '${_listTimeLabel(t)}',
+                              style: _RoomInfoStyles.captionMuted(theme)
+                                  .copyWith(fontSize: 10),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (p.eventId.isNotEmpty)
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints(
+                            minWidth: 28,
+                            minHeight: 28,
+                          ),
+                          padding: EdgeInsets.zero,
+                          tooltip: 'Jump to message',
+                          onPressed: () => _jumpToPollInChat(p),
+                          icon: Icon(
+                            Icons.chat_bubble_outline,
+                            size: 18,
+                            color: accent,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    final scheme = theme.colorScheme;
+    final sheetHeight = MediaQuery.sizeOf(context).height * 0.9;
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: SizedBox(
+        height: sheetHeight,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            border: Border.all(
+              color: scheme.primary.withValues(alpha: 0.55),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 10),
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: scheme.outline.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.only(left: 20, right: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'POLLS',
+                        style: _RoomInfoStyles.sectionHeader(theme),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      color: scheme.primary,
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Padding(
+                padding: _RoomInfoStyles.listPadding.copyWith(
+                  top: 0,
+                  bottom: 10,
+                ),
+                child: _buildPollsFilterBar(),
+              ),
+              Expanded(child: _buildPollsList()),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

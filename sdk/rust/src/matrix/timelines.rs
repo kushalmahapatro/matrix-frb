@@ -1,15 +1,17 @@
 use eyeball_im::Vector;
 use flutter_rust_bridge::frb;
 use futures::StreamExt;
+use matrix_sdk::ruma::events::poll::start::PollKind;
 use matrix_sdk::ruma::events::room::message::{
     FileMessageEventContent, MessageType as RumaMessageType,
 };
+use matrix_sdk::ruma::events::room::ThumbnailInfo;
 use matrix_sdk::ruma::UInt;
 use matrix_sdk::ruma::{OwnedEventId, OwnedRoomId};
 use matrix_sdk::Client;
 use matrix_sdk_ui::timeline::{
-    EventSendState, EventTimelineItem, Message as SdkUiRoomMessage, RoomExt, TimelineFocus,
-    TimelineItem, TimelineItemKind,
+    EmbeddedEvent, EventSendState, EventTimelineItem, Message as SdkUiRoomMessage, PollState,
+    RoomExt, TimelineDetails, TimelineFocus, TimelineItem, TimelineItemKind,
 };
 use matrix_sdk_ui::Timeline as SdkTimeline;
 use serde::{Deserialize, Serialize};
@@ -22,6 +24,7 @@ use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
 use crate::frb_generated::StreamSink;
+use crate::matrix::client::format_user_id_for_display;
 use crate::matrix::rooms;
 use tracing::{debug, error};
 
@@ -53,6 +56,8 @@ pub enum RoomMessageKind {
     File,
     Video,
     Audio,
+    /// MSC3381 unstable poll (`org.matrix.msc3381.poll.start`).
+    Poll,
     Other,
 }
 
@@ -175,6 +180,49 @@ mod file_kind_tests {
     }
 }
 
+/// One reaction key on a timeline message (aggregated senders from matrix-sdk-ui).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[frb]
+pub struct MessageReactionEntry {
+    pub key: String,
+    pub count: u32,
+    /// Whether the logged-in user has sent this reaction key for this event.
+    pub contains_own: bool,
+    /// Matrix user ids who reacted with this key (sorted for stable UI).
+    pub senders: Vec<String>,
+}
+
+fn reaction_entries_from_event(ev: &EventTimelineItem, own_user_id: Option<&str>) -> Vec<MessageReactionEntry> {
+    let Some(reactions_map) = ev.content().reactions() else {
+        return Vec::new();
+    };
+    let mut keys: Vec<String> = reactions_map.keys().cloned().collect();
+    keys.sort();
+    let mut out = Vec::new();
+    for key in keys {
+        let Some(by_user) = reactions_map.get(&key) else {
+            continue;
+        };
+        let senders_raw: Vec<String> = by_user.keys().map(|u| u.to_string()).collect();
+        let mut senders_raw_sorted = senders_raw;
+        senders_raw_sorted.sort();
+        let count = senders_raw_sorted.len() as u32;
+        let contains_own =
+            own_user_id.is_some_and(|o| senders_raw_sorted.iter().any(|s| s == o));
+        let senders: Vec<String> = senders_raw_sorted
+            .into_iter()
+            .map(|s| format_user_id_for_display(&s))
+            .collect();
+        out.push(MessageReactionEntry {
+            key,
+            count,
+            contains_own,
+            senders,
+        });
+    }
+    out
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MessageUpdateType {
     Reset,
@@ -215,6 +263,38 @@ pub struct Message {
     pub media_mimetype: String,
     /// From `m.room.message` attachment `info.size` when present (bytes).
     pub media_size_bytes: u64,
+    /// BlurHash string from image/video `info` when present ([MSC2448]).
+    pub media_blurhash: String,
+    /// Pixel width for timeline thumb aspect (thumbnail `w` when set, else main media `w`).
+    pub media_preview_width: u32,
+    /// Pixel height for timeline thumb aspect (thumbnail `h` when set, else main media `h`).
+    pub media_preview_height: u32,
+    /// Event id this message replies to (`m.in_reply_to`), empty when not a reply.
+    pub in_reply_to_event_id: String,
+    /// Sender of the replied-to event when known.
+    pub in_reply_to_sender: String,
+    /// Short preview of the quoted message (body or `[image]` / loading hint).
+    pub in_reply_to_preview: String,
+    /// Kind of the quoted message when known (`Other` if not a reply or not loaded).
+    pub in_reply_to_room_msg_kind: RoomMessageKind,
+    /// Quoted attachment `info.mimetype` when present.
+    pub in_reply_to_media_mimetype: String,
+    pub in_reply_to_media_size_bytes: u64,
+    pub in_reply_to_media_blurhash: String,
+    pub in_reply_to_media_preview_width: u32,
+    pub in_reply_to_media_preview_height: u32,
+    /// `true` when the replied-to event is redacted (parent bubble is a deleted message).
+    pub in_reply_to_parent_redacted: bool,
+    /// Aggregated reactions for msg-like events; empty for virtual rows and non-message content.
+    pub reactions: Vec<MessageReactionEntry>,
+    /// JSON `{"answers":[{"id","text"},...]}` for [RoomMessageKind::Poll]; empty otherwise.
+    pub poll_options_json: String,
+    /// JSON snapshot for poll UI: kind, max_selections, ended, tallies, voters (disclosed), etc.
+    pub poll_state_json: String,
+    /// MSC4095 `com.beeper.linkpreviews` JSON array for `m.text` / `m.notice`; `"[]"` when none.
+    pub link_previews_json: String,
+    /// `true` after an `m.room.redaction` removed content for everyone in the room.
+    pub is_redacted: bool,
 }
 
 /// Sentinel for missing index/length in MessageUpdate (codegen uses usize, not Option<usize>).
@@ -282,14 +362,113 @@ impl Clone for TimelineKind {
     }
 }
 
+pub(crate) fn poll_body_from_state(poll: &PollState) -> String {
+    let q = poll.results().question;
+    let t = q.trim();
+    if !t.is_empty() {
+        return truncate_timeline_preview(t, 500);
+    }
+    poll.fallback_text()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .map(|s| truncate_timeline_preview(&s, 500))
+        .unwrap_or_else(|| "[poll]".to_string())
+}
+
+/// JSON answer ids/text for the Flutter poll vote UI.
+pub(crate) fn poll_options_json_from_state(poll: &PollState) -> String {
+    let r = poll.results();
+    let answers: Vec<serde_json::Value> = r
+        .answers
+        .iter()
+        .map(|a| serde_json::json!({"id": a.id, "text": a.text}))
+        .collect();
+    serde_json::json!({ "answers": answers }).to_string()
+}
+
+/// Rich poll snapshot for Flutter (vote counts, voters when disclosed, poll kind).
+pub(crate) fn poll_state_json_from_state(poll: &PollState) -> String {
+    let r = poll.results();
+    let kind_str: &'static str = match &r.kind {
+        PollKind::Undisclosed => "undisclosed",
+        PollKind::Disclosed => "disclosed",
+        PollKind::_Custom(_) => "custom",
+        _ => "custom",
+    };
+    let tallies: Vec<serde_json::Value> = r
+        .answers
+        .iter()
+        .map(|a| {
+            let voters: Vec<String> = r.votes.get(&a.id).cloned().unwrap_or_default();
+            serde_json::json!({
+                "id": a.id,
+                "text": a.text,
+                "count": voters.len(),
+                "voters": voters,
+            })
+        })
+        .collect();
+    let total_selections: usize = r.votes.values().map(|v| v.len()).sum();
+    serde_json::json!({
+        "kind": kind_str,
+        "maxSelections": r.max_selections,
+        "ended": r.end_time.is_some(),
+        "edited": r.has_been_edited,
+        "tallies": tallies,
+        "totalSelections": total_selections,
+    })
+    .to_string()
+}
+
 fn event_message_body(ev: &EventTimelineItem) -> String {
+    if let Some(poll) = ev.content().as_poll() {
+        return poll_body_from_state(poll);
+    }
     ev.content()
         .as_message()
         .map(|msg| msg.body().to_string())
         .unwrap_or_default()
 }
 
+/// Serialize bundled URL previews from a timeline SDK message (`m.text` / `m.notice`).
+pub(crate) fn link_previews_json_for_sdk_message(msg: &SdkUiRoomMessage) -> String {
+    match msg.msgtype() {
+        RumaMessageType::Text(t) => {
+            if let Some(pv) = &t.url_previews {
+                serde_json::to_string(pv).unwrap_or_else(|_| "[]".to_string())
+            } else {
+                "[]".to_string()
+            }
+        }
+        _ => "[]".to_string(),
+    }
+}
+
+fn event_link_previews_json(ev: &EventTimelineItem) -> String {
+    if let Some(msg) = ev.content().as_message() {
+        let s = link_previews_json_for_sdk_message(msg);
+        if s != "[]" {
+            return s;
+        }
+    }
+    if let Some(raw) = ev.latest_json() {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(raw.json().get()) {
+            if let Some(content) = v.get("content") {
+                for key in ["com.beeper.linkpreviews", "m.url_previews"] {
+                    if let Some(arr) = content.get(key) {
+                        return serde_json::to_string(arr).unwrap_or_else(|_| "[]".to_string());
+                    }
+                }
+            }
+        }
+    }
+    "[]".to_string()
+}
+
 fn event_room_msg_kind(ev: &EventTimelineItem) -> RoomMessageKind {
+    if ev.content().is_poll() {
+        return RoomMessageKind::Poll;
+    }
     ev.content()
         .as_message()
         .map(room_msg_kind_from_sdk_ui_message)
@@ -347,11 +526,230 @@ pub(crate) fn sdk_ui_message_media_info(msg: &SdkUiRoomMessage) -> (String, u64)
     }
 }
 
+fn uint_opt_to_u32(u: Option<UInt>) -> u32 {
+    let n = optional_uint_to_u64(u);
+    u32::try_from(n).unwrap_or(0)
+}
+
+fn preview_dims_from_infos(
+    thumb: Option<&ThumbnailInfo>,
+    main_w: Option<UInt>,
+    main_h: Option<UInt>,
+) -> (u32, u32) {
+    if let Some(t) = thumb {
+        let tw = uint_opt_to_u32(t.width);
+        let th = uint_opt_to_u32(t.height);
+        if tw > 0 && th > 0 {
+            return (tw, th);
+        }
+    }
+    (uint_opt_to_u32(main_w), uint_opt_to_u32(main_h))
+}
+
+/// BlurHash plus width/height for timeline thumb layout (prefers `thumbnail_info` when set).
+pub(crate) fn sdk_ui_message_media_preview(msg: &SdkUiRoomMessage) -> (String, u32, u32) {
+    match msg.msgtype() {
+        RumaMessageType::Image(i) => {
+            let info = i.info.as_deref();
+            let blurhash = info
+                .and_then(|inf| inf.blurhash.clone())
+                .unwrap_or_default();
+            let (w, h) = info
+                .map(|inf| {
+                    preview_dims_from_infos(
+                        inf.thumbnail_info.as_deref(),
+                        inf.width,
+                        inf.height,
+                    )
+                })
+                .unwrap_or((0, 0));
+            (blurhash, w, h)
+        }
+        RumaMessageType::Video(v) => {
+            let info = v.info.as_deref();
+            let blurhash = info
+                .and_then(|inf| inf.blurhash.clone())
+                .unwrap_or_default();
+            let (w, h) = info
+                .map(|inf| {
+                    preview_dims_from_infos(
+                        inf.thumbnail_info.as_deref(),
+                        inf.width,
+                        inf.height,
+                    )
+                })
+                .unwrap_or((0, 0));
+            (blurhash, w, h)
+        }
+        RumaMessageType::File(f) => {
+            let (w, h) = f
+                .info
+                .as_deref()
+                .and_then(|inf| inf.thumbnail_info.as_deref())
+                .map(|t| (uint_opt_to_u32(t.width), uint_opt_to_u32(t.height)))
+                .unwrap_or((0, 0));
+            (String::new(), w, h)
+        }
+        _ => (String::new(), 0, 0),
+    }
+}
+
 fn event_media_attachment_info(ev: &EventTimelineItem) -> (String, u64) {
     let Some(msg) = ev.content().as_message() else {
         return (String::new(), 0);
     };
     sdk_ui_message_media_info(msg)
+}
+
+fn event_media_attachment_preview(ev: &EventTimelineItem) -> (String, u32, u32) {
+    let Some(msg) = ev.content().as_message() else {
+        return (String::new(), 0, 0);
+    };
+    sdk_ui_message_media_preview(msg)
+}
+
+fn truncate_timeline_preview(s: &str, max_chars: usize) -> String {
+    let t = s.trim();
+    let n = t.chars().count();
+    if n <= max_chars {
+        return t.to_string();
+    }
+    let take = max_chars.saturating_sub(1);
+    t.chars().take(take).collect::<String>() + "…"
+}
+
+fn embedded_reply_body_preview(embedded: &EmbeddedEvent) -> String {
+    if embedded.content.is_poll() {
+        return "[poll]".to_string();
+    }
+    if let Some(msg) = embedded.content.as_message() {
+        // Prefer stable media labels over filename-like bodies (pickers use long names).
+        return match msg.msgtype() {
+            RumaMessageType::Image(_) => "[image]".to_string(),
+            RumaMessageType::Video(_) => "[video]".to_string(),
+            RumaMessageType::Audio(_) => "[audio]".to_string(),
+            RumaMessageType::File(_) => "[file]".to_string(),
+            _ => {
+                let b = msg.body().trim();
+                if !b.is_empty() {
+                    truncate_timeline_preview(b, 220)
+                } else {
+                    "[message]".to_string()
+                }
+            }
+        };
+    }
+    "[message]".to_string()
+}
+
+fn in_reply_target_media_from_embedded(
+    embedded: &EmbeddedEvent,
+) -> (RoomMessageKind, String, u64, String, u32, u32) {
+    if embedded.content.is_poll() {
+        return (
+            RoomMessageKind::Poll,
+            String::new(),
+            0,
+            String::new(),
+            0,
+            0,
+        );
+    }
+    let Some(msg) = embedded.content.as_message() else {
+        return (
+            RoomMessageKind::Other,
+            String::new(),
+            0,
+            String::new(),
+            0,
+            0,
+        );
+    };
+    let kind = room_msg_kind_from_sdk_ui_message(msg);
+    let (mime, sz) = sdk_ui_message_media_info(msg);
+    let (bh, w, h) = sdk_ui_message_media_preview(msg);
+    (kind, mime, sz, bh, w, h)
+}
+
+struct InReplySnapshot {
+    event_id: String,
+    sender: String,
+    preview: String,
+    room_msg_kind: RoomMessageKind,
+    media_mimetype: String,
+    media_size_bytes: u64,
+    media_blurhash: String,
+    media_preview_width: u32,
+    media_preview_height: u32,
+    parent_redacted: bool,
+}
+
+/// Matrix reply metadata for inline quote UI (preview + quoted message media hints).
+fn event_in_reply_snapshot(ev: &EventTimelineItem) -> InReplySnapshot {
+    let empty = InReplySnapshot {
+        event_id: String::new(),
+        sender: String::new(),
+        preview: String::new(),
+        room_msg_kind: RoomMessageKind::Other,
+        media_mimetype: String::new(),
+        media_size_bytes: 0,
+        media_blurhash: String::new(),
+        media_preview_width: 0,
+        media_preview_height: 0,
+        parent_redacted: false,
+    };
+    let Some(details) = ev.content().in_reply_to() else {
+        return empty;
+    };
+    let id = details.event_id.to_string();
+    match &details.event {
+        TimelineDetails::Ready(embedded) => {
+            let parent_redacted = embedded.content.is_redacted();
+            let sender = embedded.sender.to_string();
+            let (preview, k, m, s, bh, w, h) = if parent_redacted {
+                (
+                    String::new(),
+                    RoomMessageKind::Other,
+                    String::new(),
+                    0_u64,
+                    String::new(),
+                    0_u32,
+                    0_u32,
+                )
+            } else {
+                let preview = embedded_reply_body_preview(embedded);
+                let (k, m, s, bh, w, h) = in_reply_target_media_from_embedded(embedded);
+                (preview, k, m, s, bh, w, h)
+            };
+            InReplySnapshot {
+                event_id: id,
+                sender,
+                preview,
+                room_msg_kind: k,
+                media_mimetype: m,
+                media_size_bytes: s,
+                media_blurhash: bh,
+                media_preview_width: w,
+                media_preview_height: h,
+                parent_redacted,
+            }
+        }
+        TimelineDetails::Pending => InReplySnapshot {
+            event_id: id,
+            preview: "loading…".to_string(),
+            ..empty
+        },
+        TimelineDetails::Unavailable => InReplySnapshot {
+            event_id: id,
+            preview: "original message".to_string(),
+            ..empty
+        },
+        TimelineDetails::Error(_) => InReplySnapshot {
+            event_id: id,
+            preview: "[unavailable]".to_string(),
+            ..empty
+        },
+    }
 }
 
 fn send_state_fields(ev: &EventTimelineItem) -> (EventSendStateKind, String, bool) {
@@ -377,20 +775,35 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
     match item.kind() {
         TimelineItemKind::Event(ev) => {
             let (send_state, send_error, send_recoverable) = send_state_fields(ev);
+            let is_redacted = ev.content().is_redacted();
             let event_id = ev.event_id().map(|id| id.to_string()).unwrap_or_default();
             let transaction_id = ev
                 .transaction_id()
                 .map(|t| t.to_string())
                 .unwrap_or_default();
-            let sender = ev.sender().to_string();
-            let is_own = own_user_id.is_some_and(|o| o == sender.as_str());
+            let sender_raw = ev.sender().to_string();
+            let is_own = own_user_id.is_some_and(|o| o == sender_raw.as_str());
             let content = event_message_body(ev);
             let timestamp = u64::from(ev.timestamp().0);
             let (media_mimetype, media_size_bytes) = event_media_attachment_info(ev);
+            let (media_blurhash, media_preview_width, media_preview_height) =
+                event_media_attachment_preview(ev);
+            let ir = event_in_reply_snapshot(ev);
+            let reactions = reaction_entries_from_event(ev, own_user_id);
+            let (poll_options_json, poll_state_json) =
+                if let Some(p) = ev.content().as_poll() {
+                    (
+                        poll_options_json_from_state(p),
+                        poll_state_json_from_state(p),
+                    )
+                } else {
+                    (String::new(), String::new())
+                };
+            let link_previews_json = event_link_previews_json(ev);
             Message {
                 event_id,
                 transaction_id,
-                sender,
+                sender: format_user_id_for_display(&sender_raw),
                 content,
                 timestamp,
                 message_type: MessageType::Message,
@@ -401,6 +814,24 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
                 is_own,
                 media_mimetype,
                 media_size_bytes,
+                media_blurhash,
+                media_preview_width,
+                media_preview_height,
+                in_reply_to_event_id: ir.event_id,
+                in_reply_to_sender: format_user_id_for_display(&ir.sender),
+                in_reply_to_preview: ir.preview,
+                in_reply_to_room_msg_kind: ir.room_msg_kind,
+                in_reply_to_media_mimetype: ir.media_mimetype,
+                in_reply_to_media_size_bytes: ir.media_size_bytes,
+                in_reply_to_media_blurhash: ir.media_blurhash,
+                in_reply_to_media_preview_width: ir.media_preview_width,
+                in_reply_to_media_preview_height: ir.media_preview_height,
+                in_reply_to_parent_redacted: ir.parent_redacted,
+                reactions,
+                poll_options_json,
+                poll_state_json,
+                link_previews_json,
+                is_redacted,
             }
         }
         TimelineItemKind::Virtual(virtual_timeline_item) => {
@@ -421,6 +852,24 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
                     is_own: false,
                     media_mimetype: String::new(),
                     media_size_bytes: 0,
+                    media_blurhash: String::new(),
+                    media_preview_width: 0,
+                    media_preview_height: 0,
+                    in_reply_to_event_id: String::new(),
+                    in_reply_to_sender: String::new(),
+                    in_reply_to_preview: String::new(),
+                    in_reply_to_room_msg_kind: RoomMessageKind::Other,
+                    in_reply_to_media_mimetype: String::new(),
+                    in_reply_to_media_size_bytes: 0,
+                    in_reply_to_media_blurhash: String::new(),
+                    in_reply_to_media_preview_width: 0,
+                    in_reply_to_media_preview_height: 0,
+                    in_reply_to_parent_redacted: false,
+                    reactions: vec![],
+                    poll_options_json: String::new(),
+                    poll_state_json: String::new(),
+                    link_previews_json: "[]".to_string(),
+                    is_redacted: false,
                 },
                 matrix_sdk_ui::timeline::VirtualTimelineItem::ReadMarker => Message {
                     event_id: "".to_string(),
@@ -436,6 +885,24 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
                     is_own: false,
                     media_mimetype: String::new(),
                     media_size_bytes: 0,
+                    media_blurhash: String::new(),
+                    media_preview_width: 0,
+                    media_preview_height: 0,
+                    in_reply_to_event_id: String::new(),
+                    in_reply_to_sender: String::new(),
+                    in_reply_to_preview: String::new(),
+                    in_reply_to_room_msg_kind: RoomMessageKind::Other,
+                    in_reply_to_media_mimetype: String::new(),
+                    in_reply_to_media_size_bytes: 0,
+                    in_reply_to_media_blurhash: String::new(),
+                    in_reply_to_media_preview_width: 0,
+                    in_reply_to_media_preview_height: 0,
+                    in_reply_to_parent_redacted: false,
+                    reactions: vec![],
+                    poll_options_json: String::new(),
+                    poll_state_json: String::new(),
+                    link_previews_json: "[]".to_string(),
+                    is_redacted: false,
                 },
                 matrix_sdk_ui::timeline::VirtualTimelineItem::TimelineStart => Message {
                     event_id: "".to_string(),
@@ -451,10 +918,98 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
                     is_own: false,
                     media_mimetype: String::new(),
                     media_size_bytes: 0,
+                    media_blurhash: String::new(),
+                    media_preview_width: 0,
+                    media_preview_height: 0,
+                    in_reply_to_event_id: String::new(),
+                    in_reply_to_sender: String::new(),
+                    in_reply_to_preview: String::new(),
+                    in_reply_to_room_msg_kind: RoomMessageKind::Other,
+                    in_reply_to_media_mimetype: String::new(),
+                    in_reply_to_media_size_bytes: 0,
+                    in_reply_to_media_blurhash: String::new(),
+                    in_reply_to_media_preview_width: 0,
+                    in_reply_to_media_preview_height: 0,
+                    in_reply_to_parent_redacted: false,
+                    reactions: vec![],
+                    poll_options_json: String::new(),
+                    poll_state_json: String::new(),
+                    link_previews_json: "[]".to_string(),
+                    is_redacted: false,
                 },
             }
         }
     }
+}
+
+/// Add or remove a reaction on a timeline item ([`SdkTimeline::toggle_reaction`]).
+pub async fn toggle_timeline_reaction(
+    timeline: &SdkTimeline,
+    event_id: String,
+    transaction_id: String,
+    reaction_key: String,
+) -> Result<bool, String> {
+    use matrix_sdk::ruma::{OwnedEventId, OwnedTransactionId};
+    use matrix_sdk_ui::timeline::TimelineEventItemId;
+
+    let item_id = if !event_id.is_empty() {
+        let id: OwnedEventId = event_id.parse().map_err(|e| format!("Invalid event_id: {e}"))?;
+        TimelineEventItemId::EventId(id)
+    } else if !transaction_id.is_empty() {
+        let id: OwnedTransactionId = transaction_id
+            .as_str()
+            .try_into()
+            .map_err(|e| format!("Invalid transaction_id: {e}"))?;
+        TimelineEventItemId::TransactionId(id)
+    } else {
+        return Err("event_id or transaction_id required to toggle reaction".to_string());
+    };
+
+    timeline
+        .toggle_reaction(&item_id, &reaction_key)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Redact or abort a timeline row ([`SdkTimeline::redact`]) — same item id rules as reactions.
+///
+/// Resolves the row by server [`EventId`] or local [`TransactionId`], then either sends
+/// `m.room.redaction` or aborts a pending local echo (see matrix-sdk-ui).
+pub async fn redact_timeline_item(
+    timeline: &SdkTimeline,
+    event_id: String,
+    transaction_id: String,
+    reason: Option<&str>,
+) -> Result<(), String> {
+    use matrix_sdk::ruma::{OwnedEventId, OwnedTransactionId};
+    use matrix_sdk_ui::timeline::TimelineEventItemId;
+
+    let item_id = if !event_id.is_empty() {
+        let id: OwnedEventId = event_id.parse().map_err(|e| format!("Invalid event_id: {e}"))?;
+        TimelineEventItemId::EventId(id)
+    } else if !transaction_id.is_empty() {
+        let id: OwnedTransactionId = transaction_id
+            .as_str()
+            .try_into()
+            .map_err(|e| format!("Invalid transaction_id: {e}"))?;
+        TimelineEventItemId::TransactionId(id)
+    } else {
+        return Err(
+            "event_id or transaction_id required to redact a message".to_string(),
+        );
+    };
+
+    timeline
+        .redact(&item_id, reason)
+        .await
+        .map_err(|e| {
+            let s = e.to_string();
+            if s.trim().is_empty() {
+                format!("Redact failed: {e:?}")
+            } else {
+                s
+            }
+        })
 }
 
 /// Retry a failed local send (same as send-queue [SendHandle::unwedge]).
@@ -571,8 +1126,8 @@ pub(crate) async fn subscribe_to_timeline_list_loop(
                         let _ = sink.add(list.clone());
                     }
                     drop(sinks_guard);
-                    // Refresh room list with last message from timeline so listing shows it
-                    if let Some(last_msg) = list.last().cloned() {
+                    // Refresh room list with last *message* row from timeline (not date divider / markers)
+                    if let Some(last_msg) = last_message_row_for_room_preview(&list) {
                         let mut update = rooms::get_room_update_data(&room, own).await;
                         update.message = Some(last_msg);
                         let mut cache = room_list_cache.lock().await;
@@ -594,6 +1149,16 @@ pub(crate) async fn subscribe_to_timeline_list_loop(
             }
         }
     }
+}
+
+/// Last timeline row that is an actual chat message (skips date dividers, read markers, etc.).
+/// Use for room-list preview so the subtitle is not a virtual row like `Date: …`.
+pub(crate) fn last_message_row_for_room_preview(list: &[Message]) -> Option<Message> {
+    list
+        .iter()
+        .rev()
+        .find(|m| matches!(m.message_type, MessageType::Message))
+        .cloned()
 }
 
 fn messages_same_identity(a: &Message, b: &Message) -> bool {
@@ -733,6 +1298,46 @@ fn apply_vector_diff_to_messages(
         VectorDiff::Truncate { length } => {
             vec.truncate(length);
         }
+    }
+    dedupe_stale_local_echoes(vec);
+}
+
+/// Local echoes only expose [Message::transaction_id]; the remote echo has [Message::event_id] and
+/// empty txn in our bridge — so [messages_same_identity] misses the pair and the UI shows duplicates
+/// (pending spinner + delivered). Drop stale pending rows when a matching delivered echo exists.
+fn ts_millis_near(a: u64, b: u64, max_delta_ms: u64) -> bool {
+    if a > b {
+        a - b <= max_delta_ms
+    } else {
+        b - a <= max_delta_ms
+    }
+}
+
+fn dedupe_stale_local_echoes(vec: &mut Vec<Message>) {
+    let mut i = 0;
+    while i < vec.len() {
+        let stale_pending = {
+            let m = &vec[i];
+            m.is_own && matches!(m.send_state, EventSendStateKind::Pending)
+        };
+        if stale_pending {
+            let pending = &vec[i];
+            let has_delivered_twin = vec.iter().enumerate().any(|(j, other)| {
+                j != i
+                    && other.is_own
+                    && matches!(other.send_state, EventSendStateKind::Delivered)
+                    && other.content == pending.content
+                    && other.in_reply_to_event_id == pending.in_reply_to_event_id
+                    && other.sender == pending.sender
+                    && other.room_msg_kind == pending.room_msg_kind
+                    && ts_millis_near(pending.timestamp, other.timestamp, 300_000)
+            });
+            if has_delivered_twin {
+                vec.remove(i);
+                continue;
+            }
+        }
+        i += 1;
     }
 }
 

@@ -5,6 +5,7 @@ import 'package:flutter/src/painting/gradient.dart';
 import 'package:matrix/src/core/state_management/base_state_widget_model.dart';
 import 'package:matrix/src/features/create_chat/domain/models/create_chat_type.dart';
 import 'package:matrix/src/features/create_chat/presentation/screens/create_chat_screen.dart';
+import 'package:matrix/src/features/create_chat/routes/create_chat_routes.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
 import 'package:matrix/src/theme/theme_provider.dart';
 import 'package:matrix_sdk/matrix_sdk.dart';
@@ -106,13 +107,16 @@ class CreateChatScreenWM
     try {
       final results = await model.searchUsers(query: query.trim());
       results.fold(
-        (success) => _searchResults.value = success.users,
+        (success) {
+          _searchResults.value = success.users;
+          _isSearching.value = false;
+        },
         (failure) => _isSearching.value = false,
       );
     } catch (e) {
       _isSearching.value = false;
       if (context.mounted) {
-        widget.showSnackBar(context, 'SEARCH ERROR: $e');
+        widget.showSnackBar(context, 'Search failed: $e');
       }
     }
   }
@@ -124,8 +128,17 @@ class CreateChatScreenWM
 
   TextEditingController get searchController => _searchController;
 
+  TextEditingController get groupNameController => _groupNameController;
+
   void selectChatType(CreateChatType type) {
+    if (_selectedChatType.value == type) return;
     _selectedChatType.value = type;
+    _selectedUsers.value = [];
+    _searchResults.value = [];
+    _searchController.clear();
+    if (type == CreateChatType.direct) {
+      _groupNameController.clear();
+    }
   }
 
   ValueListenable<List<User>> get searchResults => _searchResults;
@@ -136,11 +149,18 @@ class CreateChatScreenWM
   ValueListenable<bool> get isCreating => _isCreating;
 
   void addUser(User user) {
-    if (!_selectedUsers.value.any((u) => u.userId == user.userId)) {
+    if (_selectedChatType.value == CreateChatType.direct) {
+      if (_selectedUsers.value.length == 1 &&
+          _selectedUsers.value.first.userId == user.userId) {
+        return;
+      }
+      _selectedUsers.value = [user];
+    } else {
+      if (_selectedUsers.value.any((u) => u.userId == user.userId)) return;
       _selectedUsers.value = [..._selectedUsers.value, user];
-      _searchResults.value = [];
-      _searchController.clear();
     }
+    _searchResults.value = [];
+    _searchController.clear();
   }
 
   void removeUser(User user) {
@@ -150,20 +170,30 @@ class CreateChatScreenWM
   }
 
   Future<void> createRoom() async {
-    if (_selectedUsers.value.isEmpty) {
-      widget.showSnackBar(context, 'SELECT AT LEAST ONE USER');
-      return;
-    }
-
-    if (_selectedChatType.value == CreateChatType.group &&
-        _groupNameController.text.trim().isEmpty) {
-      final groupName = await widget.getGroupName(
-        context,
-        _groupNameController,
-      );
-
-      if (groupName != true && context.mounted) {
-        widget.showSnackBar(context, 'PROVIDE A GROUP NAME');
+    if (_selectedChatType.value == CreateChatType.direct) {
+      if (_selectedUsers.value.isEmpty) {
+        widget.showSnackBar(
+          context,
+          'Choose someone to message.',
+          kind: CreateChatSnackKind.neutral,
+        );
+        return;
+      }
+    } else {
+      if (_groupNameController.text.trim().isEmpty) {
+        widget.showSnackBar(
+          context,
+          'Add a group name first.',
+          kind: CreateChatSnackKind.neutral,
+        );
+        return;
+      }
+      if (_selectedUsers.value.isEmpty) {
+        widget.showSnackBar(
+          context,
+          'Invite at least one person.',
+          kind: CreateChatSnackKind.neutral,
+        );
         return;
       }
     }
@@ -182,6 +212,7 @@ class CreateChatScreenWM
           final openExisting = await widget.showExistingDmDialog(
             context,
             otherUserId: otherUserId,
+            otherUserDisplayLabel: _selectedUsers.value.first.userIdDisplay,
             existingRoomId: existingRoomId,
           );
           if (context.mounted && openExisting == true) {
@@ -195,14 +226,19 @@ class CreateChatScreenWM
           result.fold(
             (id) {
               _isCreating.value = false;
-              widget.goBack(context, id);
-              widget.showSnackBar(context, 'ROOM CREATED: $id');
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.of(context).pop(id);
+              showCreateChatSnackBar(
+                messenger,
+                'Direct chat is ready.',
+                kind: CreateChatSnackKind.success,
+              );
             },
             (failure) {
               _isCreating.value = false;
               widget.showSnackBar(
                 context,
-                'CREATE DIRECT ROOM ERROR: $failure',
+                'Could not start direct chat: $failure',
               );
             },
           );
@@ -218,14 +254,20 @@ class CreateChatScreenWM
           result.fold(
             (id) {
               _isCreating.value = false;
-              widget.goBack(context, id);
-              widget.showSnackBar(context, 'ROOM CREATED: $id');
+              final messenger = ScaffoldMessenger.of(context);
+              final name = _groupNameController.text.trim();
+              Navigator.of(context).pop(id);
+              showCreateChatSnackBar(
+                messenger,
+                'Group “$name” created.',
+                kind: CreateChatSnackKind.success,
+              );
             },
             (failure) {
               _isCreating.value = false;
               widget.showSnackBar(
                 context,
-                'CREATE GROUP ROOM ERROR: $failure',
+                'Could not create group: $failure',
               );
             },
           );
@@ -234,7 +276,7 @@ class CreateChatScreenWM
     } catch (e) {
       if (context.mounted) {
         _isCreating.value = false;
-        widget.showSnackBar(context, 'CREATE ROOM ERROR: $e');
+        widget.showSnackBar(context, 'Something went wrong: $e');
       }
     }
   }

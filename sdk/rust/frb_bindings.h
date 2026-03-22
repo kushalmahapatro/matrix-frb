@@ -32,6 +32,7 @@ typedef struct wire_cst_client_config {
   struct wire_cst_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCertificate *root_certificates;
   struct wire_cst_list_prim_u_8_strict *proxy;
   struct wire_cst_list_prim_u_8_strict *passphrase;
+  bool show_home_server_for_username;
 } wire_cst_client_config;
 
 typedef struct wire_cst_list_String {
@@ -65,6 +66,18 @@ typedef struct wire_cst_tracing_configuration {
   struct wire_cst_tracing_file_configuration *write_to_files;
 } wire_cst_tracing_configuration;
 
+typedef struct wire_cst_message_reaction_entry {
+  struct wire_cst_list_prim_u_8_strict *key;
+  uint32_t count;
+  bool contains_own;
+  struct wire_cst_list_String *senders;
+} wire_cst_message_reaction_entry;
+
+typedef struct wire_cst_list_message_reaction_entry {
+  struct wire_cst_message_reaction_entry *ptr;
+  int32_t len;
+} wire_cst_list_message_reaction_entry;
+
 typedef struct wire_cst_message {
   struct wire_cst_list_prim_u_8_strict *event_id;
   struct wire_cst_list_prim_u_8_strict *transaction_id;
@@ -79,6 +92,24 @@ typedef struct wire_cst_message {
   bool is_own;
   struct wire_cst_list_prim_u_8_strict *media_mimetype;
   uint64_t media_size_bytes;
+  struct wire_cst_list_prim_u_8_strict *media_blurhash;
+  uint32_t media_preview_width;
+  uint32_t media_preview_height;
+  struct wire_cst_list_prim_u_8_strict *in_reply_to_event_id;
+  struct wire_cst_list_prim_u_8_strict *in_reply_to_sender;
+  struct wire_cst_list_prim_u_8_strict *in_reply_to_preview;
+  int32_t in_reply_to_room_msg_kind;
+  struct wire_cst_list_prim_u_8_strict *in_reply_to_media_mimetype;
+  uint64_t in_reply_to_media_size_bytes;
+  struct wire_cst_list_prim_u_8_strict *in_reply_to_media_blurhash;
+  uint32_t in_reply_to_media_preview_width;
+  uint32_t in_reply_to_media_preview_height;
+  bool in_reply_to_parent_redacted;
+  struct wire_cst_list_message_reaction_entry *reactions;
+  struct wire_cst_list_prim_u_8_strict *poll_options_json;
+  struct wire_cst_list_prim_u_8_strict *poll_state_json;
+  struct wire_cst_list_prim_u_8_strict *link_previews_json;
+  bool is_redacted;
 } wire_cst_message;
 
 typedef struct wire_cst_room_update {
@@ -115,8 +146,25 @@ typedef struct wire_cst_list_room_file_item {
   int32_t len;
 } wire_cst_list_room_file_item;
 
+typedef struct wire_cst_room_link_item {
+  struct wire_cst_list_prim_u_8_strict *event_id;
+  struct wire_cst_list_prim_u_8_strict *transaction_id;
+  struct wire_cst_list_prim_u_8_strict *sender;
+  struct wire_cst_list_prim_u_8_strict *body;
+  uint64_t timestamp;
+  bool is_outgoing;
+  struct wire_cst_list_prim_u_8_strict *link_previews_json;
+  bool is_link_message;
+} wire_cst_room_link_item;
+
+typedef struct wire_cst_list_room_link_item {
+  struct wire_cst_room_link_item *ptr;
+  int32_t len;
+} wire_cst_list_room_link_item;
+
 typedef struct wire_cst_room_member_row {
   struct wire_cst_list_prim_u_8_strict *user_id;
+  struct wire_cst_list_prim_u_8_strict *user_id_display;
   struct wire_cst_list_prim_u_8_strict *display_name;
   int64_t power_level;
   int32_t role;
@@ -129,6 +177,20 @@ typedef struct wire_cst_list_room_member_row {
   int32_t len;
 } wire_cst_list_room_member_row;
 
+typedef struct wire_cst_room_poll_item {
+  struct wire_cst_list_prim_u_8_strict *event_id;
+  struct wire_cst_list_prim_u_8_strict *transaction_id;
+  struct wire_cst_list_prim_u_8_strict *sender;
+  struct wire_cst_list_prim_u_8_strict *question;
+  uint64_t timestamp;
+  bool is_outgoing;
+} wire_cst_room_poll_item;
+
+typedef struct wire_cst_list_room_poll_item {
+  struct wire_cst_room_poll_item *ptr;
+  int32_t len;
+} wire_cst_list_room_poll_item;
+
 typedef struct wire_cst_list_room_update {
   struct wire_cst_room_update *ptr;
   int32_t len;
@@ -136,6 +198,7 @@ typedef struct wire_cst_list_room_update {
 
 typedef struct wire_cst_user {
   struct wire_cst_list_prim_u_8_strict *user_id;
+  struct wire_cst_list_prim_u_8_strict *user_id_display;
   struct wire_cst_list_prim_u_8_strict *display_name;
   struct wire_cst_list_prim_u_8_strict *avatar_url;
 } wire_cst_user;
@@ -262,6 +325,16 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_list_room_f
                                                                                      struct wire_cst_list_prim_u_8_strict *room_id,
                                                                                      int32_t filter);
 
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_list_room_links(int64_t port_,
+                                                                                     uintptr_t that,
+                                                                                     struct wire_cst_list_prim_u_8_strict *room_id,
+                                                                                     int32_t filter);
+
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_list_room_polls(int64_t port_,
+                                                                                     uintptr_t that,
+                                                                                     struct wire_cst_list_prim_u_8_strict *room_id,
+                                                                                     int32_t filter);
+
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_login(int64_t port_,
                                                                            uintptr_t that,
                                                                            struct wire_cst_list_prim_u_8_strict *username,
@@ -269,6 +342,13 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_login(int64
 
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_logout(int64_t port_,
                                                                             uintptr_t that);
+
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_redact_timeline_event(int64_t port_,
+                                                                                           uintptr_t that,
+                                                                                           struct wire_cst_list_prim_u_8_strict *room_id,
+                                                                                           struct wire_cst_list_prim_u_8_strict *event_id,
+                                                                                           struct wire_cst_list_prim_u_8_strict *transaction_id,
+                                                                                           struct wire_cst_list_prim_u_8_strict *reason);
 
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_register(int64_t port_,
                                                                               uintptr_t that,
@@ -307,6 +387,26 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_messag
                                                                                   uintptr_t that,
                                                                                   struct wire_cst_list_prim_u_8_strict *room_id,
                                                                                   struct wire_cst_list_prim_u_8_strict *content);
+
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_poll(int64_t port_,
+                                                                               uintptr_t that,
+                                                                               struct wire_cst_list_prim_u_8_strict *room_id,
+                                                                               struct wire_cst_list_prim_u_8_strict *question,
+                                                                               struct wire_cst_list_String *answer_texts,
+                                                                               bool kind_disclosed,
+                                                                               uint64_t max_selections);
+
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_poll_response(int64_t port_,
+                                                                                        uintptr_t that,
+                                                                                        struct wire_cst_list_prim_u_8_strict *room_id,
+                                                                                        struct wire_cst_list_prim_u_8_strict *poll_start_event_id,
+                                                                                        struct wire_cst_list_String *answer_ids);
+
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_reply(int64_t port_,
+                                                                                uintptr_t that,
+                                                                                struct wire_cst_list_prim_u_8_strict *room_id,
+                                                                                struct wire_cst_list_prim_u_8_strict *content,
+                                                                                struct wire_cst_list_prim_u_8_strict *reply_to_event_id);
 
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_timeline_file(int64_t port_,
                                                                                         uintptr_t that,
@@ -361,6 +461,13 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_t
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_take_last_sent_room_update(int64_t port_,
                                                                                                 uintptr_t that);
 
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_toggle_timeline_reaction(int64_t port_,
+                                                                                              uintptr_t that,
+                                                                                              struct wire_cst_list_prim_u_8_strict *room_id,
+                                                                                              struct wire_cst_list_prim_u_8_strict *event_id,
+                                                                                              struct wire_cst_list_prim_u_8_strict *transaction_id,
+                                                                                              struct wire_cst_list_prim_u_8_strict *reaction_key);
+
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_unregister_pusher(int64_t port_,
                                                                                        uintptr_t that,
                                                                                        struct wire_cst_list_prim_u_8_strict *push_key,
@@ -383,11 +490,6 @@ void frbgen_matrix_sdk_wire__crate__logger__tracing__log_event(int64_t port_,
 
 void frbgen_matrix_sdk_wire__crate__logger__platform__reload_tracing_file_writer(int64_t port_,
                                                                                  struct wire_cst_tracing_file_configuration *configuration);
-
-void frbgen_matrix_sdk_wire__crate__api__native_media_env__set_native_media_env(int64_t port_,
-                                                                                struct wire_cst_list_prim_u_8_strict *pdfium_dynamic_lib_path,
-                                                                                struct wire_cst_list_prim_u_8_strict *matrix_pdfium_dir,
-                                                                                struct wire_cst_list_prim_u_8_strict *matrix_ffmpeg_path);
 
 void frbgen_matrix_sdk_wire__crate__logger__platform__subscribe_http_tracing_logs(int64_t port_,
                                                                                   struct wire_cst_list_prim_u_8_strict *sink);
@@ -429,13 +531,19 @@ struct wire_cst_list_String *frbgen_matrix_sdk_cst_new_list_String(int32_t len);
 
 struct wire_cst_list_message *frbgen_matrix_sdk_cst_new_list_message(int32_t len);
 
+struct wire_cst_list_message_reaction_entry *frbgen_matrix_sdk_cst_new_list_message_reaction_entry(int32_t len);
+
 struct wire_cst_list_prim_u_8_loose *frbgen_matrix_sdk_cst_new_list_prim_u_8_loose(int32_t len);
 
 struct wire_cst_list_prim_u_8_strict *frbgen_matrix_sdk_cst_new_list_prim_u_8_strict(int32_t len);
 
 struct wire_cst_list_room_file_item *frbgen_matrix_sdk_cst_new_list_room_file_item(int32_t len);
 
+struct wire_cst_list_room_link_item *frbgen_matrix_sdk_cst_new_list_room_link_item(int32_t len);
+
 struct wire_cst_list_room_member_row *frbgen_matrix_sdk_cst_new_list_room_member_row(int32_t len);
+
+struct wire_cst_list_room_poll_item *frbgen_matrix_sdk_cst_new_list_room_poll_item(int32_t len);
 
 struct wire_cst_list_room_update *frbgen_matrix_sdk_cst_new_list_room_update(int32_t len);
 
@@ -464,10 +572,13 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCertificate);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_String);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_message);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_message_reaction_entry);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_prim_u_8_loose);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_prim_u_8_strict);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_room_file_item);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_room_link_item);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_room_member_row);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_room_poll_item);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_room_update);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_trace_log_packs);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_user);
@@ -495,8 +606,11 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_leave_and_forget_room);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_leave_room);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_list_room_files);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_list_room_links);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_list_room_polls);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_login);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_logout);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_redact_timeline_event);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_register);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_register_pusher);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_restart_sync_service);
@@ -504,6 +618,9 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_room_list_subscribe_to_rooms);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_search_users);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_message);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_poll);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_poll_response);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_reply);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_timeline_file);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_timeline_file_with_progress);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_display_name);
@@ -515,8 +632,8 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_list);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_updates);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_take_last_sent_room_update);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_toggle_timeline_reaction);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_unregister_pusher);
-    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__native_media_env__set_native_media_env);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__logger__platform__FieldsFormatterForFiles_default);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__logger__platform__init_platform);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__logger__platform__reload_tracing_file_writer);

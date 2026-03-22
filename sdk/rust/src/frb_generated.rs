@@ -40,7 +40,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueNom,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 475599269;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1213224700;
 
 // Section: executor
 
@@ -883,6 +883,110 @@ fn wire__crate__api__matrix_client__MatrixClient_list_room_files_impl(
         },
     )
 }
+fn wire__crate__api__matrix_client__MatrixClient_list_room_links_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    room_id: impl CstDecode<String>,
+    filter: impl CstDecode<crate::matrix::room_info::RoomFileFilter>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_list_room_links",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_room_id = room_id.cst_decode();
+            let api_filter = filter.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok = crate::api::matrix_client::MatrixClient::list_room_links(
+                            &*api_that_guard,
+                            api_room_id,
+                            api_filter,
+                        )
+                        .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__matrix_client__MatrixClient_list_room_polls_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    room_id: impl CstDecode<String>,
+    filter: impl CstDecode<crate::matrix::room_info::RoomFileFilter>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_list_room_polls",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_room_id = room_id.cst_decode();
+            let api_filter = filter.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok = crate::api::matrix_client::MatrixClient::list_room_polls(
+                            &*api_that_guard,
+                            api_room_id,
+                            api_filter,
+                        )
+                        .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__matrix_client__MatrixClient_login_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     that: impl CstDecode<
@@ -972,6 +1076,65 @@ fn wire__crate__api__matrix_client__MatrixClient_logout_impl(
                         let output_ok =
                             crate::api::matrix_client::MatrixClient::logout(&*api_that_guard)
                                 .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__matrix_client__MatrixClient_redact_timeline_event_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    room_id: impl CstDecode<String>,
+    event_id: impl CstDecode<String>,
+    transaction_id: impl CstDecode<String>,
+    reason: impl CstDecode<Option<String>>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_redact_timeline_event",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_room_id = room_id.cst_decode();
+            let api_event_id = event_id.cst_decode();
+            let api_transaction_id = transaction_id.cst_decode();
+            let api_reason = reason.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::matrix_client::MatrixClient::redact_timeline_event(
+                                &*api_that_guard,
+                                api_room_id,
+                                api_event_id,
+                                api_transaction_id,
+                                api_reason,
+                            )
+                            .await?;
                         Ok(output_ok)
                     })()
                     .await,
@@ -1345,6 +1508,178 @@ fn wire__crate__api__matrix_client__MatrixClient_send_message_impl(
                             &*api_that_guard,
                             api_room_id,
                             api_content,
+                        )
+                        .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__matrix_client__MatrixClient_send_poll_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    room_id: impl CstDecode<String>,
+    question: impl CstDecode<String>,
+    answer_texts: impl CstDecode<Vec<String>>,
+    kind_disclosed: impl CstDecode<bool>,
+    max_selections: impl CstDecode<u64>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_send_poll",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_room_id = room_id.cst_decode();
+            let api_question = question.cst_decode();
+            let api_answer_texts = answer_texts.cst_decode();
+            let api_kind_disclosed = kind_disclosed.cst_decode();
+            let api_max_selections = max_selections.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok = crate::api::matrix_client::MatrixClient::send_poll(
+                            &*api_that_guard,
+                            api_room_id,
+                            api_question,
+                            api_answer_texts,
+                            api_kind_disclosed,
+                            api_max_selections,
+                        )
+                        .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__matrix_client__MatrixClient_send_poll_response_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    room_id: impl CstDecode<String>,
+    poll_start_event_id: impl CstDecode<String>,
+    answer_ids: impl CstDecode<Vec<String>>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_send_poll_response",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_room_id = room_id.cst_decode();
+            let api_poll_start_event_id = poll_start_event_id.cst_decode();
+            let api_answer_ids = answer_ids.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::matrix_client::MatrixClient::send_poll_response(
+                                &*api_that_guard,
+                                api_room_id,
+                                api_poll_start_event_id,
+                                api_answer_ids,
+                            )
+                            .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__matrix_client__MatrixClient_send_reply_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    room_id: impl CstDecode<String>,
+    content: impl CstDecode<String>,
+    reply_to_event_id: impl CstDecode<String>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_send_reply",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_room_id = room_id.cst_decode();
+            let api_content = content.cst_decode();
+            let api_reply_to_event_id = reply_to_event_id.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok = crate::api::matrix_client::MatrixClient::send_reply(
+                            &*api_that_guard,
+                            api_room_id,
+                            api_content,
+                            api_reply_to_event_id,
                         )
                         .await?;
                         Ok(output_ok)
@@ -1928,6 +2263,65 @@ fn wire__crate__api__matrix_client__MatrixClient_take_last_sent_room_update_impl
         },
     )
 }
+fn wire__crate__api__matrix_client__MatrixClient_toggle_timeline_reaction_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    room_id: impl CstDecode<String>,
+    event_id: impl CstDecode<String>,
+    transaction_id: impl CstDecode<String>,
+    reaction_key: impl CstDecode<String>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_toggle_timeline_reaction",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_room_id = room_id.cst_decode();
+            let api_event_id = event_id.cst_decode();
+            let api_transaction_id = transaction_id.cst_decode();
+            let api_reaction_key = reaction_key.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::matrix_client::MatrixClient::toggle_timeline_reaction(
+                                &*api_that_guard,
+                                api_room_id,
+                                api_event_id,
+                                api_transaction_id,
+                                api_reaction_key,
+                            )
+                            .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__matrix_client__MatrixClient_unregister_pusher_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     that: impl CstDecode<
@@ -2090,37 +2484,6 @@ fn wire__crate__logger__platform__reload_tracing_file_writer_impl(
                     Ok(output_ok)
                 })(
                 ))
-            }
-        },
-    )
-}
-fn wire__crate__api__native_media_env__set_native_media_env_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    pdfium_dynamic_lib_path: impl CstDecode<Option<String>>,
-    matrix_pdfium_dir: impl CstDecode<Option<String>>,
-    matrix_ffmpeg_path: impl CstDecode<Option<String>>,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::DcoCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "set_native_media_env",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let api_pdfium_dynamic_lib_path = pdfium_dynamic_lib_path.cst_decode();
-            let api_matrix_pdfium_dir = matrix_pdfium_dir.cst_decode();
-            let api_matrix_ffmpeg_path = matrix_ffmpeg_path.cst_decode();
-            move |context| {
-                transform_result_dco::<_, _, ()>((move || {
-                    let output_ok = Result::<_, ()>::Ok({
-                        crate::api::native_media_env::set_native_media_env(
-                            api_pdfium_dynamic_lib_path,
-                            api_matrix_pdfium_dir,
-                            api_matrix_ffmpeg_path,
-                        );
-                    })?;
-                    Ok(output_ok)
-                })())
             }
         },
     )
@@ -2310,7 +2673,8 @@ impl CstDecode<crate::matrix::timelines::RoomMessageKind> for i32 {
             2 => crate::matrix::timelines::RoomMessageKind::File,
             3 => crate::matrix::timelines::RoomMessageKind::Video,
             4 => crate::matrix::timelines::RoomMessageKind::Audio,
-            5 => crate::matrix::timelines::RoomMessageKind::Other,
+            5 => crate::matrix::timelines::RoomMessageKind::Poll,
+            6 => crate::matrix::timelines::RoomMessageKind::Other,
             _ => unreachable!("Invalid variant for RoomMessageKind: {}", self),
         }
     }
@@ -2560,12 +2924,14 @@ impl SseDecode for crate::matrix::client::ClientConfig {
         let mut var_rootCertificates = <Option<Vec<Certificate>>>::sse_decode(deserializer);
         let mut var_proxy = <Option<String>>::sse_decode(deserializer);
         let mut var_passphrase = <Option<String>>::sse_decode(deserializer);
+        let mut var_showHomeServerForUsername = <bool>::sse_decode(deserializer);
         return crate::matrix::client::ClientConfig {
             session_path: var_sessionPath,
             homeserver_url: var_homeserverUrl,
             root_certificates: var_rootCertificates,
             proxy: var_proxy,
             passphrase: var_passphrase,
+            show_home_server_for_username: var_showHomeServerForUsername,
         };
     }
 }
@@ -2705,6 +3071,18 @@ impl SseDecode for Vec<crate::matrix::timelines::Message> {
     }
 }
 
+impl SseDecode for Vec<crate::matrix::timelines::MessageReactionEntry> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = vec![];
+        for idx_ in 0..len_ {
+            ans_.push(<crate::matrix::timelines::MessageReactionEntry>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<u8> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2731,6 +3109,20 @@ impl SseDecode for Vec<crate::matrix::room_info::RoomFileItem> {
     }
 }
 
+impl SseDecode for Vec<crate::matrix::room_info::RoomLinkItem> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = vec![];
+        for idx_ in 0..len_ {
+            ans_.push(<crate::matrix::room_info::RoomLinkItem>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::matrix::room_info::RoomMemberRow> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2738,6 +3130,20 @@ impl SseDecode for Vec<crate::matrix::room_info::RoomMemberRow> {
         let mut ans_ = vec![];
         for idx_ in 0..len_ {
             ans_.push(<crate::matrix::room_info::RoomMemberRow>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::matrix::room_info::RoomPollItem> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = vec![];
+        for idx_ in 0..len_ {
+            ans_.push(<crate::matrix::room_info::RoomPollItem>::sse_decode(
                 deserializer,
             ));
         }
@@ -2816,6 +3222,26 @@ impl SseDecode for crate::matrix::timelines::Message {
         let mut var_isOwn = <bool>::sse_decode(deserializer);
         let mut var_mediaMimetype = <String>::sse_decode(deserializer);
         let mut var_mediaSizeBytes = <u64>::sse_decode(deserializer);
+        let mut var_mediaBlurhash = <String>::sse_decode(deserializer);
+        let mut var_mediaPreviewWidth = <u32>::sse_decode(deserializer);
+        let mut var_mediaPreviewHeight = <u32>::sse_decode(deserializer);
+        let mut var_inReplyToEventId = <String>::sse_decode(deserializer);
+        let mut var_inReplyToSender = <String>::sse_decode(deserializer);
+        let mut var_inReplyToPreview = <String>::sse_decode(deserializer);
+        let mut var_inReplyToRoomMsgKind =
+            <crate::matrix::timelines::RoomMessageKind>::sse_decode(deserializer);
+        let mut var_inReplyToMediaMimetype = <String>::sse_decode(deserializer);
+        let mut var_inReplyToMediaSizeBytes = <u64>::sse_decode(deserializer);
+        let mut var_inReplyToMediaBlurhash = <String>::sse_decode(deserializer);
+        let mut var_inReplyToMediaPreviewWidth = <u32>::sse_decode(deserializer);
+        let mut var_inReplyToMediaPreviewHeight = <u32>::sse_decode(deserializer);
+        let mut var_inReplyToParentRedacted = <bool>::sse_decode(deserializer);
+        let mut var_reactions =
+            <Vec<crate::matrix::timelines::MessageReactionEntry>>::sse_decode(deserializer);
+        let mut var_pollOptionsJson = <String>::sse_decode(deserializer);
+        let mut var_pollStateJson = <String>::sse_decode(deserializer);
+        let mut var_linkPreviewsJson = <String>::sse_decode(deserializer);
+        let mut var_isRedacted = <bool>::sse_decode(deserializer);
         return crate::matrix::timelines::Message {
             event_id: var_eventId,
             transaction_id: var_transactionId,
@@ -2830,6 +3256,40 @@ impl SseDecode for crate::matrix::timelines::Message {
             is_own: var_isOwn,
             media_mimetype: var_mediaMimetype,
             media_size_bytes: var_mediaSizeBytes,
+            media_blurhash: var_mediaBlurhash,
+            media_preview_width: var_mediaPreviewWidth,
+            media_preview_height: var_mediaPreviewHeight,
+            in_reply_to_event_id: var_inReplyToEventId,
+            in_reply_to_sender: var_inReplyToSender,
+            in_reply_to_preview: var_inReplyToPreview,
+            in_reply_to_room_msg_kind: var_inReplyToRoomMsgKind,
+            in_reply_to_media_mimetype: var_inReplyToMediaMimetype,
+            in_reply_to_media_size_bytes: var_inReplyToMediaSizeBytes,
+            in_reply_to_media_blurhash: var_inReplyToMediaBlurhash,
+            in_reply_to_media_preview_width: var_inReplyToMediaPreviewWidth,
+            in_reply_to_media_preview_height: var_inReplyToMediaPreviewHeight,
+            in_reply_to_parent_redacted: var_inReplyToParentRedacted,
+            reactions: var_reactions,
+            poll_options_json: var_pollOptionsJson,
+            poll_state_json: var_pollStateJson,
+            link_previews_json: var_linkPreviewsJson,
+            is_redacted: var_isRedacted,
+        };
+    }
+}
+
+impl SseDecode for crate::matrix::timelines::MessageReactionEntry {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_key = <String>::sse_decode(deserializer);
+        let mut var_count = <u32>::sse_decode(deserializer);
+        let mut var_containsOwn = <bool>::sse_decode(deserializer);
+        let mut var_senders = <Vec<String>>::sse_decode(deserializer);
+        return crate::matrix::timelines::MessageReactionEntry {
+            key: var_key,
+            count: var_count,
+            contains_own: var_containsOwn,
+            senders: var_senders,
         };
     }
 }
@@ -3060,6 +3520,30 @@ impl SseDecode for crate::matrix::room_info::RoomFileItem {
     }
 }
 
+impl SseDecode for crate::matrix::room_info::RoomLinkItem {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_eventId = <String>::sse_decode(deserializer);
+        let mut var_transactionId = <String>::sse_decode(deserializer);
+        let mut var_sender = <String>::sse_decode(deserializer);
+        let mut var_body = <String>::sse_decode(deserializer);
+        let mut var_timestamp = <u64>::sse_decode(deserializer);
+        let mut var_isOutgoing = <bool>::sse_decode(deserializer);
+        let mut var_linkPreviewsJson = <String>::sse_decode(deserializer);
+        let mut var_isLinkMessage = <bool>::sse_decode(deserializer);
+        return crate::matrix::room_info::RoomLinkItem {
+            event_id: var_eventId,
+            transaction_id: var_transactionId,
+            sender: var_sender,
+            body: var_body,
+            timestamp: var_timestamp,
+            is_outgoing: var_isOutgoing,
+            link_previews_json: var_linkPreviewsJson,
+            is_link_message: var_isLinkMessage,
+        };
+    }
+}
+
 impl SseDecode for crate::matrix::room_info::RoomMemberRoleDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3078,6 +3562,7 @@ impl SseDecode for crate::matrix::room_info::RoomMemberRow {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_userId = <String>::sse_decode(deserializer);
+        let mut var_userIdDisplay = <String>::sse_decode(deserializer);
         let mut var_displayName = <String>::sse_decode(deserializer);
         let mut var_powerLevel = <i64>::sse_decode(deserializer);
         let mut var_role = <crate::matrix::room_info::RoomMemberRoleDto>::sse_decode(deserializer);
@@ -3085,6 +3570,7 @@ impl SseDecode for crate::matrix::room_info::RoomMemberRow {
         let mut var_currentUserCanKick = <bool>::sse_decode(deserializer);
         return crate::matrix::room_info::RoomMemberRow {
             user_id: var_userId,
+            user_id_display: var_userIdDisplay,
             display_name: var_displayName,
             power_level: var_powerLevel,
             role: var_role,
@@ -3104,8 +3590,29 @@ impl SseDecode for crate::matrix::timelines::RoomMessageKind {
             2 => crate::matrix::timelines::RoomMessageKind::File,
             3 => crate::matrix::timelines::RoomMessageKind::Video,
             4 => crate::matrix::timelines::RoomMessageKind::Audio,
-            5 => crate::matrix::timelines::RoomMessageKind::Other,
+            5 => crate::matrix::timelines::RoomMessageKind::Poll,
+            6 => crate::matrix::timelines::RoomMessageKind::Other,
             _ => unreachable!("Invalid variant for RoomMessageKind: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::matrix::room_info::RoomPollItem {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_eventId = <String>::sse_decode(deserializer);
+        let mut var_transactionId = <String>::sse_decode(deserializer);
+        let mut var_sender = <String>::sse_decode(deserializer);
+        let mut var_question = <String>::sse_decode(deserializer);
+        let mut var_timestamp = <u64>::sse_decode(deserializer);
+        let mut var_isOutgoing = <bool>::sse_decode(deserializer);
+        return crate::matrix::room_info::RoomPollItem {
+            event_id: var_eventId,
+            transaction_id: var_transactionId,
+            sender: var_sender,
+            question: var_question,
+            timestamp: var_timestamp,
+            is_outgoing: var_isOutgoing,
         };
     }
 }
@@ -3258,10 +3765,12 @@ impl SseDecode for crate::matrix::user_serach::User {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_userId = <String>::sse_decode(deserializer);
+        let mut var_userIdDisplay = <String>::sse_decode(deserializer);
         let mut var_displayName = <Option<String>>::sse_decode(deserializer);
         let mut var_avatarUrl = <Option<String>>::sse_decode(deserializer);
         return crate::matrix::user_serach::User {
             user_id: var_userId,
+            user_id_display: var_userIdDisplay,
             display_name: var_displayName,
             avatar_url: var_avatarUrl,
         };
@@ -3373,6 +3882,9 @@ impl flutter_rust_bridge::IntoDart for crate::matrix::client::ClientConfig {
             self.root_certificates.into_into_dart().into_dart(),
             self.proxy.into_into_dart().into_dart(),
             self.passphrase.into_into_dart().into_dart(),
+            self.show_home_server_for_username
+                .into_into_dart()
+                .into_dart(),
         ]
         .into_dart()
     }
@@ -3552,6 +4064,32 @@ impl flutter_rust_bridge::IntoDart for crate::matrix::timelines::Message {
             self.is_own.into_into_dart().into_dart(),
             self.media_mimetype.into_into_dart().into_dart(),
             self.media_size_bytes.into_into_dart().into_dart(),
+            self.media_blurhash.into_into_dart().into_dart(),
+            self.media_preview_width.into_into_dart().into_dart(),
+            self.media_preview_height.into_into_dart().into_dart(),
+            self.in_reply_to_event_id.into_into_dart().into_dart(),
+            self.in_reply_to_sender.into_into_dart().into_dart(),
+            self.in_reply_to_preview.into_into_dart().into_dart(),
+            self.in_reply_to_room_msg_kind.into_into_dart().into_dart(),
+            self.in_reply_to_media_mimetype.into_into_dart().into_dart(),
+            self.in_reply_to_media_size_bytes
+                .into_into_dart()
+                .into_dart(),
+            self.in_reply_to_media_blurhash.into_into_dart().into_dart(),
+            self.in_reply_to_media_preview_width
+                .into_into_dart()
+                .into_dart(),
+            self.in_reply_to_media_preview_height
+                .into_into_dart()
+                .into_dart(),
+            self.in_reply_to_parent_redacted
+                .into_into_dart()
+                .into_dart(),
+            self.reactions.into_into_dart().into_dart(),
+            self.poll_options_json.into_into_dart().into_dart(),
+            self.poll_state_json.into_into_dart().into_dart(),
+            self.link_previews_json.into_into_dart().into_dart(),
+            self.is_redacted.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -3564,6 +4102,29 @@ impl flutter_rust_bridge::IntoIntoDart<crate::matrix::timelines::Message>
     for crate::matrix::timelines::Message
 {
     fn into_into_dart(self) -> crate::matrix::timelines::Message {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::matrix::timelines::MessageReactionEntry {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.key.into_into_dart().into_dart(),
+            self.count.into_into_dart().into_dart(),
+            self.contains_own.into_into_dart().into_dart(),
+            self.senders.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::matrix::timelines::MessageReactionEntry
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::matrix::timelines::MessageReactionEntry>
+    for crate::matrix::timelines::MessageReactionEntry
+{
+    fn into_into_dart(self) -> crate::matrix::timelines::MessageReactionEntry {
         self
     }
 }
@@ -3724,6 +4285,33 @@ impl flutter_rust_bridge::IntoIntoDart<crate::matrix::room_info::RoomFileItem>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::matrix::room_info::RoomLinkItem {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.event_id.into_into_dart().into_dart(),
+            self.transaction_id.into_into_dart().into_dart(),
+            self.sender.into_into_dart().into_dart(),
+            self.body.into_into_dart().into_dart(),
+            self.timestamp.into_into_dart().into_dart(),
+            self.is_outgoing.into_into_dart().into_dart(),
+            self.link_previews_json.into_into_dart().into_dart(),
+            self.is_link_message.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::matrix::room_info::RoomLinkItem
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::matrix::room_info::RoomLinkItem>
+    for crate::matrix::room_info::RoomLinkItem
+{
+    fn into_into_dart(self) -> crate::matrix::room_info::RoomLinkItem {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::matrix::room_info::RoomMemberRoleDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
@@ -3751,6 +4339,7 @@ impl flutter_rust_bridge::IntoDart for crate::matrix::room_info::RoomMemberRow {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
             self.user_id.into_into_dart().into_dart(),
+            self.user_id_display.into_into_dart().into_dart(),
             self.display_name.into_into_dart().into_dart(),
             self.power_level.into_into_dart().into_dart(),
             self.role.into_into_dart().into_dart(),
@@ -3780,7 +4369,8 @@ impl flutter_rust_bridge::IntoDart for crate::matrix::timelines::RoomMessageKind
             Self::File => 2.into_dart(),
             Self::Video => 3.into_dart(),
             Self::Audio => 4.into_dart(),
-            Self::Other => 5.into_dart(),
+            Self::Poll => 5.into_dart(),
+            Self::Other => 6.into_dart(),
             _ => unreachable!(),
         }
     }
@@ -3793,6 +4383,31 @@ impl flutter_rust_bridge::IntoIntoDart<crate::matrix::timelines::RoomMessageKind
     for crate::matrix::timelines::RoomMessageKind
 {
     fn into_into_dart(self) -> crate::matrix::timelines::RoomMessageKind {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::matrix::room_info::RoomPollItem {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.event_id.into_into_dart().into_dart(),
+            self.transaction_id.into_into_dart().into_dart(),
+            self.sender.into_into_dart().into_dart(),
+            self.question.into_into_dart().into_dart(),
+            self.timestamp.into_into_dart().into_dart(),
+            self.is_outgoing.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::matrix::room_info::RoomPollItem
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::matrix::room_info::RoomPollItem>
+    for crate::matrix::room_info::RoomPollItem
+{
+    fn into_into_dart(self) -> crate::matrix::room_info::RoomPollItem {
         self
     }
 }
@@ -3950,6 +4565,7 @@ impl flutter_rust_bridge::IntoDart for crate::matrix::user_serach::User {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
             self.user_id.into_into_dart().into_dart(),
+            self.user_id_display.into_into_dart().into_dart(),
             self.display_name.into_into_dart().into_dart(),
             self.avatar_url.into_into_dart().into_dart(),
         ]
@@ -4155,6 +4771,7 @@ impl SseEncode for crate::matrix::client::ClientConfig {
         <Option<Vec<Certificate>>>::sse_encode(self.root_certificates, serializer);
         <Option<String>>::sse_encode(self.proxy, serializer);
         <Option<String>>::sse_encode(self.passphrase, serializer);
+        <bool>::sse_encode(self.show_home_server_for_username, serializer);
     }
 }
 
@@ -4286,6 +4903,16 @@ impl SseEncode for Vec<crate::matrix::timelines::Message> {
     }
 }
 
+impl SseEncode for Vec<crate::matrix::timelines::MessageReactionEntry> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::matrix::timelines::MessageReactionEntry>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<u8> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -4306,12 +4933,32 @@ impl SseEncode for Vec<crate::matrix::room_info::RoomFileItem> {
     }
 }
 
+impl SseEncode for Vec<crate::matrix::room_info::RoomLinkItem> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::matrix::room_info::RoomLinkItem>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::matrix::room_info::RoomMemberRow> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <crate::matrix::room_info::RoomMemberRow>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::matrix::room_info::RoomPollItem> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::matrix::room_info::RoomPollItem>::sse_encode(item, serializer);
         }
     }
 }
@@ -4381,6 +5028,40 @@ impl SseEncode for crate::matrix::timelines::Message {
         <bool>::sse_encode(self.is_own, serializer);
         <String>::sse_encode(self.media_mimetype, serializer);
         <u64>::sse_encode(self.media_size_bytes, serializer);
+        <String>::sse_encode(self.media_blurhash, serializer);
+        <u32>::sse_encode(self.media_preview_width, serializer);
+        <u32>::sse_encode(self.media_preview_height, serializer);
+        <String>::sse_encode(self.in_reply_to_event_id, serializer);
+        <String>::sse_encode(self.in_reply_to_sender, serializer);
+        <String>::sse_encode(self.in_reply_to_preview, serializer);
+        <crate::matrix::timelines::RoomMessageKind>::sse_encode(
+            self.in_reply_to_room_msg_kind,
+            serializer,
+        );
+        <String>::sse_encode(self.in_reply_to_media_mimetype, serializer);
+        <u64>::sse_encode(self.in_reply_to_media_size_bytes, serializer);
+        <String>::sse_encode(self.in_reply_to_media_blurhash, serializer);
+        <u32>::sse_encode(self.in_reply_to_media_preview_width, serializer);
+        <u32>::sse_encode(self.in_reply_to_media_preview_height, serializer);
+        <bool>::sse_encode(self.in_reply_to_parent_redacted, serializer);
+        <Vec<crate::matrix::timelines::MessageReactionEntry>>::sse_encode(
+            self.reactions,
+            serializer,
+        );
+        <String>::sse_encode(self.poll_options_json, serializer);
+        <String>::sse_encode(self.poll_state_json, serializer);
+        <String>::sse_encode(self.link_previews_json, serializer);
+        <bool>::sse_encode(self.is_redacted, serializer);
+    }
+}
+
+impl SseEncode for crate::matrix::timelines::MessageReactionEntry {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.key, serializer);
+        <u32>::sse_encode(self.count, serializer);
+        <bool>::sse_encode(self.contains_own, serializer);
+        <Vec<String>>::sse_encode(self.senders, serializer);
     }
 }
 
@@ -4579,6 +5260,20 @@ impl SseEncode for crate::matrix::room_info::RoomFileItem {
     }
 }
 
+impl SseEncode for crate::matrix::room_info::RoomLinkItem {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.event_id, serializer);
+        <String>::sse_encode(self.transaction_id, serializer);
+        <String>::sse_encode(self.sender, serializer);
+        <String>::sse_encode(self.body, serializer);
+        <u64>::sse_encode(self.timestamp, serializer);
+        <bool>::sse_encode(self.is_outgoing, serializer);
+        <String>::sse_encode(self.link_previews_json, serializer);
+        <bool>::sse_encode(self.is_link_message, serializer);
+    }
+}
+
 impl SseEncode for crate::matrix::room_info::RoomMemberRoleDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -4601,6 +5296,7 @@ impl SseEncode for crate::matrix::room_info::RoomMemberRow {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <String>::sse_encode(self.user_id, serializer);
+        <String>::sse_encode(self.user_id_display, serializer);
         <String>::sse_encode(self.display_name, serializer);
         <i64>::sse_encode(self.power_level, serializer);
         <crate::matrix::room_info::RoomMemberRoleDto>::sse_encode(self.role, serializer);
@@ -4619,13 +5315,26 @@ impl SseEncode for crate::matrix::timelines::RoomMessageKind {
                 crate::matrix::timelines::RoomMessageKind::File => 2,
                 crate::matrix::timelines::RoomMessageKind::Video => 3,
                 crate::matrix::timelines::RoomMessageKind::Audio => 4,
-                crate::matrix::timelines::RoomMessageKind::Other => 5,
+                crate::matrix::timelines::RoomMessageKind::Poll => 5,
+                crate::matrix::timelines::RoomMessageKind::Other => 6,
                 _ => {
                     unimplemented!("");
                 }
             },
             serializer,
         );
+    }
+}
+
+impl SseEncode for crate::matrix::room_info::RoomPollItem {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.event_id, serializer);
+        <String>::sse_encode(self.transaction_id, serializer);
+        <String>::sse_encode(self.sender, serializer);
+        <String>::sse_encode(self.question, serializer);
+        <u64>::sse_encode(self.timestamp, serializer);
+        <bool>::sse_encode(self.is_outgoing, serializer);
     }
 }
 
@@ -4764,6 +5473,7 @@ impl SseEncode for crate::matrix::user_serach::User {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <String>::sse_encode(self.user_id, serializer);
+        <String>::sse_encode(self.user_id_display, serializer);
         <Option<String>>::sse_encode(self.display_name, serializer);
         <Option<String>>::sse_encode(self.avatar_url, serializer);
     }
@@ -5092,6 +5802,7 @@ mod io {
                 root_certificates: self.root_certificates.cst_decode(),
                 proxy: self.proxy.cst_decode(),
                 passphrase: self.passphrase.cst_decode(),
+                show_home_server_for_username: self.show_home_server_for_username.cst_decode(),
             }
         }
     }
@@ -5153,6 +5864,18 @@ mod io {
             vec.into_iter().map(CstDecode::cst_decode).collect()
         }
     }
+    impl CstDecode<Vec<crate::matrix::timelines::MessageReactionEntry>>
+        for *mut wire_cst_list_message_reaction_entry
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> Vec<crate::matrix::timelines::MessageReactionEntry> {
+            let vec = unsafe {
+                let wrap = flutter_rust_bridge::for_generated::box_from_leak_ptr(self);
+                flutter_rust_bridge::for_generated::vec_from_leak_ptr(wrap.ptr, wrap.len)
+            };
+            vec.into_iter().map(CstDecode::cst_decode).collect()
+        }
+    }
     impl CstDecode<Vec<u8>> for *mut wire_cst_list_prim_u_8_loose {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> Vec<u8> {
@@ -5181,11 +5904,31 @@ mod io {
             vec.into_iter().map(CstDecode::cst_decode).collect()
         }
     }
+    impl CstDecode<Vec<crate::matrix::room_info::RoomLinkItem>> for *mut wire_cst_list_room_link_item {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> Vec<crate::matrix::room_info::RoomLinkItem> {
+            let vec = unsafe {
+                let wrap = flutter_rust_bridge::for_generated::box_from_leak_ptr(self);
+                flutter_rust_bridge::for_generated::vec_from_leak_ptr(wrap.ptr, wrap.len)
+            };
+            vec.into_iter().map(CstDecode::cst_decode).collect()
+        }
+    }
     impl CstDecode<Vec<crate::matrix::room_info::RoomMemberRow>>
         for *mut wire_cst_list_room_member_row
     {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> Vec<crate::matrix::room_info::RoomMemberRow> {
+            let vec = unsafe {
+                let wrap = flutter_rust_bridge::for_generated::box_from_leak_ptr(self);
+                flutter_rust_bridge::for_generated::vec_from_leak_ptr(wrap.ptr, wrap.len)
+            };
+            vec.into_iter().map(CstDecode::cst_decode).collect()
+        }
+    }
+    impl CstDecode<Vec<crate::matrix::room_info::RoomPollItem>> for *mut wire_cst_list_room_poll_item {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> Vec<crate::matrix::room_info::RoomPollItem> {
             let vec = unsafe {
                 let wrap = flutter_rust_bridge::for_generated::box_from_leak_ptr(self);
                 flutter_rust_bridge::for_generated::vec_from_leak_ptr(wrap.ptr, wrap.len)
@@ -5240,6 +5983,37 @@ mod io {
                 is_own: self.is_own.cst_decode(),
                 media_mimetype: self.media_mimetype.cst_decode(),
                 media_size_bytes: self.media_size_bytes.cst_decode(),
+                media_blurhash: self.media_blurhash.cst_decode(),
+                media_preview_width: self.media_preview_width.cst_decode(),
+                media_preview_height: self.media_preview_height.cst_decode(),
+                in_reply_to_event_id: self.in_reply_to_event_id.cst_decode(),
+                in_reply_to_sender: self.in_reply_to_sender.cst_decode(),
+                in_reply_to_preview: self.in_reply_to_preview.cst_decode(),
+                in_reply_to_room_msg_kind: self.in_reply_to_room_msg_kind.cst_decode(),
+                in_reply_to_media_mimetype: self.in_reply_to_media_mimetype.cst_decode(),
+                in_reply_to_media_size_bytes: self.in_reply_to_media_size_bytes.cst_decode(),
+                in_reply_to_media_blurhash: self.in_reply_to_media_blurhash.cst_decode(),
+                in_reply_to_media_preview_width: self.in_reply_to_media_preview_width.cst_decode(),
+                in_reply_to_media_preview_height: self
+                    .in_reply_to_media_preview_height
+                    .cst_decode(),
+                in_reply_to_parent_redacted: self.in_reply_to_parent_redacted.cst_decode(),
+                reactions: self.reactions.cst_decode(),
+                poll_options_json: self.poll_options_json.cst_decode(),
+                poll_state_json: self.poll_state_json.cst_decode(),
+                link_previews_json: self.link_previews_json.cst_decode(),
+                is_redacted: self.is_redacted.cst_decode(),
+            }
+        }
+    }
+    impl CstDecode<crate::matrix::timelines::MessageReactionEntry> for wire_cst_message_reaction_entry {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::matrix::timelines::MessageReactionEntry {
+            crate::matrix::timelines::MessageReactionEntry {
+                key: self.key.cst_decode(),
+                count: self.count.cst_decode(),
+                contains_own: self.contains_own.cst_decode(),
+                senders: self.senders.cst_decode(),
             }
         }
     }
@@ -5286,16 +6060,45 @@ mod io {
             }
         }
     }
+    impl CstDecode<crate::matrix::room_info::RoomLinkItem> for wire_cst_room_link_item {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::matrix::room_info::RoomLinkItem {
+            crate::matrix::room_info::RoomLinkItem {
+                event_id: self.event_id.cst_decode(),
+                transaction_id: self.transaction_id.cst_decode(),
+                sender: self.sender.cst_decode(),
+                body: self.body.cst_decode(),
+                timestamp: self.timestamp.cst_decode(),
+                is_outgoing: self.is_outgoing.cst_decode(),
+                link_previews_json: self.link_previews_json.cst_decode(),
+                is_link_message: self.is_link_message.cst_decode(),
+            }
+        }
+    }
     impl CstDecode<crate::matrix::room_info::RoomMemberRow> for wire_cst_room_member_row {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> crate::matrix::room_info::RoomMemberRow {
             crate::matrix::room_info::RoomMemberRow {
                 user_id: self.user_id.cst_decode(),
+                user_id_display: self.user_id_display.cst_decode(),
                 display_name: self.display_name.cst_decode(),
                 power_level: self.power_level.cst_decode(),
                 role: self.role.cst_decode(),
                 is_self: self.is_self.cst_decode(),
                 current_user_can_kick: self.current_user_can_kick.cst_decode(),
+            }
+        }
+    }
+    impl CstDecode<crate::matrix::room_info::RoomPollItem> for wire_cst_room_poll_item {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::matrix::room_info::RoomPollItem {
+            crate::matrix::room_info::RoomPollItem {
+                event_id: self.event_id.cst_decode(),
+                transaction_id: self.transaction_id.cst_decode(),
+                sender: self.sender.cst_decode(),
+                question: self.question.cst_decode(),
+                timestamp: self.timestamp.cst_decode(),
+                is_outgoing: self.is_outgoing.cst_decode(),
             }
         }
     }
@@ -5347,6 +6150,7 @@ mod io {
         fn cst_decode(self) -> crate::matrix::user_serach::User {
             crate::matrix::user_serach::User {
                 user_id: self.user_id.cst_decode(),
+                user_id_display: self.user_id_display.cst_decode(),
                 display_name: self.display_name.cst_decode(),
                 avatar_url: self.avatar_url.cst_decode(),
             }
@@ -5369,6 +6173,7 @@ mod io {
                 root_certificates: core::ptr::null_mut(),
                 proxy: core::ptr::null_mut(),
                 passphrase: core::ptr::null_mut(),
+                show_home_server_for_username: Default::default(),
             }
         }
     }
@@ -5421,10 +6226,43 @@ mod io {
                 is_own: Default::default(),
                 media_mimetype: core::ptr::null_mut(),
                 media_size_bytes: Default::default(),
+                media_blurhash: core::ptr::null_mut(),
+                media_preview_width: Default::default(),
+                media_preview_height: Default::default(),
+                in_reply_to_event_id: core::ptr::null_mut(),
+                in_reply_to_sender: core::ptr::null_mut(),
+                in_reply_to_preview: core::ptr::null_mut(),
+                in_reply_to_room_msg_kind: Default::default(),
+                in_reply_to_media_mimetype: core::ptr::null_mut(),
+                in_reply_to_media_size_bytes: Default::default(),
+                in_reply_to_media_blurhash: core::ptr::null_mut(),
+                in_reply_to_media_preview_width: Default::default(),
+                in_reply_to_media_preview_height: Default::default(),
+                in_reply_to_parent_redacted: Default::default(),
+                reactions: core::ptr::null_mut(),
+                poll_options_json: core::ptr::null_mut(),
+                poll_state_json: core::ptr::null_mut(),
+                link_previews_json: core::ptr::null_mut(),
+                is_redacted: Default::default(),
             }
         }
     }
     impl Default for wire_cst_message {
+        fn default() -> Self {
+            Self::new_with_null_ptr()
+        }
+    }
+    impl NewWithNullPtr for wire_cst_message_reaction_entry {
+        fn new_with_null_ptr() -> Self {
+            Self {
+                key: core::ptr::null_mut(),
+                count: Default::default(),
+                contains_own: Default::default(),
+                senders: core::ptr::null_mut(),
+            }
+        }
+    }
+    impl Default for wire_cst_message_reaction_entry {
         fn default() -> Self {
             Self::new_with_null_ptr()
         }
@@ -5484,10 +6322,30 @@ mod io {
             Self::new_with_null_ptr()
         }
     }
+    impl NewWithNullPtr for wire_cst_room_link_item {
+        fn new_with_null_ptr() -> Self {
+            Self {
+                event_id: core::ptr::null_mut(),
+                transaction_id: core::ptr::null_mut(),
+                sender: core::ptr::null_mut(),
+                body: core::ptr::null_mut(),
+                timestamp: Default::default(),
+                is_outgoing: Default::default(),
+                link_previews_json: core::ptr::null_mut(),
+                is_link_message: Default::default(),
+            }
+        }
+    }
+    impl Default for wire_cst_room_link_item {
+        fn default() -> Self {
+            Self::new_with_null_ptr()
+        }
+    }
     impl NewWithNullPtr for wire_cst_room_member_row {
         fn new_with_null_ptr() -> Self {
             Self {
                 user_id: core::ptr::null_mut(),
+                user_id_display: core::ptr::null_mut(),
                 display_name: core::ptr::null_mut(),
                 power_level: Default::default(),
                 role: Default::default(),
@@ -5497,6 +6355,23 @@ mod io {
         }
     }
     impl Default for wire_cst_room_member_row {
+        fn default() -> Self {
+            Self::new_with_null_ptr()
+        }
+    }
+    impl NewWithNullPtr for wire_cst_room_poll_item {
+        fn new_with_null_ptr() -> Self {
+            Self {
+                event_id: core::ptr::null_mut(),
+                transaction_id: core::ptr::null_mut(),
+                sender: core::ptr::null_mut(),
+                question: core::ptr::null_mut(),
+                timestamp: Default::default(),
+                is_outgoing: Default::default(),
+            }
+        }
+    }
+    impl Default for wire_cst_room_poll_item {
         fn default() -> Self {
             Self::new_with_null_ptr()
         }
@@ -5558,6 +6433,7 @@ mod io {
         fn new_with_null_ptr() -> Self {
             Self {
                 user_id: core::ptr::null_mut(),
+                user_id_display: core::ptr::null_mut(),
                 display_name: core::ptr::null_mut(),
                 avatar_url: core::ptr::null_mut(),
             }
@@ -5760,6 +6636,30 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_list_room_links(
+        port_: i64,
+        that: usize,
+        room_id: *mut wire_cst_list_prim_u_8_strict,
+        filter: i32,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_list_room_links_impl(
+            port_, that, room_id, filter,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_list_room_polls(
+        port_: i64,
+        that: usize,
+        room_id: *mut wire_cst_list_prim_u_8_strict,
+        filter: i32,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_list_room_polls_impl(
+            port_, that, room_id, filter,
+        )
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_login(
         port_: i64,
         that: usize,
@@ -5775,6 +6675,25 @@ mod io {
         that: usize,
     ) {
         wire__crate__api__matrix_client__MatrixClient_logout_impl(port_, that)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_redact_timeline_event(
+        port_: i64,
+        that: usize,
+        room_id: *mut wire_cst_list_prim_u_8_strict,
+        event_id: *mut wire_cst_list_prim_u_8_strict,
+        transaction_id: *mut wire_cst_list_prim_u_8_strict,
+        reason: *mut wire_cst_list_prim_u_8_strict,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_redact_timeline_event_impl(
+            port_,
+            that,
+            room_id,
+            event_id,
+            transaction_id,
+            reason,
+        )
     }
 
     #[unsafe(no_mangle)]
@@ -5873,6 +6792,61 @@ mod io {
     ) {
         wire__crate__api__matrix_client__MatrixClient_send_message_impl(
             port_, that, room_id, content,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_poll(
+        port_: i64,
+        that: usize,
+        room_id: *mut wire_cst_list_prim_u_8_strict,
+        question: *mut wire_cst_list_prim_u_8_strict,
+        answer_texts: *mut wire_cst_list_String,
+        kind_disclosed: bool,
+        max_selections: u64,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_send_poll_impl(
+            port_,
+            that,
+            room_id,
+            question,
+            answer_texts,
+            kind_disclosed,
+            max_selections,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_poll_response(
+        port_: i64,
+        that: usize,
+        room_id: *mut wire_cst_list_prim_u_8_strict,
+        poll_start_event_id: *mut wire_cst_list_prim_u_8_strict,
+        answer_ids: *mut wire_cst_list_String,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_send_poll_response_impl(
+            port_,
+            that,
+            room_id,
+            poll_start_event_id,
+            answer_ids,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_reply(
+        port_: i64,
+        that: usize,
+        room_id: *mut wire_cst_list_prim_u_8_strict,
+        content: *mut wire_cst_list_prim_u_8_strict,
+        reply_to_event_id: *mut wire_cst_list_prim_u_8_strict,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_send_reply_impl(
+            port_,
+            that,
+            room_id,
+            content,
+            reply_to_event_id,
         )
     }
 
@@ -6018,6 +6992,25 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_toggle_timeline_reaction(
+        port_: i64,
+        that: usize,
+        room_id: *mut wire_cst_list_prim_u_8_strict,
+        event_id: *mut wire_cst_list_prim_u_8_strict,
+        transaction_id: *mut wire_cst_list_prim_u_8_strict,
+        reaction_key: *mut wire_cst_list_prim_u_8_strict,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_toggle_timeline_reaction_impl(
+            port_,
+            that,
+            room_id,
+            event_id,
+            transaction_id,
+            reaction_key,
+        )
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_unregister_pusher(
         port_: i64,
         that: usize,
@@ -6069,21 +7062,6 @@ mod io {
         configuration: *mut wire_cst_tracing_file_configuration,
     ) {
         wire__crate__logger__platform__reload_tracing_file_writer_impl(port_, configuration)
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__native_media_env__set_native_media_env(
-        port_: i64,
-        pdfium_dynamic_lib_path: *mut wire_cst_list_prim_u_8_strict,
-        matrix_pdfium_dir: *mut wire_cst_list_prim_u_8_strict,
-        matrix_ffmpeg_path: *mut wire_cst_list_prim_u_8_strict,
-    ) {
-        wire__crate__api__native_media_env__set_native_media_env_impl(
-            port_,
-            pdfium_dynamic_lib_path,
-            matrix_pdfium_dir,
-            matrix_ffmpeg_path,
-        )
     }
 
     #[unsafe(no_mangle)]
@@ -6245,6 +7223,20 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_cst_new_list_message_reaction_entry(
+        len: i32,
+    ) -> *mut wire_cst_list_message_reaction_entry {
+        let wrap = wire_cst_list_message_reaction_entry {
+            ptr: flutter_rust_bridge::for_generated::new_leak_vec_ptr(
+                <wire_cst_message_reaction_entry>::new_with_null_ptr(),
+                len,
+            ),
+            len,
+        };
+        flutter_rust_bridge::for_generated::new_leak_box_ptr(wrap)
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_cst_new_list_prim_u_8_loose(
         len: i32,
     ) -> *mut wire_cst_list_prim_u_8_loose {
@@ -6281,12 +7273,40 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_cst_new_list_room_link_item(
+        len: i32,
+    ) -> *mut wire_cst_list_room_link_item {
+        let wrap = wire_cst_list_room_link_item {
+            ptr: flutter_rust_bridge::for_generated::new_leak_vec_ptr(
+                <wire_cst_room_link_item>::new_with_null_ptr(),
+                len,
+            ),
+            len,
+        };
+        flutter_rust_bridge::for_generated::new_leak_box_ptr(wrap)
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_cst_new_list_room_member_row(
         len: i32,
     ) -> *mut wire_cst_list_room_member_row {
         let wrap = wire_cst_list_room_member_row {
             ptr: flutter_rust_bridge::for_generated::new_leak_vec_ptr(
                 <wire_cst_room_member_row>::new_with_null_ptr(),
+                len,
+            ),
+            len,
+        };
+        flutter_rust_bridge::for_generated::new_leak_box_ptr(wrap)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_cst_new_list_room_poll_item(
+        len: i32,
+    ) -> *mut wire_cst_list_room_poll_item {
+        let wrap = wire_cst_list_room_poll_item {
+            ptr: flutter_rust_bridge::for_generated::new_leak_vec_ptr(
+                <wire_cst_room_poll_item>::new_with_null_ptr(),
                 len,
             ),
             len,
@@ -6337,7 +7357,8 @@ mod io {
 homeserver_url: *mut wire_cst_list_prim_u_8_strict,
 root_certificates: *mut wire_cst_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCertificate,
 proxy: *mut wire_cst_list_prim_u_8_strict,
-passphrase: *mut wire_cst_list_prim_u_8_strict }
+passphrase: *mut wire_cst_list_prim_u_8_strict,
+show_home_server_for_username: bool }
     #[repr(C)]
     #[derive(Clone, Copy)]
     pub struct wire_cst_client_error {
@@ -6385,6 +7406,12 @@ passphrase: *mut wire_cst_list_prim_u_8_strict }
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
+    pub struct wire_cst_list_message_reaction_entry {
+        ptr: *mut wire_cst_message_reaction_entry,
+        len: i32,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
     pub struct wire_cst_list_prim_u_8_loose {
         ptr: *mut u8,
         len: i32,
@@ -6403,8 +7430,20 @@ passphrase: *mut wire_cst_list_prim_u_8_strict }
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
+    pub struct wire_cst_list_room_link_item {
+        ptr: *mut wire_cst_room_link_item,
+        len: i32,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
     pub struct wire_cst_list_room_member_row {
         ptr: *mut wire_cst_room_member_row,
+        len: i32,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    pub struct wire_cst_list_room_poll_item {
+        ptr: *mut wire_cst_room_poll_item,
         len: i32,
     }
     #[repr(C)]
@@ -6441,6 +7480,32 @@ passphrase: *mut wire_cst_list_prim_u_8_strict }
         is_own: bool,
         media_mimetype: *mut wire_cst_list_prim_u_8_strict,
         media_size_bytes: u64,
+        media_blurhash: *mut wire_cst_list_prim_u_8_strict,
+        media_preview_width: u32,
+        media_preview_height: u32,
+        in_reply_to_event_id: *mut wire_cst_list_prim_u_8_strict,
+        in_reply_to_sender: *mut wire_cst_list_prim_u_8_strict,
+        in_reply_to_preview: *mut wire_cst_list_prim_u_8_strict,
+        in_reply_to_room_msg_kind: i32,
+        in_reply_to_media_mimetype: *mut wire_cst_list_prim_u_8_strict,
+        in_reply_to_media_size_bytes: u64,
+        in_reply_to_media_blurhash: *mut wire_cst_list_prim_u_8_strict,
+        in_reply_to_media_preview_width: u32,
+        in_reply_to_media_preview_height: u32,
+        in_reply_to_parent_redacted: bool,
+        reactions: *mut wire_cst_list_message_reaction_entry,
+        poll_options_json: *mut wire_cst_list_prim_u_8_strict,
+        poll_state_json: *mut wire_cst_list_prim_u_8_strict,
+        link_previews_json: *mut wire_cst_list_prim_u_8_strict,
+        is_redacted: bool,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    pub struct wire_cst_message_reaction_entry {
+        key: *mut wire_cst_list_prim_u_8_strict,
+        count: u32,
+        contains_own: bool,
+        senders: *mut wire_cst_list_String,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -6478,13 +7543,36 @@ passphrase: *mut wire_cst_list_prim_u_8_strict }
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
+    pub struct wire_cst_room_link_item {
+        event_id: *mut wire_cst_list_prim_u_8_strict,
+        transaction_id: *mut wire_cst_list_prim_u_8_strict,
+        sender: *mut wire_cst_list_prim_u_8_strict,
+        body: *mut wire_cst_list_prim_u_8_strict,
+        timestamp: u64,
+        is_outgoing: bool,
+        link_previews_json: *mut wire_cst_list_prim_u_8_strict,
+        is_link_message: bool,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
     pub struct wire_cst_room_member_row {
         user_id: *mut wire_cst_list_prim_u_8_strict,
+        user_id_display: *mut wire_cst_list_prim_u_8_strict,
         display_name: *mut wire_cst_list_prim_u_8_strict,
         power_level: i64,
         role: i32,
         is_self: bool,
         current_user_can_kick: bool,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    pub struct wire_cst_room_poll_item {
+        event_id: *mut wire_cst_list_prim_u_8_strict,
+        transaction_id: *mut wire_cst_list_prim_u_8_strict,
+        sender: *mut wire_cst_list_prim_u_8_strict,
+        question: *mut wire_cst_list_prim_u_8_strict,
+        timestamp: u64,
+        is_outgoing: bool,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -6522,6 +7610,7 @@ passphrase: *mut wire_cst_list_prim_u_8_strict }
     #[derive(Clone, Copy)]
     pub struct wire_cst_user {
         user_id: *mut wire_cst_list_prim_u_8_strict,
+        user_id_display: *mut wire_cst_list_prim_u_8_strict,
         display_name: *mut wire_cst_list_prim_u_8_strict,
         avatar_url: *mut wire_cst_list_prim_u_8_strict,
     }
@@ -6697,8 +7786,8 @@ mod web {
                 .unwrap();
             assert_eq!(
                 self_.length(),
-                5,
-                "Expected 5 elements, got {}",
+                6,
+                "Expected 6 elements, got {}",
                 self_.length()
             );
             crate::matrix::client::ClientConfig {
@@ -6707,6 +7796,7 @@ mod web {
                 root_certificates: self_.get(2).cst_decode(),
                 proxy: self_.get(3).cst_decode(),
                 passphrase: self_.get(4).cst_decode(),
+                show_home_server_for_username: self_.get(5).cst_decode(),
             }
         }
     }
@@ -6779,6 +7869,18 @@ mod web {
                 .collect()
         }
     }
+    impl CstDecode<Vec<crate::matrix::timelines::MessageReactionEntry>>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> Vec<crate::matrix::timelines::MessageReactionEntry> {
+            self.dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap()
+                .iter()
+                .map(CstDecode::cst_decode)
+                .collect()
+        }
+    }
     impl CstDecode<Vec<u8>> for Box<[u8]> {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> Vec<u8> {
@@ -6797,11 +7899,35 @@ mod web {
                 .collect()
         }
     }
+    impl CstDecode<Vec<crate::matrix::room_info::RoomLinkItem>>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> Vec<crate::matrix::room_info::RoomLinkItem> {
+            self.dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap()
+                .iter()
+                .map(CstDecode::cst_decode)
+                .collect()
+        }
+    }
     impl CstDecode<Vec<crate::matrix::room_info::RoomMemberRow>>
         for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
     {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> Vec<crate::matrix::room_info::RoomMemberRow> {
+            self.dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap()
+                .iter()
+                .map(CstDecode::cst_decode)
+                .collect()
+        }
+    }
+    impl CstDecode<Vec<crate::matrix::room_info::RoomPollItem>>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> Vec<crate::matrix::room_info::RoomPollItem> {
             self.dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
                 .unwrap()
                 .iter()
@@ -6855,8 +7981,8 @@ mod web {
                 .unwrap();
             assert_eq!(
                 self_.length(),
-                13,
-                "Expected 13 elements, got {}",
+                31,
+                "Expected 31 elements, got {}",
                 self_.length()
             );
             crate::matrix::timelines::Message {
@@ -6873,6 +7999,46 @@ mod web {
                 is_own: self_.get(10).cst_decode(),
                 media_mimetype: self_.get(11).cst_decode(),
                 media_size_bytes: self_.get(12).cst_decode(),
+                media_blurhash: self_.get(13).cst_decode(),
+                media_preview_width: self_.get(14).cst_decode(),
+                media_preview_height: self_.get(15).cst_decode(),
+                in_reply_to_event_id: self_.get(16).cst_decode(),
+                in_reply_to_sender: self_.get(17).cst_decode(),
+                in_reply_to_preview: self_.get(18).cst_decode(),
+                in_reply_to_room_msg_kind: self_.get(19).cst_decode(),
+                in_reply_to_media_mimetype: self_.get(20).cst_decode(),
+                in_reply_to_media_size_bytes: self_.get(21).cst_decode(),
+                in_reply_to_media_blurhash: self_.get(22).cst_decode(),
+                in_reply_to_media_preview_width: self_.get(23).cst_decode(),
+                in_reply_to_media_preview_height: self_.get(24).cst_decode(),
+                in_reply_to_parent_redacted: self_.get(25).cst_decode(),
+                reactions: self_.get(26).cst_decode(),
+                poll_options_json: self_.get(27).cst_decode(),
+                poll_state_json: self_.get(28).cst_decode(),
+                link_previews_json: self_.get(29).cst_decode(),
+                is_redacted: self_.get(30).cst_decode(),
+            }
+        }
+    }
+    impl CstDecode<crate::matrix::timelines::MessageReactionEntry>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::matrix::timelines::MessageReactionEntry {
+            let self_ = self
+                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap();
+            assert_eq!(
+                self_.length(),
+                4,
+                "Expected 4 elements, got {}",
+                self_.length()
+            );
+            crate::matrix::timelines::MessageReactionEntry {
+                key: self_.get(0).cst_decode(),
+                count: self_.get(1).cst_decode(),
+                contains_own: self_.get(2).cst_decode(),
+                senders: self_.get(3).cst_decode(),
             }
         }
     }
@@ -6958,6 +8124,32 @@ mod web {
             }
         }
     }
+    impl CstDecode<crate::matrix::room_info::RoomLinkItem>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::matrix::room_info::RoomLinkItem {
+            let self_ = self
+                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap();
+            assert_eq!(
+                self_.length(),
+                8,
+                "Expected 8 elements, got {}",
+                self_.length()
+            );
+            crate::matrix::room_info::RoomLinkItem {
+                event_id: self_.get(0).cst_decode(),
+                transaction_id: self_.get(1).cst_decode(),
+                sender: self_.get(2).cst_decode(),
+                body: self_.get(3).cst_decode(),
+                timestamp: self_.get(4).cst_decode(),
+                is_outgoing: self_.get(5).cst_decode(),
+                link_previews_json: self_.get(6).cst_decode(),
+                is_link_message: self_.get(7).cst_decode(),
+            }
+        }
+    }
     impl CstDecode<crate::matrix::room_info::RoomMemberRow>
         for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
     {
@@ -6968,17 +8160,42 @@ mod web {
                 .unwrap();
             assert_eq!(
                 self_.length(),
-                6,
-                "Expected 6 elements, got {}",
+                7,
+                "Expected 7 elements, got {}",
                 self_.length()
             );
             crate::matrix::room_info::RoomMemberRow {
                 user_id: self_.get(0).cst_decode(),
-                display_name: self_.get(1).cst_decode(),
-                power_level: self_.get(2).cst_decode(),
-                role: self_.get(3).cst_decode(),
-                is_self: self_.get(4).cst_decode(),
-                current_user_can_kick: self_.get(5).cst_decode(),
+                user_id_display: self_.get(1).cst_decode(),
+                display_name: self_.get(2).cst_decode(),
+                power_level: self_.get(3).cst_decode(),
+                role: self_.get(4).cst_decode(),
+                is_self: self_.get(5).cst_decode(),
+                current_user_can_kick: self_.get(6).cst_decode(),
+            }
+        }
+    }
+    impl CstDecode<crate::matrix::room_info::RoomPollItem>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::matrix::room_info::RoomPollItem {
+            let self_ = self
+                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap();
+            assert_eq!(
+                self_.length(),
+                6,
+                "Expected 6 elements, got {}",
+                self_.length()
+            );
+            crate::matrix::room_info::RoomPollItem {
+                event_id: self_.get(0).cst_decode(),
+                transaction_id: self_.get(1).cst_decode(),
+                sender: self_.get(2).cst_decode(),
+                question: self_.get(3).cst_decode(),
+                timestamp: self_.get(4).cst_decode(),
+                is_outgoing: self_.get(5).cst_decode(),
             }
         }
     }
@@ -7066,14 +8283,15 @@ mod web {
                 .unwrap();
             assert_eq!(
                 self_.length(),
-                3,
-                "Expected 3 elements, got {}",
+                4,
+                "Expected 4 elements, got {}",
                 self_.length()
             );
             crate::matrix::user_serach::User {
                 user_id: self_.get(0).cst_decode(),
-                display_name: self_.get(1).cst_decode(),
-                avatar_url: self_.get(2).cst_decode(),
+                user_id_display: self_.get(1).cst_decode(),
+                display_name: self_.get(2).cst_decode(),
+                avatar_url: self_.get(3).cst_decode(),
             }
         }
     }
@@ -7650,6 +8868,30 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_list_room_links(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        room_id: String,
+        filter: i32,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_list_room_links_impl(
+            port_, that, room_id, filter,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_list_room_polls(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        room_id: String,
+        filter: i32,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_list_room_polls_impl(
+            port_, that, room_id, filter,
+        )
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__matrix_client__MatrixClient_login(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -7665,6 +8907,25 @@ mod web {
         that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
     ) {
         wire__crate__api__matrix_client__MatrixClient_logout_impl(port_, that)
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_redact_timeline_event(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        room_id: String,
+        event_id: String,
+        transaction_id: String,
+        reason: Option<String>,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_redact_timeline_event_impl(
+            port_,
+            that,
+            room_id,
+            event_id,
+            transaction_id,
+            reason,
+        )
     }
 
     #[wasm_bindgen]
@@ -7763,6 +9024,61 @@ mod web {
     ) {
         wire__crate__api__matrix_client__MatrixClient_send_message_impl(
             port_, that, room_id, content,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_send_poll(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        room_id: String,
+        question: String,
+        answer_texts: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        kind_disclosed: bool,
+        max_selections: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_send_poll_impl(
+            port_,
+            that,
+            room_id,
+            question,
+            answer_texts,
+            kind_disclosed,
+            max_selections,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_send_poll_response(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        room_id: String,
+        poll_start_event_id: String,
+        answer_ids: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_send_poll_response_impl(
+            port_,
+            that,
+            room_id,
+            poll_start_event_id,
+            answer_ids,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_send_reply(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        room_id: String,
+        content: String,
+        reply_to_event_id: String,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_send_reply_impl(
+            port_,
+            that,
+            room_id,
+            content,
+            reply_to_event_id,
         )
     }
 
@@ -7908,6 +9224,25 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_toggle_timeline_reaction(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        room_id: String,
+        event_id: String,
+        transaction_id: String,
+        reaction_key: String,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_toggle_timeline_reaction_impl(
+            port_,
+            that,
+            room_id,
+            event_id,
+            transaction_id,
+            reaction_key,
+        )
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__matrix_client__MatrixClient_unregister_pusher(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -7959,21 +9294,6 @@ mod web {
         configuration: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
     ) {
         wire__crate__logger__platform__reload_tracing_file_writer_impl(port_, configuration)
-    }
-
-    #[wasm_bindgen]
-    pub fn wire__crate__api__native_media_env__set_native_media_env(
-        port_: flutter_rust_bridge::for_generated::MessagePort,
-        pdfium_dynamic_lib_path: Option<String>,
-        matrix_pdfium_dir: Option<String>,
-        matrix_ffmpeg_path: Option<String>,
-    ) {
-        wire__crate__api__native_media_env__set_native_media_env_impl(
-            port_,
-            pdfium_dynamic_lib_path,
-            matrix_pdfium_dir,
-            matrix_ffmpeg_path,
-        )
     }
 
     #[wasm_bindgen]

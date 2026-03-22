@@ -8,14 +8,25 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 class User {
   final String userId;
+
+  /// `user_id` formatted for UI (homeserver suffix may be hidden).
+  final String userIdDisplay;
   final String? displayName;
   final String? avatarUrl;
 
-  const User({required this.userId, this.displayName, this.avatarUrl});
+  const User({
+    required this.userId,
+    required this.userIdDisplay,
+    this.displayName,
+    this.avatarUrl,
+  });
 
   @override
   int get hashCode =>
-      userId.hashCode ^ displayName.hashCode ^ avatarUrl.hashCode;
+      userId.hashCode ^
+      userIdDisplay.hashCode ^
+      displayName.hashCode ^
+      avatarUrl.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -23,6 +34,7 @@ class User {
       other is User &&
           runtimeType == other.runtimeType &&
           userId == other.userId &&
+          userIdDisplay == other.userIdDisplay &&
           displayName == other.displayName &&
           avatarUrl == other.avatarUrl;
 }

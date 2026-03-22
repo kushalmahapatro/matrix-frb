@@ -1,6 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:elementary/elementary.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_blurhash/flutter_blurhash.dart';
 import 'package:matrix/src/core/navigation/navigator_service.dart';
+import 'package:matrix/src/core/timeline_local_hidden_store.dart';
 import 'package:matrix/src/core/presentation/widgets/terminal_container.dart';
 import 'package:matrix/src/features/chat_lisitng/domain/models/chat_state.dart';
 import 'package:matrix/src/features/conversation/domain/models/conversation_state.dart'
@@ -11,7 +15,7 @@ import 'package:matrix/src/features/conversation/presentation/widgets/pagianted_
 import 'package:matrix/src/features/conversation/routes/conversation_routes.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
 import 'package:matrix_sdk/matrix_sdk.dart'
-    show FileSendPhase, FileSendProgress, Message;
+    show FileSendPhase, FileSendProgress, Message, RoomMessageKind;
 
 ConversationScreenWM conversationScreenWMFactory(BuildContext context) {
   return ConversationScreenWM(
@@ -47,11 +51,22 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
       ],
       child: Column(
         children: [
+          ValueListenableBuilder<bool>(
+            valueListenable: wm.showPendingOutgoingInvite,
+            builder: (context, pending, _) {
+              if (!pending) return const SizedBox.shrink();
+              return _pendingOutgoingInviteBanner(context);
+            },
+          ),
           // Messages list
           Expanded(
-            child: ValueListenableBuilder<ConversationState>(
-              valueListenable: wm.roomState,
-              builder: (context, state, child) {
+            child: ListenableBuilder(
+              listenable: Listenable.merge([
+                wm.roomState,
+                TimelineLocalHiddenStore.revision,
+              ]),
+              builder: (context, child) {
+                final state = wm.roomState.value;
                 final theme = Theme.of(context);
                 return state.when(
                   waitingForInvite: () => Center(
@@ -82,6 +97,7 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                       roomId: roomId,
                       loadMessageMedia: wm.fetchRoomMessageMedia,
                       onOpenAttachment: wm.openAttachment,
+                      onStartReply: wm.beginReplyTo,
                       initialMessages: messages,
                       loadOlder: (Message oldest) async {
                         return await wm.fetchOlderMessages(
@@ -93,9 +109,14 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                       onVisibleRange:
                           (Message firstVisible, Message lastVisible) {},
                       jumpToEventNotifier: wm.jumpToTimelineEventId,
+                      isGroupRoom: !roomInfo.isDirect,
+                      onToggleReaction: wm.toggleTimelineReaction,
+                      onShowReactionReactors: wm.showReactionReactorsSheet,
+                      onPollVote: wm.voteOnPoll,
+                      onShowMessageActions: wm.showMessageActionsMenu,
                     );
                   },
-                  error: (message) => Center(
+                  error: (errMessage) => Center(
                     child: TerminalContainer(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -114,7 +135,7 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            message,
+                            errMessage,
                             style: theme.textTheme.bodyMedium,
                             textAlign: TextAlign.center,
                           ),
@@ -151,13 +172,74 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                         return _fileSendProgressBanner(context, wm, prog);
                       },
                     ),
-                    _buildMessageInput(wm),
+                    ValueListenableBuilder<Message?>(
+                      valueListenable: wm.replyDraft,
+                      builder: (context, draft, _) {
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (draft != null)
+                              _replyDraftBanner(context, wm, draft),
+                            _buildMessageInput(wm),
+                          ],
+                        );
+                      },
+                    ),
                   ],
                 );
               }
             },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _pendingOutgoingInviteBanner(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: scheme.primary.withValues(alpha: 0.55)),
+          color: scheme.primary.withValues(alpha: 0.1),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.hourglass_top_outlined, size: 20, color: scheme.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'INVITATION PENDING',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'The other person has not accepted the invite yet. '
+                      'This notice disappears when they join the room.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurface.withValues(alpha: 0.88),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -255,9 +337,164 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
     return '${p.current} / ${p.total} bytes';
   }
 
+  /// Text-only preview for non-media replies (never shows attachment filenames here).
+  String _replyDraftTextPreview(Message m) {
+    if (m.isRedacted) return 'Deleted message';
+    if (TimelineLocalHiddenStore.isHidden(m)) {
+      return 'Message removed on this device';
+    }
+    final raw = m.content.trim();
+    if (raw.isNotEmpty) {
+      return raw.length > 72 ? '${raw.substring(0, 69)}…' : raw;
+    }
+    return 'Message';
+  }
+
+  bool _replyDraftIsMediaMessage(Message m) {
+    final lookup = m.eventId.isNotEmpty ? m.eventId : m.transactionId;
+    if (lookup.isEmpty) return false;
+    return switch (m.roomMsgKind) {
+      RoomMessageKind.image => true,
+      RoomMessageKind.video => true,
+      RoomMessageKind.audio => true,
+      RoomMessageKind.file => true,
+      RoomMessageKind.text => false,
+      RoomMessageKind.poll => false,
+      RoomMessageKind.other => false,
+    };
+  }
+
+  String? _replyDraftMediaMetaLine(Message m) {
+    final parts = <String>[];
+    final mime = m.mediaMimetype.trim();
+    if (mime.isNotEmpty) parts.add(mime);
+    final sz = _replyDraftFormatBytes(m.mediaSizeBytes);
+    if (sz != null) parts.add(sz);
+    if (parts.isEmpty) return null;
+    return parts.join(' · ');
+  }
+
+  String? _replyDraftFormatBytes(BigInt bytes) {
+    if (bytes <= BigInt.zero) return null;
+    double v;
+    try {
+      v = bytes.toDouble();
+    } catch (_) {
+      return '${bytes.toString()} B';
+    }
+    if (!v.isFinite || v <= 0) return null;
+    if (v < 1024) return '${bytes.toString()} B';
+    if (v < 1024 * 1024) {
+      final kb = v / 1024;
+      return '${kb >= 100 ? kb.toStringAsFixed(0) : kb.toStringAsFixed(1)} KB';
+    }
+    final mb = v / (1024 * 1024);
+    return '${mb >= 10 ? mb.toStringAsFixed(1) : mb.toStringAsFixed(2)} MB';
+  }
+
+  Widget _replyDraftBanner(
+    BuildContext context,
+    ConversationScreenWM wm,
+    Message draft,
+  ) {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+    final isMedia = _replyDraftIsMediaMessage(draft);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+          border: Border(
+            left: BorderSide(color: accent, width: 3),
+          ),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '> REPLY TO ${draft.displayName}',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: accent,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    if (isMedia)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _ReplyDraftMediaThumb(
+                            key: ValueKey(
+                              '${draft.eventId}|${draft.transactionId}|${draft.roomMsgKind}',
+                            ),
+                            wm: wm,
+                            draft: draft,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Builder(
+                              builder: (context) {
+                                final meta = _replyDraftMediaMetaLine(draft);
+                                if (meta == null) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Text(
+                                  meta,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.72),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      Text(
+                        _replyDraftTextPreview(draft),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 20),
+                tooltip: 'Cancel reply',
+                onPressed: wm.clearReplyDraft,
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildMessageInput(ConversationScreenWM wm) {
-    return Builder(
-      builder: (context) {
+    return ValueListenableBuilder<ConversationState>(
+      valueListenable: wm.roomState,
+      builder: (context, state, _) {
+        final showPoll = state.maybeWhen(
+          loaded: (_, ri) => !ri.isDirect,
+          orElse: () => false,
+        );
         final theme = Theme.of(context);
         return Row(
           children: [
@@ -270,12 +507,20 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
               onPressed: wm.showAttachMenu,
               tooltip: 'Attach',
             ),
+            if (showPoll)
+              IconButton(
+                icon: Icon(Icons.poll_outlined, color: theme.colorScheme.primary),
+                onPressed: wm.showCreatePollDialog,
+                tooltip: 'Poll',
+              ),
             Expanded(
               child: TextField(
                 controller: wm.messageController,
                 style: theme.textTheme.bodyLarge,
                 decoration: InputDecoration(
-                  hintText: 'Type your message...',
+                  hintText: wm.replyDraft.value != null
+                      ? 'Write a reply…'
+                      : 'Type your message...',
                   hintStyle: theme.textTheme.bodyLarge?.copyWith(
                     color: theme.colorScheme.primary.withValues(alpha: 0.5),
                   ),
@@ -359,4 +604,159 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
   void showRoomInfo(BuildContext context) {
     // Navigation is handled in [ConversationScreenWM.showRoomInfo].
   }
+}
+
+const double _kReplyDraftThumb = 52;
+
+/// Thumbnail or kind placeholder for the reply banner (no filename).
+class _ReplyDraftMediaThumb extends StatefulWidget {
+  const _ReplyDraftMediaThumb({
+    super.key,
+    required this.wm,
+    required this.draft,
+  });
+
+  final ConversationScreenWM wm;
+  final Message draft;
+
+  @override
+  State<_ReplyDraftMediaThumb> createState() => _ReplyDraftMediaThumbState();
+}
+
+class _ReplyDraftMediaThumbState extends State<_ReplyDraftMediaThumb> {
+  late final Future<Uint8List?> _thumbFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final d = widget.draft;
+    if (d.roomMsgKind == RoomMessageKind.audio) {
+      _thumbFuture = Future<Uint8List?>.value(null);
+    } else {
+      final id = d.eventId.isNotEmpty ? d.eventId : d.transactionId;
+      _thumbFuture = widget.wm.fetchRoomMessageMedia(id, thumbnail: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final d = widget.draft;
+    final border = theme.colorScheme.outlineVariant.withValues(alpha: 0.6);
+    final bg = theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.45);
+
+    Widget framed(Widget child) {
+      return SizedBox(
+        width: _kReplyDraftThumb,
+        height: _kReplyDraftThumb,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: border),
+            color: bg,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: child,
+          ),
+        ),
+      );
+    }
+
+    if (d.roomMsgKind == RoomMessageKind.audio) {
+      return framed(
+        Center(
+          child: Icon(
+            Icons.audiotrack,
+            size: 26,
+            color: theme.colorScheme.primary.withValues(alpha: 0.9),
+          ),
+        ),
+      );
+    }
+
+    return FutureBuilder<Uint8List?>(
+      future: _thumbFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          final bh = d.mediaBlurhash.trim();
+          if (bh.isNotEmpty &&
+              (d.roomMsgKind == RoomMessageKind.image ||
+                  d.roomMsgKind == RoomMessageKind.video)) {
+            return framed(
+              BlurHash(hash: bh, imageFit: BoxFit.cover),
+            );
+          }
+          return framed(
+            const Center(
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+        final bytes = snapshot.data;
+        if (bytes != null &&
+            bytes.isNotEmpty &&
+            _replyThumbLooksLikeRaster(bytes)) {
+          return framed(
+            Image.memory(
+              bytes,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              errorBuilder: (_, __, ___) =>
+                  _replyDraftKindPlaceholder(d.roomMsgKind, theme),
+            ),
+          );
+        }
+        return framed(_replyDraftKindPlaceholder(d.roomMsgKind, theme));
+      },
+    );
+  }
+}
+
+bool _replyThumbLooksLikeRaster(Uint8List data) {
+  if (data.length < 12) return false;
+  if (data.length >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF) {
+    return true;
+  }
+  if (data.length >= 8 &&
+      data[0] == 0x89 &&
+      data[1] == 0x50 &&
+      data[2] == 0x4E &&
+      data[3] == 0x47) {
+    return true;
+  }
+  if (data.length >= 6 &&
+      data[0] == 0x47 &&
+      data[1] == 0x49 &&
+      data[2] == 0x46) {
+    final g = String.fromCharCodes(data.sublist(0, 6));
+    return g == 'GIF87a' || g == 'GIF89a';
+  }
+  if (data.length >= 12 &&
+      data[0] == 0x52 &&
+      data[1] == 0x49 &&
+      data[2] == 0x46 &&
+      data[8] == 0x57 &&
+      data[9] == 0x45 &&
+      data[10] == 0x42 &&
+      data[11] == 0x50) {
+    return true;
+  }
+  return false;
+}
+
+Widget _replyDraftKindPlaceholder(RoomMessageKind kind, ThemeData theme) {
+  final c = theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.85);
+  final icon = switch (kind) {
+    RoomMessageKind.image => Icons.image_outlined,
+    RoomMessageKind.video => Icons.videocam_outlined,
+    RoomMessageKind.file => Icons.insert_drive_file_outlined,
+    RoomMessageKind.audio => Icons.audiotrack,
+    _ => Icons.perm_media_outlined,
+  };
+  return Center(child: Icon(icon, size: 26, color: c));
 }

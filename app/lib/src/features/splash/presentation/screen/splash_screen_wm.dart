@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:elementary/elementary.dart';
+import 'package:matrix/src/core/domain/services/app_config.dart';
 import 'package:matrix/src/core/file_path_service.dart';
 import 'package:matrix/src/core/state_management/base_state_widget_model.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
@@ -16,8 +17,7 @@ class SplashScreenModel extends ElementaryModel {
     return await _matrixService.initialize(
       dbPath: await _filePathService.getDatabasePath(),
       logsPath: await _filePathService.getLogsPath(),
-      nativeMediaRustPaths:
-          await _filePathService.resolveNativeMediaRustPaths(),
+      showHomeServerForUsername: AppConfig.showHomeServerForUsername,
     );
   }
 

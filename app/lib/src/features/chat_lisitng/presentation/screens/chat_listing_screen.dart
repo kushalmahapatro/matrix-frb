@@ -1,7 +1,7 @@
-import 'dart:typed_data';
-
 import 'package:elementary/elementary.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:matrix/src/core/timeline_local_hidden_store.dart';
 import 'package:matrix/src/core/navigation/navigator_service.dart';
 import 'package:matrix/src/core/presentation/widgets/terminal_container.dart';
 import 'package:matrix/src/features/chat_lisitng/domain/models/chat_state.dart';
@@ -39,7 +39,10 @@ class ChatListingScreen extends ElementaryWidget<ChatListingScreenWM>
         ),
       ],
       child: ListenableBuilder(
-        listenable: wm.chatState,
+        listenable: Listenable.merge([
+          wm.chatState,
+          TimelineLocalHiddenStore.revision,
+        ]),
         builder: (context, _) {
           final state = wm.chatState.value;
           return state.when(
@@ -148,13 +151,15 @@ class ChatListingScreen extends ElementaryWidget<ChatListingScreenWM>
         final filteredRooms = rooms.where((element) {
           switch (selectedChatType) {
             case ChatType.all:
-              return true;
+              return !element.isArchivedForListing;
             case ChatType.invited:
               return element.status == ChatRoomStatus.invited;
             case ChatType.direct:
-              return element.isDirect;
+              return element.isDirect && !element.isArchivedForListing;
             case ChatType.group:
-              return !element.isDirect;
+              return !element.isDirect && !element.isArchivedForListing;
+            case ChatType.left:
+              return element.isArchivedForListing;
           }
         }).toList();
 
@@ -195,8 +200,17 @@ class ChatListingScreen extends ElementaryWidget<ChatListingScreenWM>
   ) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final isInvited = chat.status == ChatRoomStatus.invited;
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
+      decoration: isInvited
+          ? BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: scheme.primary, width: 2),
+              color: scheme.primary.withValues(alpha: 0.12),
+            )
+          : null,
+      padding: isInvited ? const EdgeInsets.all(10) : EdgeInsets.zero,
       child: InkWell(
         onTap: () => goToConversation(chat.id, chat.name),
         child: Row(
@@ -205,7 +219,10 @@ class ChatListingScreen extends ElementaryWidget<ChatListingScreenWM>
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                border: Border.all(color: scheme.primary, width: 1),
+                border: Border.all(
+                  color: scheme.primary,
+                  width: isInvited ? 2 : 1,
+                ),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Icon(
@@ -219,15 +236,65 @@ class ChatListingScreen extends ElementaryWidget<ChatListingScreenWM>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    chat.name,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          chat.name,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (isInvited) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(2),
+                            border: Border.all(
+                              color: scheme.primary.withValues(alpha: 0.85),
+                            ),
+                            color: scheme.primary.withValues(alpha: 0.2),
+                          ),
+                          child: Text(
+                            'INVITED',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: scheme.primary,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.6,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 4),
-                  if (chat.lastPreview != null &&
+                  if (chat.lastPreview != null && chat.lastPreview!.isRedacted)
+                    _ChatListingDeletedSubtitle(
+                      textStyle: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: 11,
+                      ),
+                    )
+                  else if (chat.lastPreview != null &&
+                      TimelineLocalHiddenStore.isHidden(chat.lastPreview!))
+                    _ChatListingRemovedOnDeviceSubtitle(
+                      textStyle: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: 11,
+                      ),
+                    )
+                  else if (chat.lastPreview != null &&
+                      chat.lastPreview!.roomMsgKind == RoomMessageKind.poll)
+                    _ChatListingPollSubtitle(
+                      message: chat.lastPreview!,
+                      textStyle: theme.textTheme.bodySmall,
+                    )
+                  else if (chat.lastPreview != null &&
                       _chatListingShowsMediaRow(chat.lastPreview!))
                     _ChatListingMediaSubtitle(
                       roomId: chat.id,
@@ -294,7 +361,10 @@ class ChatListingScreen extends ElementaryWidget<ChatListingScreenWM>
         String getCount(ChatType type) {
           switch (type) {
             case ChatType.all:
-              return rooms.length.toString();
+              return rooms
+                  .where((r) => !r.isArchivedForListing)
+                  .length
+                  .toString();
             case ChatType.invited:
               return rooms
                   .where((element) => element.status == ChatRoomStatus.invited)
@@ -302,12 +372,22 @@ class ChatListingScreen extends ElementaryWidget<ChatListingScreenWM>
                   .toString();
             case ChatType.direct:
               return rooms
-                  .where((element) => element.isDirect == true)
+                  .where(
+                    (element) => element.isDirect && !element.isArchivedForListing,
+                  )
                   .length
                   .toString();
             case ChatType.group:
               return rooms
-                  .where((element) => element.isDirect == false)
+                  .where(
+                    (element) =>
+                        !element.isDirect && !element.isArchivedForListing,
+                  )
+                  .length
+                  .toString();
+            case ChatType.left:
+              return rooms
+                  .where((r) => r.isArchivedForListing)
                   .length
                   .toString();
           }
@@ -392,7 +472,68 @@ class ChatListingScreen extends ElementaryWidget<ChatListingScreenWM>
   }
 }
 
+/// Last activity in the room is a redacted timeline event.
+class _ChatListingDeletedSubtitle extends StatelessWidget {
+  const _ChatListingDeletedSubtitle({required this.textStyle});
+
+  final TextStyle? textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final c = theme.colorScheme.onSurfaceVariant;
+    return Row(
+      children: [
+        Icon(Icons.remove_circle_outline, size: 13, color: c),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            'Message deleted',
+            style: textStyle?.copyWith(
+              fontStyle: FontStyle.italic,
+              color: c,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ChatListingRemovedOnDeviceSubtitle extends StatelessWidget {
+  const _ChatListingRemovedOnDeviceSubtitle({required this.textStyle});
+
+  final TextStyle? textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final c = theme.colorScheme.onSurfaceVariant;
+    return Row(
+      children: [
+        Icon(Icons.visibility_off_outlined, size: 13, color: c),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            'Message removed on this device',
+            style: textStyle?.copyWith(
+              fontStyle: FontStyle.italic,
+              color: c,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 bool _chatListingShowsMediaRow(Message m) {
+  if (m.isRedacted) return false;
+  if (TimelineLocalHiddenStore.isHidden(m)) return false;
   switch (m.roomMsgKind) {
     case RoomMessageKind.image:
     case RoomMessageKind.video:
@@ -400,8 +541,71 @@ bool _chatListingShowsMediaRow(Message m) {
     case RoomMessageKind.file:
       return true;
     case RoomMessageKind.text:
+    case RoomMessageKind.poll:
     case RoomMessageKind.other:
       return false;
+  }
+}
+
+/// Last event is an MSC3381 poll: show a POLL tag + question (matches media-row density).
+class _ChatListingPollSubtitle extends StatelessWidget {
+  const _ChatListingPollSubtitle({
+    required this.message,
+    required this.textStyle,
+  });
+
+  final Message message;
+  final TextStyle? textStyle;
+
+  static const double _thumb = 12;
+  static const double _thumbRadius = 2;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final preview = message.content.trim().isEmpty ? 'Poll' : message.content;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: _thumb,
+          height: _thumb,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(_thumbRadius),
+            border: Border.all(color: scheme.primary.withValues(alpha: 0.35)),
+          ),
+          child: Icon(Icons.poll_outlined, size: 10, color: scheme.primary),
+        ),
+        const SizedBox(width: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(2),
+            border: Border.all(color: scheme.primary.withValues(alpha: 0.45)),
+          ),
+          child: Text(
+            'POLL',
+            style: (textStyle ?? const TextStyle()).copyWith(
+              fontSize: 8,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.6,
+              color: scheme.primary,
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            preview,
+            style: textStyle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -421,6 +625,7 @@ String _chatListingTypeLabel(Message m) {
     RoomMessageKind.video => 'Video',
     RoomMessageKind.audio => 'Audio',
     RoomMessageKind.file => ext.isNotEmpty ? ext.toUpperCase() : 'File',
+    RoomMessageKind.poll => 'Poll',
     _ => 'Attachment',
   };
 }
@@ -438,6 +643,8 @@ IconData _chatListingKindIcon(RoomMessageKind k) {
     case RoomMessageKind.text:
     case RoomMessageKind.other:
       return Icons.attach_file_outlined;
+    case RoomMessageKind.poll:
+      return Icons.poll_outlined;
   }
 }
 

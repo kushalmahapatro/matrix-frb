@@ -28,6 +28,26 @@ abstract class Chat with _$Chat {
     @Default(null) Message? lastPreview,
   }) = _Chat;
 
+  /// Titles the Matrix SDK uses for a DM when there is no peer to name (e.g. they left).
+  static bool isArchivedDirectRoomDisplayName(String name) {
+    final t = name.trim().toLowerCase();
+    if (t.isEmpty) return true;
+    return t == 'empty chat' || t == 'empty room';
+  }
+
+  /// Rooms to hide from "all" / direct / group and show under the LEFT tab.
+  /// Includes explicit [ChatRoomStatus.left] / banned and joined DMs with placeholder titles.
+  bool get isArchivedForListing {
+    if (status == ChatRoomStatus.left || status == ChatRoomStatus.banned) {
+      return true;
+    }
+    if (!isDirect) return false;
+    if (status == ChatRoomStatus.invited || status == ChatRoomStatus.knocked) {
+      return false;
+    }
+    return Chat.isArchivedDirectRoomDisplayName(name);
+  }
+
   static const _weekdays = [
     'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
   ];
@@ -55,4 +75,4 @@ abstract class Chat with _$Chat {
 
 enum ChatRoomStatus { joined, left, invited, knocked, banned }
 
-enum ChatType { all, invited, direct, group }
+enum ChatType { all, invited, direct, group, left }

@@ -381,6 +381,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "blurhash"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e79769241dcd44edf79a732545e8b5cec84c247ac060f5252cd51885d093a8fc"
+
+[[package]]
 name = "brotli"
 version = "8.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2409,6 +2415,7 @@ dependencies = [
  "android_logger",
  "anyhow",
  "async-trait",
+ "blurhash",
  "calamine",
  "cfb",
  "chrono",
@@ -2440,7 +2447,9 @@ dependencies = [
  "proc-macro2",
  "quick-xml 0.39.2",
  "quote",
+ "regex",
  "reqwest 0.13.2",
+ "ruma",
  "rusqlite",
  "rustls-platform-verifier",
  "sentry",

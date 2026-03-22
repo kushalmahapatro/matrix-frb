@@ -14,12 +14,16 @@ class ClientConfig {
   final String? proxy;
   final String? passphrase;
 
+  /// When `false`, UI may show Matrix user ids without the `:server` suffix (e.g. `@user` only).
+  final bool showHomeServerForUsername;
+
   const ClientConfig({
     required this.sessionPath,
     required this.homeserverUrl,
     this.rootCertificates,
     this.proxy,
     this.passphrase,
+    required this.showHomeServerForUsername,
   });
 
   @override
@@ -28,7 +32,8 @@ class ClientConfig {
       homeserverUrl.hashCode ^
       rootCertificates.hashCode ^
       proxy.hashCode ^
-      passphrase.hashCode;
+      passphrase.hashCode ^
+      showHomeServerForUsername.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -39,5 +44,6 @@ class ClientConfig {
           homeserverUrl == other.homeserverUrl &&
           rootCertificates == other.rootCertificates &&
           proxy == other.proxy &&
-          passphrase == other.passphrase;
+          passphrase == other.passphrase &&
+          showHomeServerForUsername == other.showHomeServerForUsername;
 }

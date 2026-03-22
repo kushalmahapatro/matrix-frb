@@ -72,6 +72,31 @@ fn sha256_hex(bytes: &[u8]) -> String {
     hex::encode(h.finalize())
 }
 
+fn blurhash_from_jpeg_bytes(data: &[u8]) -> Option<String> {
+    let img = image::load_from_memory(data).ok()?;
+    let rgba = img.to_rgba8();
+    let (w, h) = rgba.dimensions();
+    if w == 0 || h == 0 {
+        return None;
+    }
+    blurhash::encode(4, 3, w, h, rgba.as_raw()).ok()
+}
+
+fn merge_thumb_blurhash_into_info(info: &mut Option<AttachmentInfo>, thumb_jpeg: &[u8]) {
+    let Some(hash) = blurhash_from_jpeg_bytes(thumb_jpeg) else {
+        return;
+    };
+    match info {
+        Some(AttachmentInfo::Image(ref mut i)) => {
+            i.blurhash = Some(hash);
+        }
+        Some(AttachmentInfo::Video(ref mut i)) => {
+            i.blurhash = Some(hash);
+        }
+        _ => {}
+    }
+}
+
 /// JPEG from the app (`media` package); validates magic + decodes dimensions for Matrix `ThumbnailInfo`.
 fn load_app_jpeg_thumbnail(path: &Path) -> Option<(Vec<u8>, u32, u32, usize)> {
     let data = std::fs::read(path).ok()?;
@@ -633,10 +658,13 @@ where
 
     let hash = sha256_hex(&data);
     let caption_content = caption.map(TextMessageEventContent::plain);
-    let info = attachment_info_for(&mime_type, &data);
+    let mut info = attachment_info_for(&mime_type, &data);
 
     let generated_thumb =
         generate_attachment_thumbnail(path, &mime_type, &data, app_thumb_path).await;
+    if let Some((ref thumb_data, _, _, _)) = generated_thumb {
+        merge_thumb_blurhash_into_info(&mut info, thumb_data);
+    }
     let incoming_has_thumb = generated_thumb.is_some();
     let incoming_thumb_sha256 =
         generated_thumb.as_ref().map(|(d, _, _, _)| sha256_hex(d));

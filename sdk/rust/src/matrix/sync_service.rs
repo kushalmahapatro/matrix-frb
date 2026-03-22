@@ -1,6 +1,7 @@
 use tracing::{error, warn};
 
 use crate::frb_generated::StreamSink;
+use crate::matrix::client::format_user_id_for_display;
 use crate::matrix::rooms::{ExtraRoomInfo, RoomInfos, RoomList, Rooms};
 use crate::matrix::timelines::{Timeline, Timelines};
 use eyeball_im::Vector;
@@ -119,10 +120,12 @@ impl App {
             let mut new_timelines = Vec::new();
 
             for room in all_room_items.iter() {
-                let raw_name = room.name();
-                let display_name = room
-                    .cached_display_name()
-                    .map(|display_name| display_name.to_string());
+                let raw_name = room
+                    .name()
+                    .map(|n| format_user_id_for_display(n.as_ref()));
+                let display_name = room.cached_display_name().map(|display_name| {
+                    format_user_id_for_display(&display_name.to_string())
+                });
                 let is_dm = room
                     .is_direct()
                     .await

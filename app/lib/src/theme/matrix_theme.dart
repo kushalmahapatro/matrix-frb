@@ -13,17 +13,17 @@ class MatrixTheme {
   // Font family
   static const String fontFamily = 'JetBrainsMono';
 
-  // Matrix movie colors - authentic terminal green
+  // Matrix movie colors — phosphor-bright (avoid muddy / grayed secondary greens)
   static const Color matrixGreen = Color(0xFF00FF41);
-  static const Color matrixDarkGreen = Color(0xFF008F11);
-  static const Color matrixLightGreen = Color(0xFF65FF65);
-  static const Color matrixAccent = Color(0xFF00D4AA);
+  static const Color matrixDarkGreen = Color(0xFF00C938);
+  static const Color matrixLightGreen = Color(0xFF8FFF9A);
+  static const Color matrixAccent = Color(0xFF00FFD0);
 
-  // Terminal colors
+  // Terminal colors — green-tinted blacks (less flat than neutral #0D1117)
   static const Color terminalBlack = Color(0xFF000000);
-  static const Color terminalDarkGreen = Color(0xFF001100);
-  static const Color terminalBackground = Color(0xFF0D1117);
-  static const Color terminalBorder = Color(0xFF30363D);
+  static const Color terminalDarkGreen = Color(0xFF001A0D);
+  static const Color terminalBackground = Color(0xFF06140C);
+  static const Color terminalBorder = Color(0xFF1F7A45);
 
   // Status colors
   static const Color errorRed = Color(0xFFFF4444);
@@ -173,9 +173,13 @@ class MatrixTheme {
     color: terminalBlack,
     boxShadow: [
       BoxShadow(
-        color: matrixGreen.withValues(alpha: 0.3),
-        blurRadius: 10,
-        spreadRadius: 1,
+        color: matrixGreen.withValues(alpha: 0.42),
+        blurRadius: 12,
+        spreadRadius: 0,
+      ),
+      BoxShadow(
+        color: matrixAccent.withValues(alpha: 0.2),
+        blurRadius: 20,
       ),
     ],
   );
@@ -185,7 +189,15 @@ class MatrixTheme {
     borderRadius: BorderRadius.circular(4),
     color: terminalBackground,
     boxShadow: [
-      BoxShadow(color: matrixGreen.withValues(alpha: 0.1), blurRadius: 5),
+      BoxShadow(
+        color: matrixGreen.withValues(alpha: 0.22),
+        blurRadius: 8,
+        spreadRadius: 0,
+      ),
+      BoxShadow(
+        color: matrixAccent.withValues(alpha: 0.12),
+        blurRadius: 14,
+      ),
     ],
   );
 
@@ -193,6 +205,12 @@ class MatrixTheme {
     border: Border.all(color: terminalBorder, width: 1),
     borderRadius: BorderRadius.circular(4),
     color: terminalBackground,
+    boxShadow: [
+      BoxShadow(
+        color: matrixDarkGreen.withValues(alpha: 0.35),
+        blurRadius: 6,
+      ),
+    ],
   );
 
   static BoxDecoration statusDecoration = BoxDecoration(
@@ -203,7 +221,7 @@ class MatrixTheme {
 
   static BoxDecoration messageDecoration = BoxDecoration(
     border: Border(left: BorderSide(color: matrixAccent, width: 3)),
-    color: terminalBackground.withValues(alpha: 0.5),
+    color: terminalBackground.withValues(alpha: 0.72),
   );
 
   // Input decoration
@@ -383,7 +401,7 @@ class MatrixTheme {
       ),
 
       // Divider theme
-      dividerTheme: DividerThemeData(color: text.withValues(alpha: 0.3)),
+      dividerTheme: DividerThemeData(color: text.withValues(alpha: 0.45)),
 
       // Snackbar theme
       snackBarTheme: SnackBarThemeData(
@@ -438,8 +456,13 @@ class MatrixTheme {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: isDarkMode
-          ? [backgroundBlack, darkBackground]
+          ? [
+              backgroundBlack,
+              const Color(0xFF001208),
+              darkBackground,
+            ]
           : [backgroundWhite, lightBackground],
+      stops: isDarkMode ? const [0.0, 0.45, 1.0] : null,
     );
   }
 
@@ -448,8 +471,13 @@ class MatrixTheme {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: _isDarkMode
-          ? [backgroundBlack, darkBackground]
+          ? [
+              backgroundBlack,
+              const Color(0xFF001208),
+              darkBackground,
+            ]
           : [backgroundWhite, lightBackground],
+      stops: _isDarkMode ? const [0.0, 0.45, 1.0] : null,
     );
   }
 

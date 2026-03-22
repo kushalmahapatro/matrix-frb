@@ -1,5 +1,4 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:matrix/src/core/domain/services/app_config.dart';
 import 'package:matrix_sdk/matrix_sdk.dart';
 
 part 'conversation_state.freezed.dart';
@@ -32,7 +31,11 @@ abstract class ConversationInfo with _$ConversationInfo {
 enum MessageType { text, image, file, system }
 
 extension MessageExtension on Message {
-  String get displayName => sender.replaceAll(AppConfig.homeserverUrl.host, '');
+  /// Sender label for the timeline (formatted in Rust when `showHomeServerForUsername` is false).
+  String get displayName => sender;
+
+  /// Quoted sender in a reply (formatted in Rust when applicable).
+  String get replyToSenderDisplay => inReplyToSender;
 
   DateTime get dateTime {
     // Convert timestamp to DateTime

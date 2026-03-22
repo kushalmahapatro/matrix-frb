@@ -1,6 +1,18 @@
 use matrix_sdk::{
-    ruma::events::room::message::RoomMessageEventContent,
-    ruma::{OwnedRoomId, RoomId},
+    ruma::events::room::message::{
+        MessageType, RoomMessageEventContent, RoomMessageEventContentWithoutRelation,
+        TextMessageEventContent,
+    },
+    ruma::events::{
+        poll::start::PollKind,
+        poll::unstable_response::UnstablePollResponseEventContent,
+        poll::unstable_start::{
+            NewUnstablePollStartEventContent, UnstablePollAnswer, UnstablePollAnswers,
+            UnstablePollStartContentBlock, UnstablePollStartEventContent,
+        },
+        AnyMessageLikeEventContent,
+    },
+    ruma::{OwnedEventId, OwnedRoomId, RoomId, UInt},
     Client,
 };
 use std::sync::atomic::AtomicBool;
@@ -22,7 +34,7 @@ use crate::{
         timeline_media,
         timelines::{self, Message},
         room_info::{
-            self, RoomDetails, RoomFileFilter, RoomFileItem,
+            self, RoomDetails, RoomFileFilter, RoomFileItem, RoomLinkItem, RoomPollItem,
         },
         user_serach,
     },
@@ -177,7 +189,10 @@ impl MatrixClient {
         let app = guard.clone();
         drop(guard);
         match app {
-            Some(a) => rooms::get_all_rooms(&a, own_user_id).await,
+            Some(a) => {
+                let cache = self.timeline_list_cache.lock().await;
+                rooms::get_all_rooms(&a, own_user_id, Some(&*cache)).await
+            }
             None => Vec::new(),
         }
     }
@@ -204,7 +219,10 @@ impl MatrixClient {
         drop(app_guard);
 
         let own_user_id = self.client.user_id().map(|u| u.to_string());
-        let initial = rooms::get_all_rooms(&app, own_user_id.clone()).await;
+        let initial = {
+            let tlc = self.timeline_list_cache.lock().await;
+            rooms::get_all_rooms(&app, own_user_id.clone(), Some(&*tlc)).await
+        };
         {
             let mut cache = self.room_list_cache.lock().await;
             *cache = initial.clone();
@@ -220,15 +238,21 @@ impl MatrixClient {
         let cache = self.room_list_cache.clone();
         let stream_for_refresh = Arc::clone(&stream_ref);
         let sink_guard = self.room_list_sink.clone();
+        let timeline_list_cache_for_refresh = self.timeline_list_cache.clone();
         tokio::spawn(async move {
             loop {
                 match refresh_rx.recv().await {
                     Ok(()) | Err(RecvError::Lagged(_)) => {
+                        let tlc_snapshot = {
+                            let g = timeline_list_cache_for_refresh.lock().await;
+                            g.clone()
+                        };
                         rooms::push_full_room_list_to_subscribers(
                             &app_for_refresh,
                             &cache,
                             &stream_for_refresh,
                             own_for_refresh.clone(),
+                            Some(&tlc_snapshot),
                         )
                         .await;
                     }
@@ -309,13 +333,250 @@ impl MatrixClient {
                 })?
         };
 
+        let urls = crate::matrix::link_preview::extract_http_urls(&content);
+        let room_msg = if urls.is_empty() {
+            RoomMessageEventContent::text_plain(content)
+        } else {
+            let previews = crate::matrix::link_preview::fetch_url_previews(&urls).await;
+            let mut text = TextMessageEventContent::plain(content);
+            text.url_previews = Some(previews);
+            RoomMessageEventContent::new(MessageType::Text(text))
+        };
+
         let _send_handle = timeline_arc
-            .send(RoomMessageEventContent::text_plain(&content).into())
+            .send(room_msg.into())
             .await
             .map_err(|e| e.to_string())?;
 
         // Local echo + send state come through subscribe_to_timeline_list; room list updates from last timeline item.
         Ok(String::new())
+    }
+
+    /// Send an MSC3381 unstable poll (`org.matrix.msc3381.poll.start`). Only allowed in non-DM rooms.
+    pub async fn send_poll(
+        &self,
+        room_id: String,
+        question: String,
+        answer_texts: Vec<String>,
+        kind_disclosed: bool,
+        max_selections: u64,
+    ) -> Result<String, String> {
+        if answer_texts.len() < 2 || answer_texts.len() > 20 {
+            return Err("Poll needs between 2 and 20 answers".to_string());
+        }
+        let room_id_parsed = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+        let room = self
+            .client
+            .get_room(&room_id_parsed)
+            .ok_or_else(|| "Room not found".to_string())?;
+        if room.is_direct().await.unwrap_or(false) {
+            return Err("Polls are only allowed in group rooms".to_string());
+        }
+
+        let app = self
+            .app
+            .lock()
+            .await
+            .clone()
+            .ok_or_else(|| "Sync not started; call start_sync_service first".to_string())?;
+
+        let timeline_arc = {
+            let tg = app.timelines.lock().unwrap();
+            tg.get(&room_id_parsed)
+                .map(|t| t.timeline.clone())
+                .ok_or_else(|| {
+                    "No timeline for this room yet; wait until it appears in the room list after sync."
+                        .to_string()
+                })?
+        };
+
+        let answers_vec: Vec<UnstablePollAnswer> = answer_texts
+            .into_iter()
+            .enumerate()
+            .map(|(i, text)| UnstablePollAnswer::new(format!("a{i}"), text))
+            .collect();
+        let answers = UnstablePollAnswers::try_from(answers_vec).map_err(|e| e.to_string())?;
+
+        let mut block = UnstablePollStartContentBlock::new(question.clone(), answers);
+        block.kind = if kind_disclosed {
+            PollKind::Disclosed
+        } else {
+            PollKind::Undisclosed
+        };
+        let ms = max_selections.max(1);
+        block.max_selections = UInt::new(ms)
+            .ok_or_else(|| "max_selections out of range".to_string())?;
+
+        let new_content =
+            NewUnstablePollStartEventContent::plain_text(question.clone(), block);
+        let _send_handle = timeline_arc
+            .send(AnyMessageLikeEventContent::UnstablePollStart(
+                UnstablePollStartEventContent::New(new_content),
+            ))
+            .await
+            .map_err(|e| e.to_string())?;
+
+        Ok(String::new())
+    }
+
+    /// Submit votes for an unstable poll ([`UnstablePollResponseEventContent`]).
+    pub async fn send_poll_response(
+        &self,
+        room_id: String,
+        poll_start_event_id: String,
+        answer_ids: Vec<String>,
+    ) -> Result<String, String> {
+        if answer_ids.is_empty() {
+            return Err("Select at least one answer".to_string());
+        }
+        let room_id_parsed = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+        let poll_id: OwnedEventId = poll_start_event_id
+            .parse()
+            .map_err(|_| "Invalid poll event id".to_string())?;
+
+        let app = self
+            .app
+            .lock()
+            .await
+            .clone()
+            .ok_or_else(|| "Sync not started; call start_sync_service first".to_string())?;
+
+        let timeline_arc = {
+            let tg = app.timelines.lock().unwrap();
+            tg.get(&room_id_parsed)
+                .map(|t| t.timeline.clone())
+                .ok_or_else(|| {
+                    "No timeline for this room yet; wait until it appears in the room list after sync."
+                        .to_string()
+                })?
+        };
+
+        let content = UnstablePollResponseEventContent::new(answer_ids, poll_id);
+        let _send_handle = timeline_arc
+            .send(AnyMessageLikeEventContent::UnstablePollResponse(content))
+            .await
+            .map_err(|e| e.to_string())?;
+
+        Ok(String::new())
+    }
+
+    /// Send a text reply to an existing timeline event (`m.in_reply_to`). Requires a server [event id](https://spec.matrix.org/latest/client-server-api/#event-structure), not a local transaction id.
+    pub async fn send_reply(
+        &self,
+        room_id: String,
+        content: String,
+        reply_to_event_id: String,
+    ) -> Result<String, String> {
+        let room_id_parsed = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+        let in_reply_to: OwnedEventId = reply_to_event_id
+            .parse()
+            .map_err(|_| "Invalid reply target event id".to_string())?;
+        let app = self
+            .app
+            .lock()
+            .await
+            .clone()
+            .ok_or_else(|| "Sync not started; call start_sync_service first".to_string())?;
+
+        let timeline_arc = {
+            let tg = app.timelines.lock().unwrap();
+            tg.get(&room_id_parsed)
+                .map(|t| t.timeline.clone())
+                .ok_or_else(|| {
+                    "No timeline for this room yet; wait until it appears in the room list after sync."
+                        .to_string()
+                })?
+        };
+
+        let urls = crate::matrix::link_preview::extract_http_urls(&content);
+        let reply_body = if urls.is_empty() {
+            RoomMessageEventContentWithoutRelation::text_plain(&content)
+        } else {
+            let previews = crate::matrix::link_preview::fetch_url_previews(&urls).await;
+            let mut text = TextMessageEventContent::plain(content);
+            text.url_previews = Some(previews);
+            RoomMessageEventContentWithoutRelation::new(MessageType::Text(text))
+        };
+
+        timeline_arc
+            .send_reply(reply_body, in_reply_to)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        Ok(String::new())
+    }
+
+    /// Toggle a reaction on a timeline message (`m.reaction`); returns `true` if added, `false` if removed.
+    /// Pass [event_id] for remote echoes, or [transaction_id] for local echoes without an event id yet.
+    pub async fn toggle_timeline_reaction(
+        &self,
+        room_id: String,
+        event_id: String,
+        transaction_id: String,
+        reaction_key: String,
+    ) -> Result<bool, String> {
+        let room_id_parsed = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+        let app = self
+            .app
+            .lock()
+            .await
+            .clone()
+            .ok_or_else(|| "Sync not started; call start_sync_service first".to_string())?;
+
+        let timeline_arc = {
+            let tg = app.timelines.lock().unwrap();
+            tg.get(&room_id_parsed)
+                .map(|t| t.timeline.clone())
+                .ok_or_else(|| {
+                    "No timeline for this room yet; wait until it appears in the room list after sync."
+                        .to_string()
+                })?
+        };
+
+        timelines::toggle_timeline_reaction(
+            timeline_arc.as_ref(),
+            event_id,
+            transaction_id,
+            reaction_key,
+        )
+        .await
+    }
+
+    /// Redact a timeline message for **everyone** (`m.room.redaction`) or abort a matching local echo.
+    ///
+    /// Pass [event_id] for remote echoes, or [transaction_id] for a local row (matrix-sdk-ui picks redact vs abort).
+    pub async fn redact_timeline_event(
+        &self,
+        room_id: String,
+        event_id: String,
+        transaction_id: String,
+        reason: Option<String>,
+    ) -> Result<(), String> {
+        let room_id_parsed = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+        let app = self
+            .app
+            .lock()
+            .await
+            .clone()
+            .ok_or_else(|| "Sync not started; call start_sync_service first".to_string())?;
+
+        let timeline_arc = {
+            let tg = app.timelines.lock().unwrap();
+            tg.get(&room_id_parsed)
+                .map(|t| t.timeline.clone())
+                .ok_or_else(|| {
+                    "No timeline for this room yet; wait until it appears in the room list after sync."
+                        .to_string()
+                })?
+        };
+
+        timelines::redact_timeline_item(
+            timeline_arc.as_ref(),
+            event_id,
+            transaction_id,
+            reason.as_deref(),
+        )
+        .await
     }
 
     /// Send a file from a local path on the UI timeline.
@@ -577,6 +838,24 @@ impl MatrixClient {
         room_info::list_room_files_from_event_cache(&self.client, room_id, filter).await
     }
 
+    /// `m.text` / `m.notice` events whose body contains an HTTP(S) URL, with optional MSC4095 previews.
+    pub async fn list_room_links(
+        &self,
+        room_id: String,
+        filter: RoomFileFilter,
+    ) -> Result<Vec<RoomLinkItem>, String> {
+        room_info::list_room_links_from_event_cache(&self.client, room_id, filter).await
+    }
+
+    /// MSC3381 unstable poll start events from the event cache (for room info index).
+    pub async fn list_room_polls(
+        &self,
+        room_id: String,
+        filter: RoomFileFilter,
+    ) -> Result<Vec<RoomPollItem>, String> {
+        room_info::list_room_polls_from_event_cache(&self.client, room_id, filter).await
+    }
+
     /// Remove a member from the room (kick). Requires sufficient power level.
     pub async fn kick_room_member(
         &self,
@@ -678,7 +957,7 @@ impl MatrixClient {
         }
         let _ = stream.add(initial.clone());
         // Refresh room list with last message so listing shows it (SDK latest_event can be empty)
-        if let Some(last_msg) = initial.last().cloned() {
+        if let Some(last_msg) = timelines::last_message_row_for_room_preview(&initial) {
             if let Ok(room_id_parsed) = room_id.parse::<matrix_sdk::ruma::OwnedRoomId>() {
                 if let Some(room) = self.client.get_room(&room_id_parsed) {
                     let mut update = rooms::get_room_update_data(&room, own).await;

@@ -118,12 +118,67 @@ class RoomFileItem {
           sizeBytes == other.sizeBytes;
 }
 
+/// Text message row with at least one HTTP(S) URL; optional MSC4095 previews in [link_previews_json].
+class RoomLinkItem {
+  final String eventId;
+  final String transactionId;
+  final String sender;
+  final String body;
+  final BigInt timestamp;
+  final bool isOutgoing;
+
+  /// JSON array (`com.beeper.linkpreviews` / `m.url_previews` shape); `"[]"` when absent.
+  final String linkPreviewsJson;
+
+  /// `true` when the sender bundled link previews (MSC4095) on this event.
+  final bool isLinkMessage;
+
+  const RoomLinkItem({
+    required this.eventId,
+    required this.transactionId,
+    required this.sender,
+    required this.body,
+    required this.timestamp,
+    required this.isOutgoing,
+    required this.linkPreviewsJson,
+    required this.isLinkMessage,
+  });
+
+  @override
+  int get hashCode =>
+      eventId.hashCode ^
+      transactionId.hashCode ^
+      sender.hashCode ^
+      body.hashCode ^
+      timestamp.hashCode ^
+      isOutgoing.hashCode ^
+      linkPreviewsJson.hashCode ^
+      isLinkMessage.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RoomLinkItem &&
+          runtimeType == other.runtimeType &&
+          eventId == other.eventId &&
+          transactionId == other.transactionId &&
+          sender == other.sender &&
+          body == other.body &&
+          timestamp == other.timestamp &&
+          isOutgoing == other.isOutgoing &&
+          linkPreviewsJson == other.linkPreviewsJson &&
+          isLinkMessage == other.isLinkMessage;
+}
+
 /// Role derived from power levels (creator / admin / moderator / user).
 enum RoomMemberRoleDto { creator, administrator, moderator, user }
 
 /// One joined member row for the room info screen.
 class RoomMemberRow {
   final String userId;
+
+  /// `user_id` formatted for labels; `user_id` stays canonical for kick / power APIs.
+  final String userIdDisplay;
   final String displayName;
 
   /// Power level as integer (101 = creator / infinite).
@@ -136,6 +191,7 @@ class RoomMemberRow {
 
   const RoomMemberRow({
     required this.userId,
+    required this.userIdDisplay,
     required this.displayName,
     required this.powerLevel,
     required this.role,
@@ -146,6 +202,7 @@ class RoomMemberRow {
   @override
   int get hashCode =>
       userId.hashCode ^
+      userIdDisplay.hashCode ^
       displayName.hashCode ^
       powerLevel.hashCode ^
       role.hashCode ^
@@ -158,9 +215,50 @@ class RoomMemberRow {
       other is RoomMemberRow &&
           runtimeType == other.runtimeType &&
           userId == other.userId &&
+          userIdDisplay == other.userIdDisplay &&
           displayName == other.displayName &&
           powerLevel == other.powerLevel &&
           role == other.role &&
           isSelf == other.isSelf &&
           currentUserCanKick == other.currentUserCanKick;
+}
+
+/// One `org.matrix.msc3381.poll.start` row from the event cache (group room index).
+class RoomPollItem {
+  final String eventId;
+  final String transactionId;
+  final String sender;
+  final String question;
+  final BigInt timestamp;
+  final bool isOutgoing;
+
+  const RoomPollItem({
+    required this.eventId,
+    required this.transactionId,
+    required this.sender,
+    required this.question,
+    required this.timestamp,
+    required this.isOutgoing,
+  });
+
+  @override
+  int get hashCode =>
+      eventId.hashCode ^
+      transactionId.hashCode ^
+      sender.hashCode ^
+      question.hashCode ^
+      timestamp.hashCode ^
+      isOutgoing.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RoomPollItem &&
+          runtimeType == other.runtimeType &&
+          eventId == other.eventId &&
+          transactionId == other.transactionId &&
+          sender == other.sender &&
+          question == other.question &&
+          timestamp == other.timestamp &&
+          isOutgoing == other.isOutgoing;
 }

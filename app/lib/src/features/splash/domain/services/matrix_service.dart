@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:matrix/src/core/domain/services/app_config.dart';
 import 'package:media/media.dart';
 import 'package:matrix/src/core/logging_service.dart';
-import 'package:matrix/src/core/native_media_rust_paths.dart';
 import 'package:matrix_sdk/matrix_sdk.dart' as platform;
 import 'package:matrix_sdk/matrix_sdk.dart' as tracing;
 import 'package:matrix_sdk/matrix_sdk.dart';
@@ -22,7 +21,7 @@ class MatrixService {
       <String, StreamSubscription<Object?>>{};
 
   /// Single active room-updates subscription. Cancelling previous when a new
-  /// one is registered. Typed as Object? so we can store StreamSubscription<Chat>
+  /// one is registered. Typed as Object? so we can store `StreamSubscription<Chat>`
   /// from the chat listing screen (which maps RoomUpdate to Chat).
   StreamSubscription<Object?>? _roomUpdatesSubscription;
 
@@ -45,7 +44,7 @@ class MatrixService {
   Future<Result<bool>> initialize({
     required String dbPath,
     required String logsPath,
-    NativeMediaRustPaths? nativeMediaRustPaths,
+    bool showHomeServerForUsername = true,
   }) async {
     // Initialize Rust logging
     await LoggingService.init();
@@ -75,13 +74,6 @@ class MatrixService {
           debugPrint(line);
         });
       }
-
-      final media =
-          nativeMediaRustPaths ?? NativeMediaRustPaths.fromDefinesOnly();
-      await setNativeMediaEnv(
-        pdfiumDynamicLibPath: media.pdfiumDynamicLibPath,
-        matrixPdfiumDir: media.matrixPdfiumDir,
-      );
     } catch (e) {
       LoggingService.error('InitializationService', e.toString());
       return Failure(Exception(e.toString()));
@@ -97,6 +89,7 @@ class MatrixService {
       homeserverUrl: homeserverUrl.toString(),
       passphrase: 'password',
       proxy: AppConfig.proxyEnabled ? AppConfig.proxyUrl : null,
+      showHomeServerForUsername: showHomeServerForUsername,
     );
 
     try {

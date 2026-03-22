@@ -8,7 +8,6 @@
 
 import 'api/document_preview.dart';
 import 'api/matrix_client.dart';
-import 'api/native_media_env.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
@@ -189,6 +188,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Message> dco_decode_list_message(dynamic raw);
 
   @protected
+  List<MessageReactionEntry> dco_decode_list_message_reaction_entry(
+    dynamic raw,
+  );
+
+  @protected
   List<int> dco_decode_list_prim_u_8_loose(dynamic raw);
 
   @protected
@@ -198,7 +202,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<RoomFileItem> dco_decode_list_room_file_item(dynamic raw);
 
   @protected
+  List<RoomLinkItem> dco_decode_list_room_link_item(dynamic raw);
+
+  @protected
   List<RoomMemberRow> dco_decode_list_room_member_row(dynamic raw);
+
+  @protected
+  List<RoomPollItem> dco_decode_list_room_poll_item(dynamic raw);
 
   @protected
   List<RoomUpdate> dco_decode_list_room_update(dynamic raw);
@@ -214,6 +224,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Message dco_decode_message(dynamic raw);
+
+  @protected
+  MessageReactionEntry dco_decode_message_reaction_entry(dynamic raw);
 
   @protected
   MessageType dco_decode_message_type(dynamic raw);
@@ -265,6 +278,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RoomFileItem dco_decode_room_file_item(dynamic raw);
 
   @protected
+  RoomLinkItem dco_decode_room_link_item(dynamic raw);
+
+  @protected
   RoomMemberRoleDto dco_decode_room_member_role_dto(dynamic raw);
 
   @protected
@@ -272,6 +288,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RoomMessageKind dco_decode_room_message_kind(dynamic raw);
+
+  @protected
+  RoomPollItem dco_decode_room_poll_item(dynamic raw);
 
   @protected
   RoomUpdate dco_decode_room_update(dynamic raw);
@@ -470,6 +489,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Message> sse_decode_list_message(SseDeserializer deserializer);
 
   @protected
+  List<MessageReactionEntry> sse_decode_list_message_reaction_entry(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer);
 
   @protected
@@ -481,7 +505,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<RoomLinkItem> sse_decode_list_room_link_item(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<RoomMemberRow> sse_decode_list_room_member_row(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<RoomPollItem> sse_decode_list_room_poll_item(
     SseDeserializer deserializer,
   );
 
@@ -501,6 +535,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Message sse_decode_message(SseDeserializer deserializer);
+
+  @protected
+  MessageReactionEntry sse_decode_message_reaction_entry(
+    SseDeserializer deserializer,
+  );
 
   @protected
   MessageType sse_decode_message_type(SseDeserializer deserializer);
@@ -558,6 +597,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RoomFileItem sse_decode_room_file_item(SseDeserializer deserializer);
 
   @protected
+  RoomLinkItem sse_decode_room_link_item(SseDeserializer deserializer);
+
+  @protected
   RoomMemberRoleDto sse_decode_room_member_role_dto(
     SseDeserializer deserializer,
   );
@@ -567,6 +609,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RoomMessageKind sse_decode_room_message_kind(SseDeserializer deserializer);
+
+  @protected
+  RoomPollItem sse_decode_room_poll_item(SseDeserializer deserializer);
 
   @protected
   RoomUpdate sse_decode_room_update(SseDeserializer deserializer);
@@ -786,6 +831,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       ),
       cst_encode_opt_String(raw.proxy),
       cst_encode_opt_String(raw.passphrase),
+      cst_encode_bool(raw.showHomeServerForUsername),
     ].jsify()!;
   }
 
@@ -847,6 +893,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  JSAny cst_encode_list_message_reaction_entry(List<MessageReactionEntry> raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.map(cst_encode_message_reaction_entry).toList().jsify()!;
+  }
+
+  @protected
   JSAny cst_encode_list_prim_u_8_loose(List<int> raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return raw.jsify()!;
@@ -865,9 +917,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  JSAny cst_encode_list_room_link_item(List<RoomLinkItem> raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.map(cst_encode_room_link_item).toList().jsify()!;
+  }
+
+  @protected
   JSAny cst_encode_list_room_member_row(List<RoomMemberRow> raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return raw.map(cst_encode_room_member_row).toList().jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_list_room_poll_item(List<RoomPollItem> raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.map(cst_encode_room_poll_item).toList().jsify()!;
   }
 
   @protected
@@ -905,6 +969,35 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_bool(raw.isOwn),
       cst_encode_String(raw.mediaMimetype),
       cst_encode_u_64(raw.mediaSizeBytes),
+      cst_encode_String(raw.mediaBlurhash),
+      cst_encode_u_32(raw.mediaPreviewWidth),
+      cst_encode_u_32(raw.mediaPreviewHeight),
+      cst_encode_String(raw.inReplyToEventId),
+      cst_encode_String(raw.inReplyToSender),
+      cst_encode_String(raw.inReplyToPreview),
+      cst_encode_room_message_kind(raw.inReplyToRoomMsgKind),
+      cst_encode_String(raw.inReplyToMediaMimetype),
+      cst_encode_u_64(raw.inReplyToMediaSizeBytes),
+      cst_encode_String(raw.inReplyToMediaBlurhash),
+      cst_encode_u_32(raw.inReplyToMediaPreviewWidth),
+      cst_encode_u_32(raw.inReplyToMediaPreviewHeight),
+      cst_encode_bool(raw.inReplyToParentRedacted),
+      cst_encode_list_message_reaction_entry(raw.reactions),
+      cst_encode_String(raw.pollOptionsJson),
+      cst_encode_String(raw.pollStateJson),
+      cst_encode_String(raw.linkPreviewsJson),
+      cst_encode_bool(raw.isRedacted),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_message_reaction_entry(MessageReactionEntry raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_String(raw.key),
+      cst_encode_u_32(raw.count),
+      cst_encode_bool(raw.containsOwn),
+      cst_encode_list_String(raw.senders),
     ].jsify()!;
   }
 
@@ -1017,15 +1110,44 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  JSAny cst_encode_room_link_item(RoomLinkItem raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_String(raw.eventId),
+      cst_encode_String(raw.transactionId),
+      cst_encode_String(raw.sender),
+      cst_encode_String(raw.body),
+      cst_encode_u_64(raw.timestamp),
+      cst_encode_bool(raw.isOutgoing),
+      cst_encode_String(raw.linkPreviewsJson),
+      cst_encode_bool(raw.isLinkMessage),
+    ].jsify()!;
+  }
+
+  @protected
   JSAny cst_encode_room_member_row(RoomMemberRow raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return [
       cst_encode_String(raw.userId),
+      cst_encode_String(raw.userIdDisplay),
       cst_encode_String(raw.displayName),
       cst_encode_i_64(raw.powerLevel),
       cst_encode_room_member_role_dto(raw.role),
       cst_encode_bool(raw.isSelf),
       cst_encode_bool(raw.currentUserCanKick),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_room_poll_item(RoomPollItem raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_String(raw.eventId),
+      cst_encode_String(raw.transactionId),
+      cst_encode_String(raw.sender),
+      cst_encode_String(raw.question),
+      cst_encode_u_64(raw.timestamp),
+      cst_encode_bool(raw.isOutgoing),
     ].jsify()!;
   }
 
@@ -1081,6 +1203,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return [
       cst_encode_String(raw.userId),
+      cst_encode_String(raw.userIdDisplay),
       cst_encode_opt_String(raw.displayName),
       cst_encode_opt_String(raw.avatarUrl),
     ].jsify()!;
@@ -1380,6 +1503,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_message(List<Message> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_message_reaction_entry(
+    List<MessageReactionEntry> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_prim_u_8_loose(List<int> self, SseSerializer serializer);
 
   @protected
@@ -1395,8 +1524,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_room_link_item(
+    List<RoomLinkItem> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_room_member_row(
     List<RoomMemberRow> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_room_poll_item(
+    List<RoomPollItem> self,
     SseSerializer serializer,
   );
 
@@ -1420,6 +1561,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_message(Message self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_message_reaction_entry(
+    MessageReactionEntry self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_message_type(MessageType self, SseSerializer serializer);
@@ -1489,6 +1636,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_room_file_item(RoomFileItem self, SseSerializer serializer);
 
   @protected
+  void sse_encode_room_link_item(RoomLinkItem self, SseSerializer serializer);
+
+  @protected
   void sse_encode_room_member_role_dto(
     RoomMemberRoleDto self,
     SseSerializer serializer,
@@ -1502,6 +1652,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     RoomMessageKind self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_room_poll_item(RoomPollItem self, SseSerializer serializer);
 
   @protected
   void sse_encode_room_update(RoomUpdate self, SseSerializer serializer);
@@ -1750,6 +1903,30 @@ class RustLibWire implements BaseWire {
     filter,
   );
 
+  void wire__crate__api__matrix_client__MatrixClient_list_room_links(
+    NativePortType port_,
+    int that,
+    String room_id,
+    int filter,
+  ) => wasmModule.wire__crate__api__matrix_client__MatrixClient_list_room_links(
+    port_,
+    that,
+    room_id,
+    filter,
+  );
+
+  void wire__crate__api__matrix_client__MatrixClient_list_room_polls(
+    NativePortType port_,
+    int that,
+    String room_id,
+    int filter,
+  ) => wasmModule.wire__crate__api__matrix_client__MatrixClient_list_room_polls(
+    port_,
+    that,
+    room_id,
+    filter,
+  );
+
   void wire__crate__api__matrix_client__MatrixClient_login(
     NativePortType port_,
     int that,
@@ -1769,6 +1946,23 @@ class RustLibWire implements BaseWire {
     port_,
     that,
   );
+
+  void wire__crate__api__matrix_client__MatrixClient_redact_timeline_event(
+    NativePortType port_,
+    int that,
+    String room_id,
+    String event_id,
+    String transaction_id,
+    String? reason,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_redact_timeline_event(
+        port_,
+        that,
+        room_id,
+        event_id,
+        transaction_id,
+        reason,
+      );
 
   void wire__crate__api__matrix_client__MatrixClient_register(
     NativePortType port_,
@@ -1862,6 +2056,53 @@ class RustLibWire implements BaseWire {
     that,
     room_id,
     content,
+  );
+
+  void wire__crate__api__matrix_client__MatrixClient_send_poll(
+    NativePortType port_,
+    int that,
+    String room_id,
+    String question,
+    JSAny answer_texts,
+    bool kind_disclosed,
+    JSAny max_selections,
+  ) => wasmModule.wire__crate__api__matrix_client__MatrixClient_send_poll(
+    port_,
+    that,
+    room_id,
+    question,
+    answer_texts,
+    kind_disclosed,
+    max_selections,
+  );
+
+  void wire__crate__api__matrix_client__MatrixClient_send_poll_response(
+    NativePortType port_,
+    int that,
+    String room_id,
+    String poll_start_event_id,
+    JSAny answer_ids,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_send_poll_response(
+        port_,
+        that,
+        room_id,
+        poll_start_event_id,
+        answer_ids,
+      );
+
+  void wire__crate__api__matrix_client__MatrixClient_send_reply(
+    NativePortType port_,
+    int that,
+    String room_id,
+    String content,
+    String reply_to_event_id,
+  ) => wasmModule.wire__crate__api__matrix_client__MatrixClient_send_reply(
+    port_,
+    that,
+    room_id,
+    content,
+    reply_to_event_id,
   );
 
   void wire__crate__api__matrix_client__MatrixClient_send_timeline_file(
@@ -2007,6 +2248,23 @@ class RustLibWire implements BaseWire {
         that,
       );
 
+  void wire__crate__api__matrix_client__MatrixClient_toggle_timeline_reaction(
+    NativePortType port_,
+    int that,
+    String room_id,
+    String event_id,
+    String transaction_id,
+    String reaction_key,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_toggle_timeline_reaction(
+        port_,
+        that,
+        room_id,
+        event_id,
+        transaction_id,
+        reaction_key,
+      );
+
   void wire__crate__api__matrix_client__MatrixClient_unregister_pusher(
     NativePortType port_,
     int that,
@@ -2062,18 +2320,6 @@ class RustLibWire implements BaseWire {
   ) => wasmModule.wire__crate__logger__platform__reload_tracing_file_writer(
     port_,
     configuration,
-  );
-
-  void wire__crate__api__native_media_env__set_native_media_env(
-    NativePortType port_,
-    String? pdfium_dynamic_lib_path,
-    String? matrix_pdfium_dir,
-    String? matrix_ffmpeg_path,
-  ) => wasmModule.wire__crate__api__native_media_env__set_native_media_env(
-    port_,
-    pdfium_dynamic_lib_path,
-    matrix_pdfium_dir,
-    matrix_ffmpeg_path,
   );
 
   void wire__crate__logger__platform__subscribe_http_tracing_logs(
@@ -2262,6 +2508,20 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     int filter,
   );
 
+  external void wire__crate__api__matrix_client__MatrixClient_list_room_links(
+    NativePortType port_,
+    int that,
+    String room_id,
+    int filter,
+  );
+
+  external void wire__crate__api__matrix_client__MatrixClient_list_room_polls(
+    NativePortType port_,
+    int that,
+    String room_id,
+    int filter,
+  );
+
   external void wire__crate__api__matrix_client__MatrixClient_login(
     NativePortType port_,
     int that,
@@ -2272,6 +2532,16 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
   external void wire__crate__api__matrix_client__MatrixClient_logout(
     NativePortType port_,
     int that,
+  );
+
+  external void
+  wire__crate__api__matrix_client__MatrixClient_redact_timeline_event(
+    NativePortType port_,
+    int that,
+    String room_id,
+    String event_id,
+    String transaction_id,
+    String? reason,
   );
 
   external void wire__crate__api__matrix_client__MatrixClient_register(
@@ -2326,6 +2596,33 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     int that,
     String room_id,
     String content,
+  );
+
+  external void wire__crate__api__matrix_client__MatrixClient_send_poll(
+    NativePortType port_,
+    int that,
+    String room_id,
+    String question,
+    JSAny answer_texts,
+    bool kind_disclosed,
+    JSAny max_selections,
+  );
+
+  external void
+  wire__crate__api__matrix_client__MatrixClient_send_poll_response(
+    NativePortType port_,
+    int that,
+    String room_id,
+    String poll_start_event_id,
+    JSAny answer_ids,
+  );
+
+  external void wire__crate__api__matrix_client__MatrixClient_send_reply(
+    NativePortType port_,
+    int that,
+    String room_id,
+    String content,
+    String reply_to_event_id,
   );
 
   external void
@@ -2413,6 +2710,16 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     int that,
   );
 
+  external void
+  wire__crate__api__matrix_client__MatrixClient_toggle_timeline_reaction(
+    NativePortType port_,
+    int that,
+    String room_id,
+    String event_id,
+    String transaction_id,
+    String reaction_key,
+  );
+
   external void wire__crate__api__matrix_client__MatrixClient_unregister_pusher(
     NativePortType port_,
     int that,
@@ -2444,13 +2751,6 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
   external void wire__crate__logger__platform__reload_tracing_file_writer(
     NativePortType port_,
     JSAny configuration,
-  );
-
-  external void wire__crate__api__native_media_env__set_native_media_env(
-    NativePortType port_,
-    String? pdfium_dynamic_lib_path,
-    String? matrix_pdfium_dir,
-    String? matrix_ffmpeg_path,
   );
 
   external void wire__crate__logger__platform__subscribe_http_tracing_logs(

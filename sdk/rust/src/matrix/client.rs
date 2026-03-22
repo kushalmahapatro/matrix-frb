@@ -10,9 +10,16 @@ use matrix_sdk::{
     store::StoreConfig,
     AuthSession, Client, SessionChange, SqliteCryptoStore, SqliteEventCacheStore, SqliteStateStore,
 };
+use matrix_sdk::ruma::UserId;
 use once_cell::sync::OnceCell;
 use reqwest::ClientBuilder;
-use std::{path::Path, sync::Arc};
+use std::{
+    path::Path,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 use tokio::sync::Mutex;
 use tracing::info;
 
@@ -20,6 +27,36 @@ use tracing::info;
 static GLOBAL_CLIENT: OnceCell<Arc<Mutex<Option<Client>>>> = OnceCell::new();
 #[frb(ignore)]
 pub static GLOBAL_CONFIG: OnceCell<ClientConfig> = OnceCell::new();
+
+/// Latest `show_home_server_for_username` from every [configure_client] call (including when the
+/// global client already exists). [GLOBAL_CONFIG] alone can stay stale on early-return configure.
+#[frb(ignore)]
+static SHOW_HOME_SERVER_FOR_USERNAME: AtomicBool = AtomicBool::new(true);
+
+/// Whether UI should show full Matrix user ids (`@user:server`).
+pub fn show_home_server_for_username() -> bool {
+    SHOW_HOME_SERVER_FOR_USERNAME.load(Ordering::Relaxed)
+}
+
+/// Format a Matrix user id (or any `@localpart:server` label) for display.
+/// When [show_home_server_for_username] is `false`, returns `@localpart` only (via [UserId] parse
+/// when possible so IPv6 and unusual server parts are handled).
+pub fn format_user_id_for_display(user_id: &str) -> String {
+    let show_hs = show_home_server_for_username();
+    if show_hs {
+        return user_id.to_string();
+    }
+    if !user_id.starts_with('@') {
+        return user_id.to_string();
+    }
+    if let Ok(uid) = UserId::parse(user_id) {
+        return format!("@{}", uid.localpart());
+    }
+    match user_id.find(':') {
+        Some(i) if i > 1 => user_id[..i].to_string(),
+        _ => user_id.to_string(),
+    }
+}
 #[frb(ignore)]
 pub async fn get_global_client() -> Result<Option<Client>, String> {
     match GLOBAL_CLIENT.get() {
@@ -45,12 +82,19 @@ pub struct ClientConfig {
     pub root_certificates: Option<Vec<Certificate>>,
     pub proxy: Option<String>,
     pub passphrase: Option<String>,
+    /// When `false`, UI may show Matrix user ids without the `:server` suffix (e.g. `@user` only).
+    pub show_home_server_for_username: bool,
 }
 
 /// Configure the client so it's ready for sync'ing.
 ///
 /// Will log in or reuse a previous session.
 pub(crate) async fn configure_client(config: &ClientConfig) -> Result<Client, String> {
+    SHOW_HOME_SERVER_FOR_USERNAME.store(
+        config.show_home_server_for_username,
+        Ordering::Relaxed,
+    );
+
     if let Some(client) = get_global_client().await? {
         return Ok(client);
     }
@@ -64,6 +108,7 @@ pub(crate) async fn configure_client(config: &ClientConfig) -> Result<Client, St
         root_certificates,
         proxy,
         passphrase,
+        show_home_server_for_username: _,
     } = config;
 
     info!("Storage path: {}", session_path);

@@ -8,6 +8,8 @@ class TerminalContainer extends StatelessWidget {
   final bool showBorder;
   final bool showGlow;
   final Color? borderColor;
+  /// Panel fill; defaults to [ColorScheme.surfaceContainerHighest].
+  final Color? backgroundColor;
   final double? width;
   final double? height;
 
@@ -19,6 +21,7 @@ class TerminalContainer extends StatelessWidget {
     this.showBorder = true,
     this.showGlow = false,
     this.borderColor,
+    this.backgroundColor,
     this.width,
     this.height,
   });
@@ -35,13 +38,17 @@ class TerminalContainer extends StatelessWidget {
       decoration: BoxDecoration(
         border: showBorder ? Border.all(color: border, width: 1) : null,
         borderRadius: BorderRadius.circular(4),
-        color: theme.colorScheme.surfaceContainerHighest,
+        color: backgroundColor ?? theme.colorScheme.surfaceContainerHighest,
         boxShadow: showGlow
             ? [
                 BoxShadow(
-                  color: border.withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  spreadRadius: 1,
+                  color: border.withValues(alpha: 0.48),
+                  blurRadius: 14,
+                  spreadRadius: 0,
+                ),
+                BoxShadow(
+                  color: MatrixTheme.matrixAccent.withValues(alpha: 0.18),
+                  blurRadius: 18,
                 ),
               ]
             : null,
@@ -68,13 +75,41 @@ class TerminalScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final barTitle = Text(
+      title ?? '',
+      style: MatrixTheme.subtitleStyle.copyWith(
+        color: MatrixTheme.matrixLightGreen,
+        fontSize: 17,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 3,
+        shadows: [
+          Shadow(
+            color: MatrixTheme.matrixGreen.withValues(alpha: 0.55),
+            blurRadius: 12,
+          ),
+          Shadow(
+            color: MatrixTheme.matrixAccent.withValues(alpha: 0.35),
+            blurRadius: 18,
+          ),
+        ],
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: showAppBar
           ? AppBar(
-              title: Text(title ?? '', style: theme.textTheme.titleLarge),
+              title: barTitle,
               actions: actions,
               elevation: 0,
+              scrolledUnderElevation: 0,
+              backgroundColor: theme.scaffoldBackgroundColor,
+              foregroundColor: MatrixTheme.matrixGreen,
+              surfaceTintColor: Colors.transparent,
+              iconTheme: const IconThemeData(color: MatrixTheme.matrixGreen),
+              actionsIconTheme:
+                  const IconThemeData(color: MatrixTheme.matrixGreen),
             )
           : null,
       body: Container(

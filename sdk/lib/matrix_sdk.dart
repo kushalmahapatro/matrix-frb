@@ -6,6 +6,7 @@ export 'src/bindings/matrix/timelines.dart'
     show
         EventSendStateKind,
         Message,
+        MessageReactionEntry,
         MessageType,
         MessageUpdate,
         MessageUpdateType,
@@ -20,7 +21,6 @@ export 'src/http_console_interceptor.dart';
 
 export 'src/bindings/api/matrix_client.dart';
 export 'src/bindings/api/document_preview.dart' show documentPreviewJson;
-export 'src/bindings/api/native_media_env.dart' show setNativeMediaEnv;
 
 export 'src/native_media_env_keys.dart';
 

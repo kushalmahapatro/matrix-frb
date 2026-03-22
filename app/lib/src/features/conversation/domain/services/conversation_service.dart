@@ -1,9 +1,8 @@
 import 'dart:typed_data';
 
+import 'package:matrix/src/core/timeline_local_hidden_store.dart';
 import 'package:matrix/src/core/video_send_media_prep.dart'
-    show
-        AppTimelineSendPrep,
-        isTimelineVideoSendCandidate;
+    show AppTimelineSendPrep, isTimelineVideoSendCandidate;
 import 'package:matrix/src/features/conversation/domain/models/conversation_state.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
 import 'package:matrix_sdk/matrix_sdk.dart'
@@ -15,6 +14,8 @@ import 'package:matrix_sdk/matrix_sdk.dart'
         RoomDetails,
         RoomFileFilter,
         RoomFileItem,
+        RoomLinkItem,
+        RoomPollItem,
         RoomUpdate;
 import 'package:result_dart/result_dart.dart';
 
@@ -47,22 +48,43 @@ class ConversationService {
     await matrixService.client.roomListSubscribeToRooms(roomId: roomId);
   }
 
-  Future<ConversationInfo> loadRoomInfo() async {
-    return ConversationInfo(
-      id: '1',
-      name: 'Test Room',
-      topic: 'Test Topic',
-      memberCount: 10,
+  Future<ConversationInfo> loadRoomInfo(String roomId) async {
+    final r = await getRoomDetails(roomId);
+    return r.fold(
+      (d) => ConversationInfo(
+        id: d.roomId,
+        name: d.displayName.trim().isNotEmpty ? d.displayName.trim() : roomId,
+        topic: d.topic,
+        memberCount: d.memberCount,
+        isDirect: d.isDirect,
+        avatarUrl: null,
+      ),
+      (f) => throw f,
     );
   }
 
   /// Queues send on the UI timeline (local echo). [eventId] is often empty until echoed; UI follows the timeline stream.
-  Future<Result<String>> sendMessage(String roomId, String content) async {
+  ///
+  /// When [replyToEventId] is set, sends an `m.in_reply_to` reply (requires a **server** event id).
+  Future<Result<String>> sendMessage(
+    String roomId,
+    String content, {
+    String? replyToEventId,
+  }) async {
     try {
-      final eventId = await matrixService.client.sendMessage(
-        roomId: roomId,
-        content: content,
-      );
+      final String eventId;
+      if (replyToEventId != null && replyToEventId.isNotEmpty) {
+        eventId = await matrixService.client.sendReply(
+          roomId: roomId,
+          content: content,
+          replyToEventId: replyToEventId,
+        );
+      } else {
+        eventId = await matrixService.client.sendMessage(
+          roomId: roomId,
+          content: content,
+        );
+      }
       return Success(eventId);
     } catch (e) {
       return Failure(Exception(e));
@@ -155,9 +177,7 @@ class ConversationService {
           return Failure(Exception('Cancelled'));
         case FileSendPhase.failed:
           return Failure(
-            Exception(
-              l.message.isEmpty ? 'Failed to send file' : l.message,
-            ),
+            Exception(l.message.isEmpty ? 'Failed to send file' : l.message),
           );
         case FileSendPhase.videoCompress:
         case FileSendPhase.mainUpload:
@@ -177,6 +197,7 @@ class ConversationService {
     required String roomId,
     required String filePath,
     String? caption,
+
     /// From [XFile.mimeType] / picker when the path has no video extension (e.g. `image_picker_…`).
     String? mimeType,
     required void Function(FileSendProgress p) onProgress,
@@ -316,6 +337,40 @@ class ConversationService {
     }
   }
 
+  Future<void> toggleTimelineReaction({
+    required String roomId,
+    required Message message,
+    required String reactionKey,
+  }) async {
+    await matrixService.client.toggleTimelineReaction(
+      roomId: roomId,
+      eventId: message.eventId,
+      transactionId: message.transactionId,
+      reactionKey: reactionKey,
+    );
+  }
+
+  /// Redact the event for everyone in the room (`m.room.redaction`), or abort a local echo
+  /// when only [transactionId] is set (matrix-sdk-ui timeline).
+  Future<Result<Unit>> redactTimelineEvent({
+    required String roomId,
+    required String eventId,
+    required String transactionId,
+    String? reason,
+  }) async {
+    try {
+      await matrixService.client.redactTimelineEvent(
+        roomId: roomId,
+        eventId: eventId,
+        transactionId: transactionId,
+        reason: reason,
+      );
+      return const Success(unit);
+    } catch (e) {
+      return Failure(Exception(_formatMatrixFrbError(e)));
+    }
+  }
+
   Future<Result<List<Message>>> fetchOlderMessages({
     required String roomId,
     int count = 50,
@@ -345,11 +400,109 @@ class ConversationService {
     required RoomFileFilter filter,
   }) async {
     try {
+      await TimelineLocalHiddenStore.ensureLoaded();
       final list = await matrixService.client.listRoomFiles(
         roomId: roomId,
         filter: filter,
       );
-      return Success(list);
+      return Success(
+        list
+            .where(
+              (f) => !TimelineLocalHiddenStore.isHiddenEventOrTransaction(
+                eventId: f.eventId,
+                transactionId: f.transactionId,
+              ),
+            )
+            .toList(),
+      );
+    } catch (e) {
+      return Failure(Exception('$e'));
+    }
+  }
+
+  Future<Result<List<RoomLinkItem>>> listRoomLinks({
+    required String roomId,
+    required RoomFileFilter filter,
+  }) async {
+    try {
+      await TimelineLocalHiddenStore.ensureLoaded();
+      final list = await matrixService.client.listRoomLinks(
+        roomId: roomId,
+        filter: filter,
+      );
+      return Success(
+        list
+            .where(
+              (item) => !TimelineLocalHiddenStore.isHiddenEventOrTransaction(
+                eventId: item.eventId,
+                transactionId: item.transactionId,
+              ),
+            )
+            .toList(),
+      );
+    } catch (e) {
+      return Failure(Exception('$e'));
+    }
+  }
+
+  Future<Result<List<RoomPollItem>>> listRoomPolls({
+    required String roomId,
+    required RoomFileFilter filter,
+  }) async {
+    try {
+      await TimelineLocalHiddenStore.ensureLoaded();
+      final list = await matrixService.client.listRoomPolls(
+        roomId: roomId,
+        filter: filter,
+      );
+      return Success(
+        list
+            .where(
+              (p) => !TimelineLocalHiddenStore.isHiddenEventOrTransaction(
+                eventId: p.eventId,
+                transactionId: p.transactionId,
+              ),
+            )
+            .toList(),
+      );
+    } catch (e) {
+      return Failure(Exception('$e'));
+    }
+  }
+
+  Future<Result<Unit>> sendPoll({
+    required String roomId,
+    required String question,
+    required List<String> answerTexts,
+    required bool kindDisclosed,
+    int maxSelections = 1,
+  }) async {
+    try {
+      await matrixService.client.sendPoll(
+        roomId: roomId,
+        question: question,
+        answerTexts: answerTexts,
+        kindDisclosed: kindDisclosed,
+        maxSelections: BigInt.from(maxSelections.clamp(1, 20)),
+      );
+      return const Success(unit);
+    } catch (e) {
+      return Failure(Exception('$e'));
+    }
+  }
+
+  Future<Result<Unit>> sendPollResponse({
+    required String roomId,
+    required String pollStartEventId,
+    required List<String> answerIds,
+  }) async {
+    try {
+      await matrixService.client.sendPollResponse(
+        roomId: roomId,
+        pollStartEventId: pollStartEventId,
+        answerIds: answerIds,
+      );
+      return const Success(unit);
     } catch (e) {
       return Failure(Exception('$e'));
     }
@@ -360,10 +513,7 @@ class ConversationService {
     required String userId,
   }) async {
     try {
-      await matrixService.client.kickRoomMember(
-        roomId: roomId,
-        userId: userId,
-      );
+      await matrixService.client.kickRoomMember(roomId: roomId, userId: userId);
       return const Success(unit);
     } catch (e) {
       return Failure(Exception('$e'));
@@ -404,4 +554,10 @@ class ConversationService {
       return Failure(Exception('$e'));
     }
   }
+}
+
+String _formatMatrixFrbError(Object e) {
+  final raw = '$e'.trim();
+  if (raw.isEmpty) return 'Request failed';
+  return raw.replaceFirst(RegExp(r'^Exception:\s*'), '').trim();
 }

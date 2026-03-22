@@ -48,6 +48,52 @@ class Message {
   /// From `m.room.message` attachment `info.size` when present (bytes).
   final BigInt mediaSizeBytes;
 
+  /// BlurHash string from image/video `info` when present ([MSC2448]).
+  final String mediaBlurhash;
+
+  /// Pixel width for timeline thumb aspect (thumbnail `w` when set, else main media `w`).
+  final int mediaPreviewWidth;
+
+  /// Pixel height for timeline thumb aspect (thumbnail `h` when set, else main media `h`).
+  final int mediaPreviewHeight;
+
+  /// Event id this message replies to (`m.in_reply_to`), empty when not a reply.
+  final String inReplyToEventId;
+
+  /// Sender of the replied-to event when known.
+  final String inReplyToSender;
+
+  /// Short preview of the quoted message (body or `[image]` / loading hint).
+  final String inReplyToPreview;
+
+  /// Kind of the quoted message when known (`Other` if not a reply or not loaded).
+  final RoomMessageKind inReplyToRoomMsgKind;
+
+  /// Quoted attachment `info.mimetype` when present.
+  final String inReplyToMediaMimetype;
+  final BigInt inReplyToMediaSizeBytes;
+  final String inReplyToMediaBlurhash;
+  final int inReplyToMediaPreviewWidth;
+  final int inReplyToMediaPreviewHeight;
+
+  /// `true` when the replied-to event is redacted (parent bubble is a deleted message).
+  final bool inReplyToParentRedacted;
+
+  /// Aggregated reactions for msg-like events; empty for virtual rows and non-message content.
+  final List<MessageReactionEntry> reactions;
+
+  /// JSON `{"answers":[{"id","text"},...]}` for [RoomMessageKind::Poll]; empty otherwise.
+  final String pollOptionsJson;
+
+  /// JSON snapshot for poll UI: kind, max_selections, ended, tallies, voters (disclosed), etc.
+  final String pollStateJson;
+
+  /// MSC4095 `com.beeper.linkpreviews` JSON array for `m.text` / `m.notice`; `"[]"` when none.
+  final String linkPreviewsJson;
+
+  /// `true` after an `m.room.redaction` removed content for everyone in the room.
+  final bool isRedacted;
+
   const Message({
     required this.eventId,
     required this.transactionId,
@@ -62,6 +108,24 @@ class Message {
     required this.isOwn,
     required this.mediaMimetype,
     required this.mediaSizeBytes,
+    required this.mediaBlurhash,
+    required this.mediaPreviewWidth,
+    required this.mediaPreviewHeight,
+    required this.inReplyToEventId,
+    required this.inReplyToSender,
+    required this.inReplyToPreview,
+    required this.inReplyToRoomMsgKind,
+    required this.inReplyToMediaMimetype,
+    required this.inReplyToMediaSizeBytes,
+    required this.inReplyToMediaBlurhash,
+    required this.inReplyToMediaPreviewWidth,
+    required this.inReplyToMediaPreviewHeight,
+    required this.inReplyToParentRedacted,
+    required this.reactions,
+    required this.pollOptionsJson,
+    required this.pollStateJson,
+    required this.linkPreviewsJson,
+    required this.isRedacted,
   });
 
   @override
@@ -78,7 +142,25 @@ class Message {
       sendRecoverable.hashCode ^
       isOwn.hashCode ^
       mediaMimetype.hashCode ^
-      mediaSizeBytes.hashCode;
+      mediaSizeBytes.hashCode ^
+      mediaBlurhash.hashCode ^
+      mediaPreviewWidth.hashCode ^
+      mediaPreviewHeight.hashCode ^
+      inReplyToEventId.hashCode ^
+      inReplyToSender.hashCode ^
+      inReplyToPreview.hashCode ^
+      inReplyToRoomMsgKind.hashCode ^
+      inReplyToMediaMimetype.hashCode ^
+      inReplyToMediaSizeBytes.hashCode ^
+      inReplyToMediaBlurhash.hashCode ^
+      inReplyToMediaPreviewWidth.hashCode ^
+      inReplyToMediaPreviewHeight.hashCode ^
+      inReplyToParentRedacted.hashCode ^
+      reactions.hashCode ^
+      pollOptionsJson.hashCode ^
+      pollStateJson.hashCode ^
+      linkPreviewsJson.hashCode ^
+      isRedacted.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -97,7 +179,58 @@ class Message {
           sendRecoverable == other.sendRecoverable &&
           isOwn == other.isOwn &&
           mediaMimetype == other.mediaMimetype &&
-          mediaSizeBytes == other.mediaSizeBytes;
+          mediaSizeBytes == other.mediaSizeBytes &&
+          mediaBlurhash == other.mediaBlurhash &&
+          mediaPreviewWidth == other.mediaPreviewWidth &&
+          mediaPreviewHeight == other.mediaPreviewHeight &&
+          inReplyToEventId == other.inReplyToEventId &&
+          inReplyToSender == other.inReplyToSender &&
+          inReplyToPreview == other.inReplyToPreview &&
+          inReplyToRoomMsgKind == other.inReplyToRoomMsgKind &&
+          inReplyToMediaMimetype == other.inReplyToMediaMimetype &&
+          inReplyToMediaSizeBytes == other.inReplyToMediaSizeBytes &&
+          inReplyToMediaBlurhash == other.inReplyToMediaBlurhash &&
+          inReplyToMediaPreviewWidth == other.inReplyToMediaPreviewWidth &&
+          inReplyToMediaPreviewHeight == other.inReplyToMediaPreviewHeight &&
+          inReplyToParentRedacted == other.inReplyToParentRedacted &&
+          reactions == other.reactions &&
+          pollOptionsJson == other.pollOptionsJson &&
+          pollStateJson == other.pollStateJson &&
+          linkPreviewsJson == other.linkPreviewsJson &&
+          isRedacted == other.isRedacted;
+}
+
+/// One reaction key on a timeline message (aggregated senders from matrix-sdk-ui).
+class MessageReactionEntry {
+  final String key;
+  final int count;
+
+  /// Whether the logged-in user has sent this reaction key for this event.
+  final bool containsOwn;
+
+  /// Matrix user ids who reacted with this key (sorted for stable UI).
+  final List<String> senders;
+
+  const MessageReactionEntry({
+    required this.key,
+    required this.count,
+    required this.containsOwn,
+    required this.senders,
+  });
+
+  @override
+  int get hashCode =>
+      key.hashCode ^ count.hashCode ^ containsOwn.hashCode ^ senders.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MessageReactionEntry &&
+          runtimeType == other.runtimeType &&
+          key == other.key &&
+          count == other.count &&
+          containsOwn == other.containsOwn &&
+          senders == other.senders;
 }
 
 enum MessageType { message, dateDivider, readMarker, timelineStart }
@@ -154,4 +287,14 @@ enum MessageUpdateType {
 }
 
 /// Classification of an `m.room.message` (for media previews). Non-message timeline rows use [RoomMessageKind::Other].
-enum RoomMessageKind { text, image, file, video, audio, other }
+enum RoomMessageKind {
+  text,
+  image,
+  file,
+  video,
+  audio,
+
+  /// MSC3381 unstable poll (`org.matrix.msc3381.poll.start`).
+  poll,
+  other,
+}

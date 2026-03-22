@@ -84,11 +84,33 @@ abstract class MatrixClient implements RustOpaqueInterface {
     required RoomFileFilter filter,
   });
 
+  /// `m.text` / `m.notice` events whose body contains an HTTP(S) URL, with optional MSC4095 previews.
+  Future<List<RoomLinkItem>> listRoomLinks({
+    required String roomId,
+    required RoomFileFilter filter,
+  });
+
+  /// MSC3381 unstable poll start events from the event cache (for room info index).
+  Future<List<RoomPollItem>> listRoomPolls({
+    required String roomId,
+    required RoomFileFilter filter,
+  });
+
   /// Log in with username and password.
   Future<bool> login({required String username, required String password});
 
   /// Log out and clear the session.
   Future<bool> logout();
+
+  /// Redact a timeline message for **everyone** (`m.room.redaction`) or abort a matching local echo.
+  ///
+  /// Pass [event_id] for remote echoes, or [transaction_id] for a local row (matrix-sdk-ui picks redact vs abort).
+  Future<void> redactTimelineEvent({
+    required String roomId,
+    required String eventId,
+    required String transactionId,
+    String? reason,
+  });
 
   /// Register a new account.
   Future<bool> register({
@@ -126,6 +148,29 @@ abstract class MatrixClient implements RustOpaqueInterface {
   /// Send a message through the UI timeline (local echo, offline errors, retry via [Self::retry_failed_send]).
   /// Returns the server event id once echoed; often empty immediately—UI should follow the timeline stream.
   Future<String> sendMessage({required String roomId, required String content});
+
+  /// Send an MSC3381 unstable poll (`org.matrix.msc3381.poll.start`). Only allowed in non-DM rooms.
+  Future<String> sendPoll({
+    required String roomId,
+    required String question,
+    required List<String> answerTexts,
+    required bool kindDisclosed,
+    required BigInt maxSelections,
+  });
+
+  /// Submit votes for an unstable poll ([`UnstablePollResponseEventContent`]).
+  Future<String> sendPollResponse({
+    required String roomId,
+    required String pollStartEventId,
+    required List<String> answerIds,
+  });
+
+  /// Send a text reply to an existing timeline event (`m.in_reply_to`). Requires a server [event id](https://spec.matrix.org/latest/client-server-api/#event-structure), not a local transaction id.
+  Future<String> sendReply({
+    required String roomId,
+    required String content,
+    required String replyToEventId,
+  });
 
   /// Send a file from a local path on the UI timeline.
   ///
@@ -192,6 +237,15 @@ abstract class MatrixClient implements RustOpaqueInterface {
   /// Takes the room update stored by the last successful [MatrixClient::send_message].
   /// Call this after send_message succeeds to update the room list with the correct last message.
   Future<RoomUpdate?> takeLastSentRoomUpdate();
+
+  /// Toggle a reaction on a timeline message (`m.reaction`); returns `true` if added, `false` if removed.
+  /// Pass [event_id] for remote echoes, or [transaction_id] for local echoes without an event id yet.
+  Future<bool> toggleTimelineReaction({
+    required String roomId,
+    required String eventId,
+    required String transactionId,
+    required String reactionKey,
+  });
 
   Future<void> unregisterPusher({
     required String pushKey,

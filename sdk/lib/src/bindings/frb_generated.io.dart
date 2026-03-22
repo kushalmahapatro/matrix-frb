@@ -5,7 +5,6 @@
 
 import 'api/document_preview.dart';
 import 'api/matrix_client.dart';
-import 'api/native_media_env.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' as ffi;
@@ -187,6 +186,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Message> dco_decode_list_message(dynamic raw);
 
   @protected
+  List<MessageReactionEntry> dco_decode_list_message_reaction_entry(
+    dynamic raw,
+  );
+
+  @protected
   List<int> dco_decode_list_prim_u_8_loose(dynamic raw);
 
   @protected
@@ -196,7 +200,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<RoomFileItem> dco_decode_list_room_file_item(dynamic raw);
 
   @protected
+  List<RoomLinkItem> dco_decode_list_room_link_item(dynamic raw);
+
+  @protected
   List<RoomMemberRow> dco_decode_list_room_member_row(dynamic raw);
+
+  @protected
+  List<RoomPollItem> dco_decode_list_room_poll_item(dynamic raw);
 
   @protected
   List<RoomUpdate> dco_decode_list_room_update(dynamic raw);
@@ -212,6 +222,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Message dco_decode_message(dynamic raw);
+
+  @protected
+  MessageReactionEntry dco_decode_message_reaction_entry(dynamic raw);
 
   @protected
   MessageType dco_decode_message_type(dynamic raw);
@@ -263,6 +276,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RoomFileItem dco_decode_room_file_item(dynamic raw);
 
   @protected
+  RoomLinkItem dco_decode_room_link_item(dynamic raw);
+
+  @protected
   RoomMemberRoleDto dco_decode_room_member_role_dto(dynamic raw);
 
   @protected
@@ -270,6 +286,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RoomMessageKind dco_decode_room_message_kind(dynamic raw);
+
+  @protected
+  RoomPollItem dco_decode_room_poll_item(dynamic raw);
 
   @protected
   RoomUpdate dco_decode_room_update(dynamic raw);
@@ -468,6 +487,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Message> sse_decode_list_message(SseDeserializer deserializer);
 
   @protected
+  List<MessageReactionEntry> sse_decode_list_message_reaction_entry(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer);
 
   @protected
@@ -479,7 +503,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<RoomLinkItem> sse_decode_list_room_link_item(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<RoomMemberRow> sse_decode_list_room_member_row(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<RoomPollItem> sse_decode_list_room_poll_item(
     SseDeserializer deserializer,
   );
 
@@ -499,6 +533,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Message sse_decode_message(SseDeserializer deserializer);
+
+  @protected
+  MessageReactionEntry sse_decode_message_reaction_entry(
+    SseDeserializer deserializer,
+  );
 
   @protected
   MessageType sse_decode_message_type(SseDeserializer deserializer);
@@ -556,6 +595,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RoomFileItem sse_decode_room_file_item(SseDeserializer deserializer);
 
   @protected
+  RoomLinkItem sse_decode_room_link_item(SseDeserializer deserializer);
+
+  @protected
   RoomMemberRoleDto sse_decode_room_member_role_dto(
     SseDeserializer deserializer,
   );
@@ -565,6 +607,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RoomMessageKind sse_decode_room_message_kind(SseDeserializer deserializer);
+
+  @protected
+  RoomPollItem sse_decode_room_poll_item(SseDeserializer deserializer);
 
   @protected
   RoomUpdate sse_decode_room_update(SseDeserializer deserializer);
@@ -845,6 +890,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  ffi.Pointer<wire_cst_list_message_reaction_entry>
+  cst_encode_list_message_reaction_entry(List<MessageReactionEntry> raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ans = wire.cst_new_list_message_reaction_entry(raw.length);
+    for (var i = 0; i < raw.length; ++i) {
+      cst_api_fill_to_wire_message_reaction_entry(raw[i], ans.ref.ptr[i]);
+    }
+    return ans;
+  }
+
+  @protected
   ffi.Pointer<wire_cst_list_prim_u_8_loose> cst_encode_list_prim_u_8_loose(
     List<int> raw,
   ) {
@@ -877,6 +933,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  ffi.Pointer<wire_cst_list_room_link_item> cst_encode_list_room_link_item(
+    List<RoomLinkItem> raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ans = wire.cst_new_list_room_link_item(raw.length);
+    for (var i = 0; i < raw.length; ++i) {
+      cst_api_fill_to_wire_room_link_item(raw[i], ans.ref.ptr[i]);
+    }
+    return ans;
+  }
+
+  @protected
   ffi.Pointer<wire_cst_list_room_member_row> cst_encode_list_room_member_row(
     List<RoomMemberRow> raw,
   ) {
@@ -884,6 +952,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     final ans = wire.cst_new_list_room_member_row(raw.length);
     for (var i = 0; i < raw.length; ++i) {
       cst_api_fill_to_wire_room_member_row(raw[i], ans.ref.ptr[i]);
+    }
+    return ans;
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_list_room_poll_item> cst_encode_list_room_poll_item(
+    List<RoomPollItem> raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ans = wire.cst_new_list_room_poll_item(raw.length);
+    for (var i = 0; i < raw.length; ++i) {
+      cst_api_fill_to_wire_room_poll_item(raw[i], ans.ref.ptr[i]);
     }
     return ans;
   }
@@ -1063,6 +1143,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
         );
     wireObj.proxy = cst_encode_opt_String(apiObj.proxy);
     wireObj.passphrase = cst_encode_opt_String(apiObj.passphrase);
+    wireObj.show_home_server_for_username = cst_encode_bool(
+      apiObj.showHomeServerForUsername,
+    );
   }
 
   @protected
@@ -1106,6 +1189,51 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     wireObj.is_own = cst_encode_bool(apiObj.isOwn);
     wireObj.media_mimetype = cst_encode_String(apiObj.mediaMimetype);
     wireObj.media_size_bytes = cst_encode_u_64(apiObj.mediaSizeBytes);
+    wireObj.media_blurhash = cst_encode_String(apiObj.mediaBlurhash);
+    wireObj.media_preview_width = cst_encode_u_32(apiObj.mediaPreviewWidth);
+    wireObj.media_preview_height = cst_encode_u_32(apiObj.mediaPreviewHeight);
+    wireObj.in_reply_to_event_id = cst_encode_String(apiObj.inReplyToEventId);
+    wireObj.in_reply_to_sender = cst_encode_String(apiObj.inReplyToSender);
+    wireObj.in_reply_to_preview = cst_encode_String(apiObj.inReplyToPreview);
+    wireObj.in_reply_to_room_msg_kind = cst_encode_room_message_kind(
+      apiObj.inReplyToRoomMsgKind,
+    );
+    wireObj.in_reply_to_media_mimetype = cst_encode_String(
+      apiObj.inReplyToMediaMimetype,
+    );
+    wireObj.in_reply_to_media_size_bytes = cst_encode_u_64(
+      apiObj.inReplyToMediaSizeBytes,
+    );
+    wireObj.in_reply_to_media_blurhash = cst_encode_String(
+      apiObj.inReplyToMediaBlurhash,
+    );
+    wireObj.in_reply_to_media_preview_width = cst_encode_u_32(
+      apiObj.inReplyToMediaPreviewWidth,
+    );
+    wireObj.in_reply_to_media_preview_height = cst_encode_u_32(
+      apiObj.inReplyToMediaPreviewHeight,
+    );
+    wireObj.in_reply_to_parent_redacted = cst_encode_bool(
+      apiObj.inReplyToParentRedacted,
+    );
+    wireObj.reactions = cst_encode_list_message_reaction_entry(
+      apiObj.reactions,
+    );
+    wireObj.poll_options_json = cst_encode_String(apiObj.pollOptionsJson);
+    wireObj.poll_state_json = cst_encode_String(apiObj.pollStateJson);
+    wireObj.link_previews_json = cst_encode_String(apiObj.linkPreviewsJson);
+    wireObj.is_redacted = cst_encode_bool(apiObj.isRedacted);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_message_reaction_entry(
+    MessageReactionEntry apiObj,
+    wire_cst_message_reaction_entry wireObj,
+  ) {
+    wireObj.key = cst_encode_String(apiObj.key);
+    wireObj.count = cst_encode_u_32(apiObj.count);
+    wireObj.contains_own = cst_encode_bool(apiObj.containsOwn);
+    wireObj.senders = cst_encode_list_String(apiObj.senders);
   }
 
   @protected
@@ -1156,16 +1284,45 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  void cst_api_fill_to_wire_room_link_item(
+    RoomLinkItem apiObj,
+    wire_cst_room_link_item wireObj,
+  ) {
+    wireObj.event_id = cst_encode_String(apiObj.eventId);
+    wireObj.transaction_id = cst_encode_String(apiObj.transactionId);
+    wireObj.sender = cst_encode_String(apiObj.sender);
+    wireObj.body = cst_encode_String(apiObj.body);
+    wireObj.timestamp = cst_encode_u_64(apiObj.timestamp);
+    wireObj.is_outgoing = cst_encode_bool(apiObj.isOutgoing);
+    wireObj.link_previews_json = cst_encode_String(apiObj.linkPreviewsJson);
+    wireObj.is_link_message = cst_encode_bool(apiObj.isLinkMessage);
+  }
+
+  @protected
   void cst_api_fill_to_wire_room_member_row(
     RoomMemberRow apiObj,
     wire_cst_room_member_row wireObj,
   ) {
     wireObj.user_id = cst_encode_String(apiObj.userId);
+    wireObj.user_id_display = cst_encode_String(apiObj.userIdDisplay);
     wireObj.display_name = cst_encode_String(apiObj.displayName);
     wireObj.power_level = cst_encode_i_64(apiObj.powerLevel);
     wireObj.role = cst_encode_room_member_role_dto(apiObj.role);
     wireObj.is_self = cst_encode_bool(apiObj.isSelf);
     wireObj.current_user_can_kick = cst_encode_bool(apiObj.currentUserCanKick);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_room_poll_item(
+    RoomPollItem apiObj,
+    wire_cst_room_poll_item wireObj,
+  ) {
+    wireObj.event_id = cst_encode_String(apiObj.eventId);
+    wireObj.transaction_id = cst_encode_String(apiObj.transactionId);
+    wireObj.sender = cst_encode_String(apiObj.sender);
+    wireObj.question = cst_encode_String(apiObj.question);
+    wireObj.timestamp = cst_encode_u_64(apiObj.timestamp);
+    wireObj.is_outgoing = cst_encode_bool(apiObj.isOutgoing);
   }
 
   @protected
@@ -1227,6 +1384,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void cst_api_fill_to_wire_user(User apiObj, wire_cst_user wireObj) {
     wireObj.user_id = cst_encode_String(apiObj.userId);
+    wireObj.user_id_display = cst_encode_String(apiObj.userIdDisplay);
     wireObj.display_name = cst_encode_opt_String(apiObj.displayName);
     wireObj.avatar_url = cst_encode_opt_String(apiObj.avatarUrl);
   }
@@ -1519,6 +1677,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_message(List<Message> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_message_reaction_entry(
+    List<MessageReactionEntry> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_prim_u_8_loose(List<int> self, SseSerializer serializer);
 
   @protected
@@ -1534,8 +1698,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_room_link_item(
+    List<RoomLinkItem> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_room_member_row(
     List<RoomMemberRow> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_room_poll_item(
+    List<RoomPollItem> self,
     SseSerializer serializer,
   );
 
@@ -1559,6 +1735,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_message(Message self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_message_reaction_entry(
+    MessageReactionEntry self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_message_type(MessageType self, SseSerializer serializer);
@@ -1628,6 +1810,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_room_file_item(RoomFileItem self, SseSerializer serializer);
 
   @protected
+  void sse_encode_room_link_item(RoomLinkItem self, SseSerializer serializer);
+
+  @protected
   void sse_encode_room_member_role_dto(
     RoomMemberRoleDto self,
     SseSerializer serializer,
@@ -1641,6 +1826,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     RoomMessageKind self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_room_poll_item(RoomPollItem self, SseSerializer serializer);
 
   @protected
   void sse_encode_room_update(RoomUpdate self, SseSerializer serializer);
@@ -2248,6 +2436,82 @@ class RustLibWire implements BaseWire {
             )
           >();
 
+  void wire__crate__api__matrix_client__MatrixClient_list_room_links(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> room_id,
+    int filter,
+  ) {
+    return _wire__crate__api__matrix_client__MatrixClient_list_room_links(
+      port_,
+      that,
+      room_id,
+      filter,
+    );
+  }
+
+  late final _wire__crate__api__matrix_client__MatrixClient_list_room_linksPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Int32,
+          )
+        >
+      >(
+        'frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_list_room_links',
+      );
+  late final _wire__crate__api__matrix_client__MatrixClient_list_room_links =
+      _wire__crate__api__matrix_client__MatrixClient_list_room_linksPtr
+          .asFunction<
+            void Function(
+              int,
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              int,
+            )
+          >();
+
+  void wire__crate__api__matrix_client__MatrixClient_list_room_polls(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> room_id,
+    int filter,
+  ) {
+    return _wire__crate__api__matrix_client__MatrixClient_list_room_polls(
+      port_,
+      that,
+      room_id,
+      filter,
+    );
+  }
+
+  late final _wire__crate__api__matrix_client__MatrixClient_list_room_pollsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Int32,
+          )
+        >
+      >(
+        'frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_list_room_polls',
+      );
+  late final _wire__crate__api__matrix_client__MatrixClient_list_room_polls =
+      _wire__crate__api__matrix_client__MatrixClient_list_room_pollsPtr
+          .asFunction<
+            void Function(
+              int,
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              int,
+            )
+          >();
+
   void wire__crate__api__matrix_client__MatrixClient_login(
     int port_,
     int that,
@@ -2300,6 +2564,52 @@ class RustLibWire implements BaseWire {
   late final _wire__crate__api__matrix_client__MatrixClient_logout =
       _wire__crate__api__matrix_client__MatrixClient_logoutPtr
           .asFunction<void Function(int, int)>();
+
+  void wire__crate__api__matrix_client__MatrixClient_redact_timeline_event(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> room_id,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> event_id,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> transaction_id,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> reason,
+  ) {
+    return _wire__crate__api__matrix_client__MatrixClient_redact_timeline_event(
+      port_,
+      that,
+      room_id,
+      event_id,
+      transaction_id,
+      reason,
+    );
+  }
+
+  late final _wire__crate__api__matrix_client__MatrixClient_redact_timeline_eventPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+          )
+        >
+      >(
+        'frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_redact_timeline_event',
+      );
+  late final _wire__crate__api__matrix_client__MatrixClient_redact_timeline_event =
+      _wire__crate__api__matrix_client__MatrixClient_redact_timeline_eventPtr
+          .asFunction<
+            void Function(
+              int,
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            )
+          >();
 
   void wire__crate__api__matrix_client__MatrixClient_register(
     int port_,
@@ -2555,6 +2865,140 @@ class RustLibWire implements BaseWire {
             void Function(
               int,
               int,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            )
+          >();
+
+  void wire__crate__api__matrix_client__MatrixClient_send_poll(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> room_id,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> question,
+    ffi.Pointer<wire_cst_list_String> answer_texts,
+    bool kind_disclosed,
+    int max_selections,
+  ) {
+    return _wire__crate__api__matrix_client__MatrixClient_send_poll(
+      port_,
+      that,
+      room_id,
+      question,
+      answer_texts,
+      kind_disclosed,
+      max_selections,
+    );
+  }
+
+  late final _wire__crate__api__matrix_client__MatrixClient_send_pollPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_String>,
+            ffi.Bool,
+            ffi.Uint64,
+          )
+        >
+      >(
+        'frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_poll',
+      );
+  late final _wire__crate__api__matrix_client__MatrixClient_send_poll =
+      _wire__crate__api__matrix_client__MatrixClient_send_pollPtr
+          .asFunction<
+            void Function(
+              int,
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_String>,
+              bool,
+              int,
+            )
+          >();
+
+  void wire__crate__api__matrix_client__MatrixClient_send_poll_response(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> room_id,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> poll_start_event_id,
+    ffi.Pointer<wire_cst_list_String> answer_ids,
+  ) {
+    return _wire__crate__api__matrix_client__MatrixClient_send_poll_response(
+      port_,
+      that,
+      room_id,
+      poll_start_event_id,
+      answer_ids,
+    );
+  }
+
+  late final _wire__crate__api__matrix_client__MatrixClient_send_poll_responsePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_String>,
+          )
+        >
+      >(
+        'frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_poll_response',
+      );
+  late final _wire__crate__api__matrix_client__MatrixClient_send_poll_response =
+      _wire__crate__api__matrix_client__MatrixClient_send_poll_responsePtr
+          .asFunction<
+            void Function(
+              int,
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_String>,
+            )
+          >();
+
+  void wire__crate__api__matrix_client__MatrixClient_send_reply(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> room_id,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> content,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> reply_to_event_id,
+  ) {
+    return _wire__crate__api__matrix_client__MatrixClient_send_reply(
+      port_,
+      that,
+      room_id,
+      content,
+      reply_to_event_id,
+    );
+  }
+
+  late final _wire__crate__api__matrix_client__MatrixClient_send_replyPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+          )
+        >
+      >(
+        'frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_reply',
+      );
+  late final _wire__crate__api__matrix_client__MatrixClient_send_reply =
+      _wire__crate__api__matrix_client__MatrixClient_send_replyPtr
+          .asFunction<
+            void Function(
+              int,
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
               ffi.Pointer<wire_cst_list_prim_u_8_strict>,
               ffi.Pointer<wire_cst_list_prim_u_8_strict>,
             )
@@ -2934,6 +3378,52 @@ class RustLibWire implements BaseWire {
       _wire__crate__api__matrix_client__MatrixClient_take_last_sent_room_updatePtr
           .asFunction<void Function(int, int)>();
 
+  void wire__crate__api__matrix_client__MatrixClient_toggle_timeline_reaction(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> room_id,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> event_id,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> transaction_id,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> reaction_key,
+  ) {
+    return _wire__crate__api__matrix_client__MatrixClient_toggle_timeline_reaction(
+      port_,
+      that,
+      room_id,
+      event_id,
+      transaction_id,
+      reaction_key,
+    );
+  }
+
+  late final _wire__crate__api__matrix_client__MatrixClient_toggle_timeline_reactionPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+          )
+        >
+      >(
+        'frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_toggle_timeline_reaction',
+      );
+  late final _wire__crate__api__matrix_client__MatrixClient_toggle_timeline_reaction =
+      _wire__crate__api__matrix_client__MatrixClient_toggle_timeline_reactionPtr
+          .asFunction<
+            void Function(
+              int,
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            )
+          >();
+
   void wire__crate__api__matrix_client__MatrixClient_unregister_pusher(
     int port_,
     int that,
@@ -3107,44 +3597,6 @@ class RustLibWire implements BaseWire {
       _wire__crate__logger__platform__reload_tracing_file_writerPtr
           .asFunction<
             void Function(int, ffi.Pointer<wire_cst_tracing_file_configuration>)
-          >();
-
-  void wire__crate__api__native_media_env__set_native_media_env(
-    int port_,
-    ffi.Pointer<wire_cst_list_prim_u_8_strict> pdfium_dynamic_lib_path,
-    ffi.Pointer<wire_cst_list_prim_u_8_strict> matrix_pdfium_dir,
-    ffi.Pointer<wire_cst_list_prim_u_8_strict> matrix_ffmpeg_path,
-  ) {
-    return _wire__crate__api__native_media_env__set_native_media_env(
-      port_,
-      pdfium_dynamic_lib_path,
-      matrix_pdfium_dir,
-      matrix_ffmpeg_path,
-    );
-  }
-
-  late final _wire__crate__api__native_media_env__set_native_media_envPtr =
-      _lookup<
-        ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
-            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
-            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
-          )
-        >
-      >(
-        'frbgen_matrix_sdk_wire__crate__api__native_media_env__set_native_media_env',
-      );
-  late final _wire__crate__api__native_media_env__set_native_media_env =
-      _wire__crate__api__native_media_env__set_native_media_envPtr
-          .asFunction<
-            void Function(
-              int,
-              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
-              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
-              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
-            )
           >();
 
   void wire__crate__logger__platform__subscribe_http_tracing_logs(
@@ -3457,6 +3909,23 @@ class RustLibWire implements BaseWire {
   late final _cst_new_list_message = _cst_new_list_messagePtr
       .asFunction<ffi.Pointer<wire_cst_list_message> Function(int)>();
 
+  ffi.Pointer<wire_cst_list_message_reaction_entry>
+  cst_new_list_message_reaction_entry(int len) {
+    return _cst_new_list_message_reaction_entry(len);
+  }
+
+  late final _cst_new_list_message_reaction_entryPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<wire_cst_list_message_reaction_entry> Function(ffi.Int32)
+        >
+      >('frbgen_matrix_sdk_cst_new_list_message_reaction_entry');
+  late final _cst_new_list_message_reaction_entry =
+      _cst_new_list_message_reaction_entryPtr
+          .asFunction<
+            ffi.Pointer<wire_cst_list_message_reaction_entry> Function(int)
+          >();
+
   ffi.Pointer<wire_cst_list_prim_u_8_loose> cst_new_list_prim_u_8_loose(
     int len,
   ) {
@@ -3502,6 +3971,21 @@ class RustLibWire implements BaseWire {
   late final _cst_new_list_room_file_item = _cst_new_list_room_file_itemPtr
       .asFunction<ffi.Pointer<wire_cst_list_room_file_item> Function(int)>();
 
+  ffi.Pointer<wire_cst_list_room_link_item> cst_new_list_room_link_item(
+    int len,
+  ) {
+    return _cst_new_list_room_link_item(len);
+  }
+
+  late final _cst_new_list_room_link_itemPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<wire_cst_list_room_link_item> Function(ffi.Int32)
+        >
+      >('frbgen_matrix_sdk_cst_new_list_room_link_item');
+  late final _cst_new_list_room_link_item = _cst_new_list_room_link_itemPtr
+      .asFunction<ffi.Pointer<wire_cst_list_room_link_item> Function(int)>();
+
   ffi.Pointer<wire_cst_list_room_member_row> cst_new_list_room_member_row(
     int len,
   ) {
@@ -3516,6 +4000,21 @@ class RustLibWire implements BaseWire {
       >('frbgen_matrix_sdk_cst_new_list_room_member_row');
   late final _cst_new_list_room_member_row = _cst_new_list_room_member_rowPtr
       .asFunction<ffi.Pointer<wire_cst_list_room_member_row> Function(int)>();
+
+  ffi.Pointer<wire_cst_list_room_poll_item> cst_new_list_room_poll_item(
+    int len,
+  ) {
+    return _cst_new_list_room_poll_item(len);
+  }
+
+  late final _cst_new_list_room_poll_itemPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<wire_cst_list_room_poll_item> Function(ffi.Int32)
+        >
+      >('frbgen_matrix_sdk_cst_new_list_room_poll_item');
+  late final _cst_new_list_room_poll_item = _cst_new_list_room_poll_itemPtr
+      .asFunction<ffi.Pointer<wire_cst_list_room_poll_item> Function(int)>();
 
   ffi.Pointer<wire_cst_list_room_update> cst_new_list_room_update(int len) {
     return _cst_new_list_room_update(len);
@@ -3636,6 +4135,9 @@ final class wire_cst_client_config extends ffi.Struct {
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> proxy;
 
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> passphrase;
+
+  @ffi.Bool()
+  external bool show_home_server_for_username;
 }
 
 final class wire_cst_list_String extends ffi.Struct {
@@ -3686,6 +4188,25 @@ final class wire_cst_tracing_configuration extends ffi.Struct {
   external ffi.Pointer<wire_cst_tracing_file_configuration> write_to_files;
 }
 
+final class wire_cst_message_reaction_entry extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> key;
+
+  @ffi.Uint32()
+  external int count;
+
+  @ffi.Bool()
+  external bool contains_own;
+
+  external ffi.Pointer<wire_cst_list_String> senders;
+}
+
+final class wire_cst_list_message_reaction_entry extends ffi.Struct {
+  external ffi.Pointer<wire_cst_message_reaction_entry> ptr;
+
+  @ffi.Int32()
+  external int len;
+}
+
 final class wire_cst_message extends ffi.Struct {
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> event_id;
 
@@ -3719,6 +4240,52 @@ final class wire_cst_message extends ffi.Struct {
 
   @ffi.Uint64()
   external int media_size_bytes;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> media_blurhash;
+
+  @ffi.Uint32()
+  external int media_preview_width;
+
+  @ffi.Uint32()
+  external int media_preview_height;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> in_reply_to_event_id;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> in_reply_to_sender;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> in_reply_to_preview;
+
+  @ffi.Int32()
+  external int in_reply_to_room_msg_kind;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict>
+  in_reply_to_media_mimetype;
+
+  @ffi.Uint64()
+  external int in_reply_to_media_size_bytes;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict>
+  in_reply_to_media_blurhash;
+
+  @ffi.Uint32()
+  external int in_reply_to_media_preview_width;
+
+  @ffi.Uint32()
+  external int in_reply_to_media_preview_height;
+
+  @ffi.Bool()
+  external bool in_reply_to_parent_redacted;
+
+  external ffi.Pointer<wire_cst_list_message_reaction_entry> reactions;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> poll_options_json;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> poll_state_json;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> link_previews_json;
+
+  @ffi.Bool()
+  external bool is_redacted;
 }
 
 final class wire_cst_room_update extends ffi.Struct {
@@ -3780,8 +4347,38 @@ final class wire_cst_list_room_file_item extends ffi.Struct {
   external int len;
 }
 
+final class wire_cst_room_link_item extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> event_id;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> transaction_id;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> sender;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> body;
+
+  @ffi.Uint64()
+  external int timestamp;
+
+  @ffi.Bool()
+  external bool is_outgoing;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> link_previews_json;
+
+  @ffi.Bool()
+  external bool is_link_message;
+}
+
+final class wire_cst_list_room_link_item extends ffi.Struct {
+  external ffi.Pointer<wire_cst_room_link_item> ptr;
+
+  @ffi.Int32()
+  external int len;
+}
+
 final class wire_cst_room_member_row extends ffi.Struct {
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> user_id;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> user_id_display;
 
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> display_name;
 
@@ -3805,6 +4402,29 @@ final class wire_cst_list_room_member_row extends ffi.Struct {
   external int len;
 }
 
+final class wire_cst_room_poll_item extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> event_id;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> transaction_id;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> sender;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> question;
+
+  @ffi.Uint64()
+  external int timestamp;
+
+  @ffi.Bool()
+  external bool is_outgoing;
+}
+
+final class wire_cst_list_room_poll_item extends ffi.Struct {
+  external ffi.Pointer<wire_cst_room_poll_item> ptr;
+
+  @ffi.Int32()
+  external int len;
+}
+
 final class wire_cst_list_room_update extends ffi.Struct {
   external ffi.Pointer<wire_cst_room_update> ptr;
 
@@ -3814,6 +4434,8 @@ final class wire_cst_list_room_update extends ffi.Struct {
 
 final class wire_cst_user extends ffi.Struct {
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> user_id;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> user_id_display;
 
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> display_name;
 

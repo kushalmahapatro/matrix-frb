@@ -5,7 +5,6 @@
 
 import 'api/document_preview.dart';
 import 'api/matrix_client.dart';
-import 'api/native_media_env.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
@@ -76,7 +75,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => 475599269;
+  int get rustContentHash => -1213224700;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -177,6 +176,18 @@ abstract class RustLibApi extends BaseApi {
     required RoomFileFilter filter,
   });
 
+  Future<List<RoomLinkItem>> crateApiMatrixClientMatrixClientListRoomLinks({
+    required MatrixClient that,
+    required String roomId,
+    required RoomFileFilter filter,
+  });
+
+  Future<List<RoomPollItem>> crateApiMatrixClientMatrixClientListRoomPolls({
+    required MatrixClient that,
+    required String roomId,
+    required RoomFileFilter filter,
+  });
+
   Future<bool> crateApiMatrixClientMatrixClientLogin({
     required MatrixClient that,
     required String username,
@@ -185,6 +196,14 @@ abstract class RustLibApi extends BaseApi {
 
   Future<bool> crateApiMatrixClientMatrixClientLogout({
     required MatrixClient that,
+  });
+
+  Future<void> crateApiMatrixClientMatrixClientRedactTimelineEvent({
+    required MatrixClient that,
+    required String roomId,
+    required String eventId,
+    required String transactionId,
+    String? reason,
   });
 
   Future<bool> crateApiMatrixClientMatrixClientRegister({
@@ -230,6 +249,29 @@ abstract class RustLibApi extends BaseApi {
     required MatrixClient that,
     required String roomId,
     required String content,
+  });
+
+  Future<String> crateApiMatrixClientMatrixClientSendPoll({
+    required MatrixClient that,
+    required String roomId,
+    required String question,
+    required List<String> answerTexts,
+    required bool kindDisclosed,
+    required BigInt maxSelections,
+  });
+
+  Future<String> crateApiMatrixClientMatrixClientSendPollResponse({
+    required MatrixClient that,
+    required String roomId,
+    required String pollStartEventId,
+    required List<String> answerIds,
+  });
+
+  Future<String> crateApiMatrixClientMatrixClientSendReply({
+    required MatrixClient that,
+    required String roomId,
+    required String content,
+    required String replyToEventId,
   });
 
   Future<String> crateApiMatrixClientMatrixClientSendTimelineFile({
@@ -293,6 +335,14 @@ abstract class RustLibApi extends BaseApi {
     required MatrixClient that,
   });
 
+  Future<bool> crateApiMatrixClientMatrixClientToggleTimelineReaction({
+    required MatrixClient that,
+    required String roomId,
+    required String eventId,
+    required String transactionId,
+    required String reactionKey,
+  });
+
   Future<void> crateApiMatrixClientMatrixClientUnregisterPusher({
     required MatrixClient that,
     required String pushKey,
@@ -319,12 +369,6 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateLoggerPlatformReloadTracingFileWriter({
     required TracingFileConfiguration configuration,
-  });
-
-  Future<void> crateApiNativeMediaEnvSetNativeMediaEnv({
-    String? pdfiumDynamicLibPath,
-    String? matrixPdfiumDir,
-    String? matrixFfmpegPath,
   });
 
   Stream<String> crateLoggerPlatformSubscribeHttpTracingLogs();
@@ -1037,6 +1081,86 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<List<RoomLinkItem>> crateApiMatrixClientMatrixClientListRoomLinks({
+    required MatrixClient that,
+    required String roomId,
+    required RoomFileFilter filter,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          var arg1 = cst_encode_String(roomId);
+          var arg2 = cst_encode_room_file_filter(filter);
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_list_room_links(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_room_link_item,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiMatrixClientMatrixClientListRoomLinksConstMeta,
+        argValues: [that, roomId, filter],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMatrixClientMatrixClientListRoomLinksConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_list_room_links",
+        argNames: ["that", "roomId", "filter"],
+      );
+
+  @override
+  Future<List<RoomPollItem>> crateApiMatrixClientMatrixClientListRoomPolls({
+    required MatrixClient that,
+    required String roomId,
+    required RoomFileFilter filter,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          var arg1 = cst_encode_String(roomId);
+          var arg2 = cst_encode_room_file_filter(filter);
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_list_room_polls(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_room_poll_item,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiMatrixClientMatrixClientListRoomPollsConstMeta,
+        argValues: [that, roomId, filter],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMatrixClientMatrixClientListRoomPollsConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_list_room_polls",
+        argNames: ["that", "roomId", "filter"],
+      );
+
+  @override
   Future<bool> crateApiMatrixClientMatrixClientLogin({
     required MatrixClient that,
     required String username,
@@ -1104,6 +1228,54 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiMatrixClientMatrixClientLogoutConstMeta =>
       const TaskConstMeta(debugName: "MatrixClient_logout", argNames: ["that"]);
+
+  @override
+  Future<void> crateApiMatrixClientMatrixClientRedactTimelineEvent({
+    required MatrixClient that,
+    required String roomId,
+    required String eventId,
+    required String transactionId,
+    String? reason,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          var arg1 = cst_encode_String(roomId);
+          var arg2 = cst_encode_String(eventId);
+          var arg3 = cst_encode_String(transactionId);
+          var arg4 = cst_encode_opt_String(reason);
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_redact_timeline_event(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                arg4,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiMatrixClientMatrixClientRedactTimelineEventConstMeta,
+        argValues: [that, roomId, eventId, transactionId, reason],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientRedactTimelineEventConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_redact_timeline_event",
+        argNames: ["that", "roomId", "eventId", "transactionId", "reason"],
+      );
 
   @override
   Future<bool> crateApiMatrixClientMatrixClientRegister({
@@ -1412,6 +1584,154 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "MatrixClient_send_message",
         argNames: ["that", "roomId", "content"],
+      );
+
+  @override
+  Future<String> crateApiMatrixClientMatrixClientSendPoll({
+    required MatrixClient that,
+    required String roomId,
+    required String question,
+    required List<String> answerTexts,
+    required bool kindDisclosed,
+    required BigInt maxSelections,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          var arg1 = cst_encode_String(roomId);
+          var arg2 = cst_encode_String(question);
+          var arg3 = cst_encode_list_String(answerTexts);
+          var arg4 = cst_encode_bool(kindDisclosed);
+          var arg5 = cst_encode_u_64(maxSelections);
+          return wire.wire__crate__api__matrix_client__MatrixClient_send_poll(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_String,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiMatrixClientMatrixClientSendPollConstMeta,
+        argValues: [
+          that,
+          roomId,
+          question,
+          answerTexts,
+          kindDisclosed,
+          maxSelections,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMatrixClientMatrixClientSendPollConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_send_poll",
+        argNames: [
+          "that",
+          "roomId",
+          "question",
+          "answerTexts",
+          "kindDisclosed",
+          "maxSelections",
+        ],
+      );
+
+  @override
+  Future<String> crateApiMatrixClientMatrixClientSendPollResponse({
+    required MatrixClient that,
+    required String roomId,
+    required String pollStartEventId,
+    required List<String> answerIds,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          var arg1 = cst_encode_String(roomId);
+          var arg2 = cst_encode_String(pollStartEventId);
+          var arg3 = cst_encode_list_String(answerIds);
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_send_poll_response(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_String,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiMatrixClientMatrixClientSendPollResponseConstMeta,
+        argValues: [that, roomId, pollStartEventId, answerIds],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientSendPollResponseConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_send_poll_response",
+        argNames: ["that", "roomId", "pollStartEventId", "answerIds"],
+      );
+
+  @override
+  Future<String> crateApiMatrixClientMatrixClientSendReply({
+    required MatrixClient that,
+    required String roomId,
+    required String content,
+    required String replyToEventId,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          var arg1 = cst_encode_String(roomId);
+          var arg2 = cst_encode_String(content);
+          var arg3 = cst_encode_String(replyToEventId);
+          return wire.wire__crate__api__matrix_client__MatrixClient_send_reply(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_String,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiMatrixClientMatrixClientSendReplyConstMeta,
+        argValues: [that, roomId, content, replyToEventId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMatrixClientMatrixClientSendReplyConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_send_reply",
+        argNames: ["that", "roomId", "content", "replyToEventId"],
       );
 
   @override
@@ -1908,6 +2228,54 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<bool> crateApiMatrixClientMatrixClientToggleTimelineReaction({
+    required MatrixClient that,
+    required String roomId,
+    required String eventId,
+    required String transactionId,
+    required String reactionKey,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          var arg1 = cst_encode_String(roomId);
+          var arg2 = cst_encode_String(eventId);
+          var arg3 = cst_encode_String(transactionId);
+          var arg4 = cst_encode_String(reactionKey);
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_toggle_timeline_reaction(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                arg4,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_bool,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiMatrixClientMatrixClientToggleTimelineReactionConstMeta,
+        argValues: [that, roomId, eventId, transactionId, reactionKey],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientToggleTimelineReactionConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_toggle_timeline_reaction",
+        argNames: ["that", "roomId", "eventId", "transactionId", "reactionKey"],
+      );
+
+  @override
   Future<void> crateApiMatrixClientMatrixClientUnregisterPusher({
     required MatrixClient that,
     required String pushKey,
@@ -2085,46 +2453,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "reload_tracing_file_writer",
         argNames: ["configuration"],
-      );
-
-  @override
-  Future<void> crateApiNativeMediaEnvSetNativeMediaEnv({
-    String? pdfiumDynamicLibPath,
-    String? matrixPdfiumDir,
-    String? matrixFfmpegPath,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_opt_String(pdfiumDynamicLibPath);
-          var arg1 = cst_encode_opt_String(matrixPdfiumDir);
-          var arg2 = cst_encode_opt_String(matrixFfmpegPath);
-          return wire.wire__crate__api__native_media_env__set_native_media_env(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_unit,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiNativeMediaEnvSetNativeMediaEnvConstMeta,
-        argValues: [pdfiumDynamicLibPath, matrixPdfiumDir, matrixFfmpegPath],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiNativeMediaEnvSetNativeMediaEnvConstMeta =>
-      const TaskConstMeta(
-        debugName: "set_native_media_env",
-        argNames: [
-          "pdfiumDynamicLibPath",
-          "matrixPdfiumDir",
-          "matrixFfmpegPath",
-        ],
       );
 
   @override
@@ -2409,8 +2737,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ClientConfig dco_decode_client_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 5)
-      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
     return ClientConfig(
       sessionPath: dco_decode_String(arr[0]),
       homeserverUrl: dco_decode_String(arr[1]),
@@ -2420,6 +2748,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           ),
       proxy: dco_decode_opt_String(arr[3]),
       passphrase: dco_decode_opt_String(arr[4]),
+      showHomeServerForUsername: dco_decode_bool(arr[5]),
     );
   }
 
@@ -2507,6 +2836,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<MessageReactionEntry> dco_decode_list_message_reaction_entry(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>)
+        .map(dco_decode_message_reaction_entry)
+        .toList();
+  }
+
+  @protected
   List<int> dco_decode_list_prim_u_8_loose(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as List<int>;
@@ -2525,9 +2864,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<RoomLinkItem> dco_decode_list_room_link_item(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_room_link_item).toList();
+  }
+
+  @protected
   List<RoomMemberRow> dco_decode_list_room_member_row(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_room_member_row).toList();
+  }
+
+  @protected
+  List<RoomPollItem> dco_decode_list_room_poll_item(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_room_poll_item).toList();
   }
 
   @protected
@@ -2558,8 +2909,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Message dco_decode_message(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 13)
-      throw Exception('unexpected arr length: expect 13 but see ${arr.length}');
+    if (arr.length != 31)
+      throw Exception('unexpected arr length: expect 31 but see ${arr.length}');
     return Message(
       eventId: dco_decode_String(arr[0]),
       transactionId: dco_decode_String(arr[1]),
@@ -2574,6 +2925,38 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       isOwn: dco_decode_bool(arr[10]),
       mediaMimetype: dco_decode_String(arr[11]),
       mediaSizeBytes: dco_decode_u_64(arr[12]),
+      mediaBlurhash: dco_decode_String(arr[13]),
+      mediaPreviewWidth: dco_decode_u_32(arr[14]),
+      mediaPreviewHeight: dco_decode_u_32(arr[15]),
+      inReplyToEventId: dco_decode_String(arr[16]),
+      inReplyToSender: dco_decode_String(arr[17]),
+      inReplyToPreview: dco_decode_String(arr[18]),
+      inReplyToRoomMsgKind: dco_decode_room_message_kind(arr[19]),
+      inReplyToMediaMimetype: dco_decode_String(arr[20]),
+      inReplyToMediaSizeBytes: dco_decode_u_64(arr[21]),
+      inReplyToMediaBlurhash: dco_decode_String(arr[22]),
+      inReplyToMediaPreviewWidth: dco_decode_u_32(arr[23]),
+      inReplyToMediaPreviewHeight: dco_decode_u_32(arr[24]),
+      inReplyToParentRedacted: dco_decode_bool(arr[25]),
+      reactions: dco_decode_list_message_reaction_entry(arr[26]),
+      pollOptionsJson: dco_decode_String(arr[27]),
+      pollStateJson: dco_decode_String(arr[28]),
+      linkPreviewsJson: dco_decode_String(arr[29]),
+      isRedacted: dco_decode_bool(arr[30]),
+    );
+  }
+
+  @protected
+  MessageReactionEntry dco_decode_message_reaction_entry(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return MessageReactionEntry(
+      key: dco_decode_String(arr[0]),
+      count: dco_decode_u_32(arr[1]),
+      containsOwn: dco_decode_bool(arr[2]),
+      senders: dco_decode_list_String(arr[3]),
     );
   }
 
@@ -2712,6 +3095,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  RoomLinkItem dco_decode_room_link_item(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 8)
+      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    return RoomLinkItem(
+      eventId: dco_decode_String(arr[0]),
+      transactionId: dco_decode_String(arr[1]),
+      sender: dco_decode_String(arr[2]),
+      body: dco_decode_String(arr[3]),
+      timestamp: dco_decode_u_64(arr[4]),
+      isOutgoing: dco_decode_bool(arr[5]),
+      linkPreviewsJson: dco_decode_String(arr[6]),
+      isLinkMessage: dco_decode_bool(arr[7]),
+    );
+  }
+
+  @protected
   RoomMemberRoleDto dco_decode_room_member_role_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return RoomMemberRoleDto.values[raw as int];
@@ -2721,15 +3122,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   RoomMemberRow dco_decode_room_member_row(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 6)
-      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
     return RoomMemberRow(
       userId: dco_decode_String(arr[0]),
-      displayName: dco_decode_String(arr[1]),
-      powerLevel: dco_decode_i_64(arr[2]),
-      role: dco_decode_room_member_role_dto(arr[3]),
-      isSelf: dco_decode_bool(arr[4]),
-      currentUserCanKick: dco_decode_bool(arr[5]),
+      userIdDisplay: dco_decode_String(arr[1]),
+      displayName: dco_decode_String(arr[2]),
+      powerLevel: dco_decode_i_64(arr[3]),
+      role: dco_decode_room_member_role_dto(arr[4]),
+      isSelf: dco_decode_bool(arr[5]),
+      currentUserCanKick: dco_decode_bool(arr[6]),
     );
   }
 
@@ -2737,6 +3139,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   RoomMessageKind dco_decode_room_message_kind(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return RoomMessageKind.values[raw as int];
+  }
+
+  @protected
+  RoomPollItem dco_decode_room_poll_item(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return RoomPollItem(
+      eventId: dco_decode_String(arr[0]),
+      transactionId: dco_decode_String(arr[1]),
+      sender: dco_decode_String(arr[2]),
+      question: dco_decode_String(arr[3]),
+      timestamp: dco_decode_u_64(arr[4]),
+      isOutgoing: dco_decode_bool(arr[5]),
+    );
   }
 
   @protected
@@ -2843,12 +3261,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   User dco_decode_user(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 3)
-      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
     return User(
       userId: dco_decode_String(arr[0]),
-      displayName: dco_decode_opt_String(arr[1]),
-      avatarUrl: dco_decode_opt_String(arr[2]),
+      userIdDisplay: dco_decode_String(arr[1]),
+      displayName: dco_decode_opt_String(arr[2]),
+      avatarUrl: dco_decode_opt_String(arr[3]),
     );
   }
 
@@ -3095,12 +3514,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         );
     var var_proxy = sse_decode_opt_String(deserializer);
     var var_passphrase = sse_decode_opt_String(deserializer);
+    var var_showHomeServerForUsername = sse_decode_bool(deserializer);
     return ClientConfig(
       sessionPath: var_sessionPath,
       homeserverUrl: var_homeserverUrl,
       rootCertificates: var_rootCertificates,
       proxy: var_proxy,
       passphrase: var_passphrase,
+      showHomeServerForUsername: var_showHomeServerForUsername,
     );
   }
 
@@ -3213,6 +3634,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<MessageReactionEntry> sse_decode_list_message_reaction_entry(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <MessageReactionEntry>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_message_reaction_entry(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
@@ -3241,6 +3676,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<RoomLinkItem> sse_decode_list_room_link_item(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <RoomLinkItem>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_room_link_item(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<RoomMemberRow> sse_decode_list_room_member_row(
     SseDeserializer deserializer,
   ) {
@@ -3250,6 +3699,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <RoomMemberRow>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_room_member_row(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<RoomPollItem> sse_decode_list_room_poll_item(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <RoomPollItem>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_room_poll_item(deserializer));
     }
     return ans_;
   }
@@ -3315,6 +3778,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_isOwn = sse_decode_bool(deserializer);
     var var_mediaMimetype = sse_decode_String(deserializer);
     var var_mediaSizeBytes = sse_decode_u_64(deserializer);
+    var var_mediaBlurhash = sse_decode_String(deserializer);
+    var var_mediaPreviewWidth = sse_decode_u_32(deserializer);
+    var var_mediaPreviewHeight = sse_decode_u_32(deserializer);
+    var var_inReplyToEventId = sse_decode_String(deserializer);
+    var var_inReplyToSender = sse_decode_String(deserializer);
+    var var_inReplyToPreview = sse_decode_String(deserializer);
+    var var_inReplyToRoomMsgKind = sse_decode_room_message_kind(deserializer);
+    var var_inReplyToMediaMimetype = sse_decode_String(deserializer);
+    var var_inReplyToMediaSizeBytes = sse_decode_u_64(deserializer);
+    var var_inReplyToMediaBlurhash = sse_decode_String(deserializer);
+    var var_inReplyToMediaPreviewWidth = sse_decode_u_32(deserializer);
+    var var_inReplyToMediaPreviewHeight = sse_decode_u_32(deserializer);
+    var var_inReplyToParentRedacted = sse_decode_bool(deserializer);
+    var var_reactions = sse_decode_list_message_reaction_entry(deserializer);
+    var var_pollOptionsJson = sse_decode_String(deserializer);
+    var var_pollStateJson = sse_decode_String(deserializer);
+    var var_linkPreviewsJson = sse_decode_String(deserializer);
+    var var_isRedacted = sse_decode_bool(deserializer);
     return Message(
       eventId: var_eventId,
       transactionId: var_transactionId,
@@ -3329,6 +3810,41 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       isOwn: var_isOwn,
       mediaMimetype: var_mediaMimetype,
       mediaSizeBytes: var_mediaSizeBytes,
+      mediaBlurhash: var_mediaBlurhash,
+      mediaPreviewWidth: var_mediaPreviewWidth,
+      mediaPreviewHeight: var_mediaPreviewHeight,
+      inReplyToEventId: var_inReplyToEventId,
+      inReplyToSender: var_inReplyToSender,
+      inReplyToPreview: var_inReplyToPreview,
+      inReplyToRoomMsgKind: var_inReplyToRoomMsgKind,
+      inReplyToMediaMimetype: var_inReplyToMediaMimetype,
+      inReplyToMediaSizeBytes: var_inReplyToMediaSizeBytes,
+      inReplyToMediaBlurhash: var_inReplyToMediaBlurhash,
+      inReplyToMediaPreviewWidth: var_inReplyToMediaPreviewWidth,
+      inReplyToMediaPreviewHeight: var_inReplyToMediaPreviewHeight,
+      inReplyToParentRedacted: var_inReplyToParentRedacted,
+      reactions: var_reactions,
+      pollOptionsJson: var_pollOptionsJson,
+      pollStateJson: var_pollStateJson,
+      linkPreviewsJson: var_linkPreviewsJson,
+      isRedacted: var_isRedacted,
+    );
+  }
+
+  @protected
+  MessageReactionEntry sse_decode_message_reaction_entry(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_key = sse_decode_String(deserializer);
+    var var_count = sse_decode_u_32(deserializer);
+    var var_containsOwn = sse_decode_bool(deserializer);
+    var var_senders = sse_decode_list_String(deserializer);
+    return MessageReactionEntry(
+      key: var_key,
+      count: var_count,
+      containsOwn: var_containsOwn,
+      senders: var_senders,
     );
   }
 
@@ -3530,6 +4046,29 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  RoomLinkItem sse_decode_room_link_item(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_eventId = sse_decode_String(deserializer);
+    var var_transactionId = sse_decode_String(deserializer);
+    var var_sender = sse_decode_String(deserializer);
+    var var_body = sse_decode_String(deserializer);
+    var var_timestamp = sse_decode_u_64(deserializer);
+    var var_isOutgoing = sse_decode_bool(deserializer);
+    var var_linkPreviewsJson = sse_decode_String(deserializer);
+    var var_isLinkMessage = sse_decode_bool(deserializer);
+    return RoomLinkItem(
+      eventId: var_eventId,
+      transactionId: var_transactionId,
+      sender: var_sender,
+      body: var_body,
+      timestamp: var_timestamp,
+      isOutgoing: var_isOutgoing,
+      linkPreviewsJson: var_linkPreviewsJson,
+      isLinkMessage: var_isLinkMessage,
+    );
+  }
+
+  @protected
   RoomMemberRoleDto sse_decode_room_member_role_dto(
     SseDeserializer deserializer,
   ) {
@@ -3542,6 +4081,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   RoomMemberRow sse_decode_room_member_row(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_userId = sse_decode_String(deserializer);
+    var var_userIdDisplay = sse_decode_String(deserializer);
     var var_displayName = sse_decode_String(deserializer);
     var var_powerLevel = sse_decode_i_64(deserializer);
     var var_role = sse_decode_room_member_role_dto(deserializer);
@@ -3549,6 +4089,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_currentUserCanKick = sse_decode_bool(deserializer);
     return RoomMemberRow(
       userId: var_userId,
+      userIdDisplay: var_userIdDisplay,
       displayName: var_displayName,
       powerLevel: var_powerLevel,
       role: var_role,
@@ -3562,6 +4103,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_i_32(deserializer);
     return RoomMessageKind.values[inner];
+  }
+
+  @protected
+  RoomPollItem sse_decode_room_poll_item(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_eventId = sse_decode_String(deserializer);
+    var var_transactionId = sse_decode_String(deserializer);
+    var var_sender = sse_decode_String(deserializer);
+    var var_question = sse_decode_String(deserializer);
+    var var_timestamp = sse_decode_u_64(deserializer);
+    var var_isOutgoing = sse_decode_bool(deserializer);
+    return RoomPollItem(
+      eventId: var_eventId,
+      transactionId: var_transactionId,
+      sender: var_sender,
+      question: var_question,
+      timestamp: var_timestamp,
+      isOutgoing: var_isOutgoing,
+    );
   }
 
   @protected
@@ -3684,10 +4244,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   User sse_decode_user(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_userId = sse_decode_String(deserializer);
+    var var_userIdDisplay = sse_decode_String(deserializer);
     var var_displayName = sse_decode_opt_String(deserializer);
     var var_avatarUrl = sse_decode_opt_String(deserializer);
     return User(
       userId: var_userId,
+      userIdDisplay: var_userIdDisplay,
       displayName: var_displayName,
       avatarUrl: var_avatarUrl,
     );
@@ -4189,6 +4751,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     );
     sse_encode_opt_String(self.proxy, serializer);
     sse_encode_opt_String(self.passphrase, serializer);
+    sse_encode_bool(self.showHomeServerForUsername, serializer);
   }
 
   @protected
@@ -4285,6 +4848,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_message_reaction_entry(
+    List<MessageReactionEntry> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_message_reaction_entry(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_prim_u_8_loose(
     List<int> self,
     SseSerializer serializer,
@@ -4319,6 +4894,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_room_link_item(
+    List<RoomLinkItem> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_room_link_item(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_room_member_row(
     List<RoomMemberRow> self,
     SseSerializer serializer,
@@ -4327,6 +4914,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_room_member_row(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_room_poll_item(
+    List<RoomPollItem> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_room_poll_item(item, serializer);
     }
   }
 
@@ -4385,6 +4984,36 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self.isOwn, serializer);
     sse_encode_String(self.mediaMimetype, serializer);
     sse_encode_u_64(self.mediaSizeBytes, serializer);
+    sse_encode_String(self.mediaBlurhash, serializer);
+    sse_encode_u_32(self.mediaPreviewWidth, serializer);
+    sse_encode_u_32(self.mediaPreviewHeight, serializer);
+    sse_encode_String(self.inReplyToEventId, serializer);
+    sse_encode_String(self.inReplyToSender, serializer);
+    sse_encode_String(self.inReplyToPreview, serializer);
+    sse_encode_room_message_kind(self.inReplyToRoomMsgKind, serializer);
+    sse_encode_String(self.inReplyToMediaMimetype, serializer);
+    sse_encode_u_64(self.inReplyToMediaSizeBytes, serializer);
+    sse_encode_String(self.inReplyToMediaBlurhash, serializer);
+    sse_encode_u_32(self.inReplyToMediaPreviewWidth, serializer);
+    sse_encode_u_32(self.inReplyToMediaPreviewHeight, serializer);
+    sse_encode_bool(self.inReplyToParentRedacted, serializer);
+    sse_encode_list_message_reaction_entry(self.reactions, serializer);
+    sse_encode_String(self.pollOptionsJson, serializer);
+    sse_encode_String(self.pollStateJson, serializer);
+    sse_encode_String(self.linkPreviewsJson, serializer);
+    sse_encode_bool(self.isRedacted, serializer);
+  }
+
+  @protected
+  void sse_encode_message_reaction_entry(
+    MessageReactionEntry self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.key, serializer);
+    sse_encode_u_32(self.count, serializer);
+    sse_encode_bool(self.containsOwn, serializer);
+    sse_encode_list_String(self.senders, serializer);
   }
 
   @protected
@@ -4558,6 +5187,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_room_link_item(RoomLinkItem self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.eventId, serializer);
+    sse_encode_String(self.transactionId, serializer);
+    sse_encode_String(self.sender, serializer);
+    sse_encode_String(self.body, serializer);
+    sse_encode_u_64(self.timestamp, serializer);
+    sse_encode_bool(self.isOutgoing, serializer);
+    sse_encode_String(self.linkPreviewsJson, serializer);
+    sse_encode_bool(self.isLinkMessage, serializer);
+  }
+
+  @protected
   void sse_encode_room_member_role_dto(
     RoomMemberRoleDto self,
     SseSerializer serializer,
@@ -4573,6 +5215,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.userId, serializer);
+    sse_encode_String(self.userIdDisplay, serializer);
     sse_encode_String(self.displayName, serializer);
     sse_encode_i_64(self.powerLevel, serializer);
     sse_encode_room_member_role_dto(self.role, serializer);
@@ -4587,6 +5230,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_room_poll_item(RoomPollItem self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.eventId, serializer);
+    sse_encode_String(self.transactionId, serializer);
+    sse_encode_String(self.sender, serializer);
+    sse_encode_String(self.question, serializer);
+    sse_encode_u_64(self.timestamp, serializer);
+    sse_encode_bool(self.isOutgoing, serializer);
   }
 
   @protected
@@ -4687,6 +5341,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_user(User self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.userId, serializer);
+    sse_encode_String(self.userIdDisplay, serializer);
     sse_encode_opt_String(self.displayName, serializer);
     sse_encode_opt_String(self.avatarUrl, serializer);
   }
@@ -4889,6 +5544,26 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
     filter: filter,
   );
 
+  /// `m.text` / `m.notice` events whose body contains an HTTP(S) URL, with optional MSC4095 previews.
+  Future<List<RoomLinkItem>> listRoomLinks({
+    required String roomId,
+    required RoomFileFilter filter,
+  }) => RustLib.instance.api.crateApiMatrixClientMatrixClientListRoomLinks(
+    that: this,
+    roomId: roomId,
+    filter: filter,
+  );
+
+  /// MSC3381 unstable poll start events from the event cache (for room info index).
+  Future<List<RoomPollItem>> listRoomPolls({
+    required String roomId,
+    required RoomFileFilter filter,
+  }) => RustLib.instance.api.crateApiMatrixClientMatrixClientListRoomPolls(
+    that: this,
+    roomId: roomId,
+    filter: filter,
+  );
+
   /// Log in with username and password.
   Future<bool> login({required String username, required String password}) =>
       RustLib.instance.api.crateApiMatrixClientMatrixClientLogin(
@@ -4900,6 +5575,23 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
   /// Log out and clear the session.
   Future<bool> logout() =>
       RustLib.instance.api.crateApiMatrixClientMatrixClientLogout(that: this);
+
+  /// Redact a timeline message for **everyone** (`m.room.redaction`) or abort a matching local echo.
+  ///
+  /// Pass [event_id] for remote echoes, or [transaction_id] for a local row (matrix-sdk-ui picks redact vs abort).
+  Future<void> redactTimelineEvent({
+    required String roomId,
+    required String eventId,
+    required String transactionId,
+    String? reason,
+  }) =>
+      RustLib.instance.api.crateApiMatrixClientMatrixClientRedactTimelineEvent(
+        that: this,
+        roomId: roomId,
+        eventId: eventId,
+        transactionId: transactionId,
+        reason: reason,
+      );
 
   /// Register a new account.
   Future<bool> register({
@@ -4972,6 +5664,46 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
     that: this,
     roomId: roomId,
     content: content,
+  );
+
+  /// Send an MSC3381 unstable poll (`org.matrix.msc3381.poll.start`). Only allowed in non-DM rooms.
+  Future<String> sendPoll({
+    required String roomId,
+    required String question,
+    required List<String> answerTexts,
+    required bool kindDisclosed,
+    required BigInt maxSelections,
+  }) => RustLib.instance.api.crateApiMatrixClientMatrixClientSendPoll(
+    that: this,
+    roomId: roomId,
+    question: question,
+    answerTexts: answerTexts,
+    kindDisclosed: kindDisclosed,
+    maxSelections: maxSelections,
+  );
+
+  /// Submit votes for an unstable poll ([`UnstablePollResponseEventContent`]).
+  Future<String> sendPollResponse({
+    required String roomId,
+    required String pollStartEventId,
+    required List<String> answerIds,
+  }) => RustLib.instance.api.crateApiMatrixClientMatrixClientSendPollResponse(
+    that: this,
+    roomId: roomId,
+    pollStartEventId: pollStartEventId,
+    answerIds: answerIds,
+  );
+
+  /// Send a text reply to an existing timeline event (`m.in_reply_to`). Requires a server [event id](https://spec.matrix.org/latest/client-server-api/#event-structure), not a local transaction id.
+  Future<String> sendReply({
+    required String roomId,
+    required String content,
+    required String replyToEventId,
+  }) => RustLib.instance.api.crateApiMatrixClientMatrixClientSendReply(
+    that: this,
+    roomId: roomId,
+    content: content,
+    replyToEventId: replyToEventId,
   );
 
   /// Send a file from a local path on the UI timeline.
@@ -5077,6 +5809,22 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
   /// Call this after send_message succeeds to update the room list with the correct last message.
   Future<RoomUpdate?> takeLastSentRoomUpdate() => RustLib.instance.api
       .crateApiMatrixClientMatrixClientTakeLastSentRoomUpdate(that: this);
+
+  /// Toggle a reaction on a timeline message (`m.reaction`); returns `true` if added, `false` if removed.
+  /// Pass [event_id] for remote echoes, or [transaction_id] for local echoes without an event id yet.
+  Future<bool> toggleTimelineReaction({
+    required String roomId,
+    required String eventId,
+    required String transactionId,
+    required String reactionKey,
+  }) => RustLib.instance.api
+      .crateApiMatrixClientMatrixClientToggleTimelineReaction(
+        that: this,
+        roomId: roomId,
+        eventId: eventId,
+        transactionId: transactionId,
+        reactionKey: reactionKey,
+      );
 
   Future<void> unregisterPusher({
     required String pushKey,

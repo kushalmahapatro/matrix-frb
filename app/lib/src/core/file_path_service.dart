@@ -2,9 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:matrix/src/core/domain/services/app_config.dart';
 import 'package:matrix/src/core/native_media_platform_paths.dart';
-import 'package:matrix/src/core/native_media_rust_paths.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -94,50 +92,6 @@ class FilePathService {
     return dir;
   }
 
-  /// Values for [setNativeMediaEnv]: `--dart-define` overrides, else non-empty bundled dirs/files.
-  Future<NativeMediaRustPaths> resolveNativeMediaRustPaths() async {
-    if (kIsWeb || kIsWasm) {
-      return NativeMediaRustPaths.fromDefinesOnly();
-    }
-
-    String? pdfDyn = _nonEmpty(AppConfig.nativePdfiumDynamicLibPath);
-    String? pdfDir = _nonEmpty(AppConfig.nativeMatrixPdfiumDir);
-    String? ff = _nonEmpty(AppConfig.nativeMatrixFfmpegPath);
-
-    if (Platform.isAndroid && pdfDyn == null && pdfDir == null) {
-      final ndk = await NativeMediaPlatformPaths.androidNativeLibraryDir();
-      if (ndk != null) {
-        final f = File(join(ndk, 'libpdfium.so'));
-        if (await f.exists()) {
-          pdfDyn = ndk;
-        }
-      }
-    }
-
-    if (Platform.isIOS && pdfDyn == null && pdfDir == null) {
-      final fw = join(dirname(Platform.resolvedExecutable), 'Frameworks');
-      final f = File(join(fw, 'libpdfium.dylib'));
-      if (await f.exists()) {
-        pdfDyn = fw;
-      }
-    }
-
-    await materializeBundledNativeMediaFromAssets();
-
-    final bundledPdfium = await getNativePdfiumDirectoryPath();
-    if (pdfDyn == null &&
-        pdfDir == null &&
-        await _directoryHasAnyFile(bundledPdfium)) {
-      pdfDyn = bundledPdfium;
-    }
-
-    return NativeMediaRustPaths(
-      pdfiumDynamicLibPath: pdfDyn,
-      matrixPdfiumDir: pdfDir,
-      matrixFfmpegPath: ff,
-    );
-  }
-
   /// Copies Pdfium + ffmpeg from `matrix_sdk` Flutter assets (filled by `hook/build.dart`)
   /// into application support so Rust can dlopen / exec them.
   ///
@@ -164,15 +118,4 @@ class FilePathService {
       }
     }
   }
-}
-
-String? _nonEmpty(String s) => s.isEmpty ? null : s;
-
-Future<bool> _directoryHasAnyFile(String path) async {
-  final dir = Directory(path);
-  if (!await dir.exists()) return false;
-  await for (final e in dir.list(recursive: true, followLinks: false)) {
-    if (e is File) return true;
-  }
-  return false;
 }

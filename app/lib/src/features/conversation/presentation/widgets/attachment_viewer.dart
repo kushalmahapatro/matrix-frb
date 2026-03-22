@@ -96,6 +96,7 @@ class AttachmentViewer {
         if (_isTextExt(ext)) return _ViewerKind.text;
         return _ViewerKind.unknown;
       case RoomMessageKind.text:
+      case RoomMessageKind.poll:
       case RoomMessageKind.other:
         return _ViewerKind.unknown;
     }
