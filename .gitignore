@@ -6,3 +6,11 @@ app/.dart_tool/
 app/build/
 sdk/.dart_tool/
 sdk/build/
+app/android/keystore.properties
+app/android/app/google-services.json
+app/ios/Runner/GoogleService-Info.plist
+# Local dart-define-from-file (may contain registration token); use inve.example.json as template.
+app/dart_defines/inve.json
+app/lib/firebase_options.dart
+app/macos/Runner/GoogleService-Info.plist
+app/matrix-keystore.jks

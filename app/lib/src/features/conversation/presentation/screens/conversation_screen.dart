@@ -43,6 +43,21 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
     return TerminalScreen(
       title: roomName.toUpperCase(),
       actions: [
+        ValueListenableBuilder<ConversationState>(
+          valueListenable: wm.roomState,
+          builder: (context, state, _) {
+            final showPoll = state.maybeWhen(
+              loaded: (_, ri) => !ri.isDirect,
+              orElse: () => false,
+            );
+            if (!showPoll) return const SizedBox.shrink();
+            return IconButton(
+              icon: const Icon(Icons.poll_outlined),
+              onPressed: wm.showCreatePollDialog,
+              tooltip: 'Poll',
+            );
+          },
+        ),
         IconButton(
           icon: const Icon(Icons.info_outline),
           onPressed: wm.showRoomInfo,
@@ -97,7 +112,6 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                       roomId: roomId,
                       loadMessageMedia: wm.fetchRoomMessageMedia,
                       onOpenAttachment: wm.openAttachment,
-                      onStartReply: wm.beginReplyTo,
                       initialMessages: messages,
                       loadOlder: (Message oldest) async {
                         return await wm.fetchOlderMessages(
@@ -181,7 +195,7 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                           children: [
                             if (draft != null)
                               _replyDraftBanner(context, wm, draft),
-                            _buildMessageInput(wm),
+                            _buildMessageInput(context, wm),
                           ],
                         );
                       },
@@ -405,23 +419,32 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
-          border: Border(
-            left: BorderSide(color: accent, width: 3),
+          // Accent on the “your side” (end) to mirror incoming bubbles’ start bar.
+          border: BorderDirectional(
+            start: BorderSide.none,
+            end: BorderSide(color: accent, width: 3),
           ),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+          padding: const EdgeInsetsDirectional.fromSTEB(4, 8, 10, 8),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              IconButton(
+                icon: const Icon(Icons.close, size: 20),
+                tooltip: 'Cancel reply',
+                onPressed: wm.clearReplyDraft,
+                visualDensity: VisualDensity.compact,
+              ),
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       '> REPLY TO ${draft.displayName}',
+                      textAlign: TextAlign.end,
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: accent,
                         fontWeight: FontWeight.bold,
@@ -433,14 +456,6 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _ReplyDraftMediaThumb(
-                            key: ValueKey(
-                              '${draft.eventId}|${draft.transactionId}|${draft.roomMsgKind}',
-                            ),
-                            wm: wm,
-                            draft: draft,
-                          ),
-                          const SizedBox(width: 10),
                           Expanded(
                             child: Builder(
                               builder: (context) {
@@ -452,6 +467,7 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                                   meta,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.end,
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: theme.colorScheme.onSurface
                                         .withValues(alpha: 0.72),
@@ -460,25 +476,31 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                               },
                             ),
                           ),
+                          const SizedBox(width: 10),
+                          _ReplyDraftMediaThumb(
+                            key: ValueKey(
+                              '${draft.eventId}|${draft.transactionId}|${draft.roomMsgKind}',
+                            ),
+                            wm: wm,
+                            draft: draft,
+                          ),
                         ],
                       )
                     else
-                      Text(
-                        _replyDraftTextPreview(draft),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: Text(
+                          _replyDraftTextPreview(draft),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.end,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                          ),
                         ),
                       ),
                   ],
                 ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close, size: 20),
-                tooltip: 'Cancel reply',
-                onPressed: wm.clearReplyDraft,
-                visualDensity: VisualDensity.compact,
               ),
             ],
           ),
@@ -487,70 +509,70 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
     );
   }
 
-  Widget _buildMessageInput(ConversationScreenWM wm) {
-    return ValueListenableBuilder<ConversationState>(
-      valueListenable: wm.roomState,
-      builder: (context, state, _) {
-        final showPoll = state.maybeWhen(
-          loaded: (_, ri) => !ri.isDirect,
-          orElse: () => false,
-        );
-        final theme = Theme.of(context);
-        return Row(
-          children: [
-            Text('> ', style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.bold,
-            )),
-            IconButton(
-              icon: Icon(Icons.attach_file, color: theme.colorScheme.primary),
-              onPressed: wm.showAttachMenu,
-              tooltip: 'Attach',
-            ),
-            if (showPoll)
-              IconButton(
-                icon: Icon(Icons.poll_outlined, color: theme.colorScheme.primary),
-                onPressed: wm.showCreatePollDialog,
-                tooltip: 'Poll',
+  Widget _buildMessageInput(BuildContext context, ConversationScreenWM wm) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Text(
+          '> ',
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: theme.colorScheme.primary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        IconButton(
+          icon: Icon(Icons.attach_file, color: theme.colorScheme.primary),
+          onPressed: wm.showAttachMenu,
+          tooltip: 'Attach',
+        ),
+        Expanded(
+          child: TextField(
+            controller: wm.messageController,
+            style: theme.textTheme.bodyLarge,
+            decoration: InputDecoration(
+              hintText: wm.replyDraft.value != null
+                  ? 'Write a reply…'
+                  : 'Type your message...',
+              hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                color: theme.colorScheme.primary.withValues(alpha: 0.5),
               ),
-            Expanded(
-              child: TextField(
-                controller: wm.messageController,
-                style: theme.textTheme.bodyLarge,
-                decoration: InputDecoration(
-                  hintText: wm.replyDraft.value != null
-                      ? 'Write a reply…'
-                      : 'Type your message...',
-                  hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.5),
-                  ),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsetsDirectional.only(start: 8),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(
-                      color: theme.colorScheme.primary,
-                      width: 0.5,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(
-                      color: theme.colorScheme.primary,
-                      width: 1,
-                    ),
-                  ),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsetsDirectional.only(start: 8),
+              enabledBorder: OutlineInputBorder(
+                borderSide: BorderSide(
+                  color: theme.colorScheme.primary,
+                  width: 0.5,
                 ),
-                onSubmitted: (_) => wm.sendMessage(),
-                maxLines: null,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(
+                  color: theme.colorScheme.primary,
+                  width: 1,
+                ),
               ),
             ),
-            IconButton(
-              icon: Icon(Icons.send, color: theme.colorScheme.primary),
-              onPressed: wm.sendMessage,
-              tooltip: 'Send Message',
-            ),
-          ],
-        );
-      },
+            onSubmitted: (_) => wm.sendMessage(),
+            maxLines: null,
+          ),
+        ),
+        ValueListenableBuilder<bool>(
+          valueListenable: wm.composerHasText,
+          builder: (context, hasText, _) {
+            if (hasText) {
+              return IconButton(
+                icon: Icon(Icons.send, color: theme.colorScheme.primary),
+                onPressed: wm.sendMessage,
+                tooltip: 'Send message',
+              );
+            }
+            return IconButton(
+              icon: Icon(Icons.mic_rounded, color: theme.colorScheme.primary),
+              onPressed: wm.showVoiceRecordSheet,
+              tooltip: 'Record voice message',
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -678,11 +700,13 @@ class _ReplyDraftMediaThumbState extends State<_ReplyDraftMediaThumb> {
     return FutureBuilder<Uint8List?>(
       future: _thumbFuture,
       builder: (context, snapshot) {
+        final bh = d.mediaBlurhash.trim();
+        final canBlur = bh.isNotEmpty &&
+            (d.roomMsgKind == RoomMessageKind.image ||
+                d.roomMsgKind == RoomMessageKind.video ||
+                d.roomMsgKind == RoomMessageKind.file);
         if (snapshot.connectionState == ConnectionState.waiting) {
-          final bh = d.mediaBlurhash.trim();
-          if (bh.isNotEmpty &&
-              (d.roomMsgKind == RoomMessageKind.image ||
-                  d.roomMsgKind == RoomMessageKind.video)) {
+          if (canBlur) {
             return framed(
               BlurHash(hash: bh, imageFit: BoxFit.cover),
             );
@@ -706,9 +730,15 @@ class _ReplyDraftMediaThumbState extends State<_ReplyDraftMediaThumb> {
               bytes,
               fit: BoxFit.cover,
               gaplessPlayback: true,
-              errorBuilder: (_, __, ___) =>
-                  _replyDraftKindPlaceholder(d.roomMsgKind, theme),
+              errorBuilder: (_, __, ___) => canBlur
+                  ? BlurHash(hash: bh, imageFit: BoxFit.cover)
+                  : _replyDraftKindPlaceholder(d.roomMsgKind, theme),
             ),
+          );
+        }
+        if (canBlur) {
+          return framed(
+            BlurHash(hash: bh, imageFit: BoxFit.cover),
           );
         }
         return framed(_replyDraftKindPlaceholder(d.roomMsgKind, theme));

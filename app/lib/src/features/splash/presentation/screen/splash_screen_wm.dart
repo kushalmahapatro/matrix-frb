@@ -17,6 +17,7 @@ class SplashScreenModel extends ElementaryModel {
     return await _matrixService.initialize(
       dbPath: await _filePathService.getDatabasePath(),
       logsPath: await _filePathService.getLogsPath(),
+      mediaCachePath: await _filePathService.getMatrixMediaCachePath(),
       showHomeServerForUsername: AppConfig.showHomeServerForUsername,
     );
   }
@@ -53,6 +54,7 @@ class SplashScreenWM extends BaseWidgetModel<SplashScreen, SplashScreenModel> {
     userLoggedIn.fold((success) async {
       if (success) {
         await model.startSync();
+        await MatrixService().startMatrixNotificationsIfReady();
         if (context.mounted) {
           widget.navigateToChatScreen(context);
         }

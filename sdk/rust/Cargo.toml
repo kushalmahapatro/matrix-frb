@@ -29,6 +29,7 @@ matrix-sdk-base = { git = "https://github.com/kushalmahapatro/matrix-rust-sdk.gi
 # Enables MSC4095 URL previews on `m.text` (`com.beeper.linkpreviews`); unified with matrix-sdk's ruma.
 ruma = { git = "https://github.com/ruma/ruma", rev = "2455c71ec8bd16318397865d9c6e231e792cb15e", features = [
     "unstable-msc4095",
+    "unstable-msc3245-v1-compat",
 ] }
 
 tracing = { version = "0.1.40", default-features = false, features = ["std"] }

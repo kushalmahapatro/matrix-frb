@@ -33,12 +33,18 @@ typedef struct wire_cst_client_config {
   struct wire_cst_list_prim_u_8_strict *proxy;
   struct wire_cst_list_prim_u_8_strict *passphrase;
   bool show_home_server_for_username;
+  struct wire_cst_list_prim_u_8_strict *media_cache_path;
 } wire_cst_client_config;
 
 typedef struct wire_cst_list_String {
   struct wire_cst_list_prim_u_8_strict **ptr;
   int32_t len;
 } wire_cst_list_String;
+
+typedef struct wire_cst_list_prim_f_32_strict {
+  float *ptr;
+  int32_t len;
+} wire_cst_list_prim_f_32_strict;
 
 typedef struct wire_cst_list_prim_u_8_loose {
   uint8_t *ptr;
@@ -95,6 +101,8 @@ typedef struct wire_cst_message {
   struct wire_cst_list_prim_u_8_strict *media_blurhash;
   uint32_t media_preview_width;
   uint32_t media_preview_height;
+  uint64_t audio_duration_ms;
+  struct wire_cst_list_prim_f_32_strict *audio_waveform;
   struct wire_cst_list_prim_u_8_strict *in_reply_to_event_id;
   struct wire_cst_list_prim_u_8_strict *in_reply_to_sender;
   struct wire_cst_list_prim_u_8_strict *in_reply_to_preview;
@@ -249,6 +257,18 @@ typedef struct wire_cst_room_details {
   bool current_user_is_moderator;
 } wire_cst_room_details;
 
+typedef struct wire_cst_sync_notification_summary {
+  struct wire_cst_list_prim_u_8_strict *room_id;
+  struct wire_cst_list_prim_u_8_strict *room_display_name;
+  int32_t kind;
+  struct wire_cst_list_prim_u_8_strict *sender_id;
+  struct wire_cst_list_prim_u_8_strict *sender_display_name;
+  struct wire_cst_list_prim_u_8_strict *body_preview;
+  bool is_highlight;
+  bool is_noisy;
+  struct wire_cst_list_prim_u_8_strict *event_id;
+} wire_cst_sync_notification_summary;
+
 typedef struct wire_cst_user_search_result {
   struct wire_cst_list_user *users;
   bool limited;
@@ -343,6 +363,13 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_login(int64
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_logout(int64_t port_,
                                                                             uintptr_t that);
 
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_mark_timeline_as_read(int64_t port_,
+                                                                                           uintptr_t that,
+                                                                                           struct wire_cst_list_prim_u_8_strict *room_id);
+
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_pause_sync_service(int64_t port_,
+                                                                                        uintptr_t that);
+
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_redact_timeline_event(int64_t port_,
                                                                                            uintptr_t that,
                                                                                            struct wire_cst_list_prim_u_8_strict *room_id,
@@ -413,7 +440,10 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_timeli
                                                                                         struct wire_cst_list_prim_u_8_strict *room_id,
                                                                                         struct wire_cst_list_prim_u_8_strict *file_path,
                                                                                         struct wire_cst_list_prim_u_8_strict *caption,
-                                                                                        struct wire_cst_list_prim_u_8_strict *app_thumbnail_jpeg_path);
+                                                                                        struct wire_cst_list_prim_u_8_strict *app_thumbnail_jpeg_path,
+                                                                                        uint64_t *audio_duration_ms,
+                                                                                        struct wire_cst_list_prim_f_32_strict *audio_waveform_normalized,
+                                                                                        bool audio_as_voice_message);
 
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_timeline_file_with_progress(int64_t port_,
                                                                                                       uintptr_t that,
@@ -421,6 +451,9 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_timeli
                                                                                                       struct wire_cst_list_prim_u_8_strict *file_path,
                                                                                                       struct wire_cst_list_prim_u_8_strict *caption,
                                                                                                       struct wire_cst_list_prim_u_8_strict *app_thumbnail_jpeg_path,
+                                                                                                      uint64_t *audio_duration_ms,
+                                                                                                      struct wire_cst_list_prim_f_32_strict *audio_waveform_normalized,
+                                                                                                      bool audio_as_voice_message,
                                                                                                       struct wire_cst_list_prim_u_8_strict *progress);
 
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_display_name(int64_t port_,
@@ -447,6 +480,10 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_t
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_list(int64_t port_,
                                                                                             uintptr_t that,
                                                                                             struct wire_cst_list_prim_u_8_strict *stream);
+
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_sync_notifications(int64_t port_,
+                                                                                                     uintptr_t that,
+                                                                                                     struct wire_cst_list_prim_u_8_strict *stream);
 
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_list(int64_t port_,
                                                                                                 uintptr_t that,
@@ -533,6 +570,8 @@ struct wire_cst_list_message *frbgen_matrix_sdk_cst_new_list_message(int32_t len
 
 struct wire_cst_list_message_reaction_entry *frbgen_matrix_sdk_cst_new_list_message_reaction_entry(int32_t len);
 
+struct wire_cst_list_prim_f_32_strict *frbgen_matrix_sdk_cst_new_list_prim_f_32_strict(int32_t len);
+
 struct wire_cst_list_prim_u_8_loose *frbgen_matrix_sdk_cst_new_list_prim_u_8_loose(int32_t len);
 
 struct wire_cst_list_prim_u_8_strict *frbgen_matrix_sdk_cst_new_list_prim_u_8_strict(int32_t len);
@@ -573,6 +612,7 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_String);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_message);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_message_reaction_entry);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_prim_f_32_strict);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_prim_u_8_loose);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_prim_u_8_strict);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_room_file_item);
@@ -610,6 +650,8 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_list_room_polls);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_login);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_logout);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_mark_timeline_as_read);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_pause_sync_service);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_redact_timeline_event);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_register);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_register_pusher);
@@ -629,6 +671,7 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_sync_state);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_all_room_updates);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_list);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_sync_notifications);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_list);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_updates);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_take_last_sent_room_update);

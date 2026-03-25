@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -5,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:just_audio/just_audio.dart' as ja;
 import 'package:matrix_sdk/matrix_sdk.dart'
     show RoomMessageKind, documentPreviewJson;
 import 'package:media_kit/media_kit.dart';
@@ -255,6 +257,7 @@ class AttachmentViewer {
     required Future<Uint8List?> Function() loadFullBytes,
     required String filename,
     required RoomMessageKind roomMsgKind,
+    String? mediaMimetype,
   }) async {
     if (!context.mounted) return;
 
@@ -331,7 +334,11 @@ class AttachmentViewer {
         if (!context.mounted) return;
         await Navigator.of(context).push(
           MaterialPageRoute<void>(
-            builder: (_) => _AudioViewerPage(title: label, bytes: data),
+            builder: (_) => _AudioViewerPage(
+              title: label,
+              bytes: data,
+              mimeHint: mediaMimetype,
+            ),
           ),
         );
       case _ViewerKind.pdf:
@@ -923,19 +930,25 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
 }
 
 class _AudioViewerPage extends StatefulWidget {
-  const _AudioViewerPage({required this.title, required this.bytes});
+  const _AudioViewerPage({
+    required this.title,
+    required this.bytes,
+    this.mimeHint,
+  });
 
   final String title;
   final Uint8List bytes;
+  final String? mimeHint;
 
   @override
   State<_AudioViewerPage> createState() => _AudioViewerPageState();
 }
 
 class _AudioViewerPageState extends State<_AudioViewerPage> {
-  late final Player _player = Player();
+  late final ja.AudioPlayer _player = ja.AudioPlayer();
   bool _opened = false;
   String? _error;
+  File? _tempAudioFile;
 
   @override
   void initState() {
@@ -943,10 +956,34 @@ class _AudioViewerPageState extends State<_AudioViewerPage> {
     _open();
   }
 
+  /// Real extension + temp path so platform decoders recognize AAC/M4A.
+  static String _audioTempSuffix(String title, String? mime) {
+    final ext = AttachmentViewer._extensionOf(title);
+    if (ext.isNotEmpty && AttachmentViewer._isAudioExt(ext)) {
+      return '.$ext';
+    }
+    final m = mime?.toLowerCase().trim() ?? '';
+    if (m.contains('mpeg') || m.endsWith('/mp3')) return '.mp3';
+    if (m.contains('mp4') || m.contains('m4a') || m.contains('x-m4a')) {
+      return '.m4a';
+    }
+    if (m.contains('aac')) return '.aac';
+    if (m.contains('ogg') || m.contains('opus')) return '.ogg';
+    if (m.contains('flac')) return '.flac';
+    if (m.contains('wav') || m.contains('wave')) return '.wav';
+    return '.m4a';
+  }
+
   Future<void> _open() async {
     try {
-      final media = await Media.memory(widget.bytes);
-      await _player.open(media);
+      final dir = await getTemporaryDirectory();
+      final suffix = _audioTempSuffix(widget.title, widget.mimeHint);
+      final f = File(
+        '${dir.path}/matrix_view_aud_${DateTime.now().microsecondsSinceEpoch}$suffix',
+      );
+      await f.writeAsBytes(widget.bytes, flush: true);
+      _tempAudioFile = f;
+      await _player.setFilePath(f.path);
       if (mounted) setState(() => _opened = true);
     } catch (e) {
       if (mounted) setState(() => _error = '$e');
@@ -955,7 +992,13 @@ class _AudioViewerPageState extends State<_AudioViewerPage> {
 
   @override
   void dispose() {
-    _player.dispose();
+    unawaited(_player.dispose());
+    final t = _tempAudioFile;
+    if (t != null) {
+      try {
+        if (t.existsSync()) t.deleteSync();
+      } catch (_) {}
+    }
     super.dispose();
   }
 
@@ -975,11 +1018,11 @@ class _AudioViewerPageState extends State<_AudioViewerPage> {
               )
             : !_opened
             ? const CircularProgressIndicator()
-            : StreamBuilder<bool>(
-                stream: _player.stream.playing,
-                initialData: _player.state.playing,
+            : StreamBuilder<ja.PlayerState>(
+                stream: _player.playerStateStream,
+                initialData: _player.playerState,
                 builder: (context, snap) {
-                  final playing = snap.data ?? false;
+                  final playing = snap.data?.playing ?? false;
                   return Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -995,7 +1038,13 @@ class _AudioViewerPageState extends State<_AudioViewerPage> {
                           playing ? Icons.pause_circle : Icons.play_circle,
                           color: theme.colorScheme.primary,
                         ),
-                        onPressed: () => _player.playOrPause(),
+                        onPressed: () async {
+                          if (playing) {
+                            await _player.pause();
+                          } else {
+                            await _player.play();
+                          }
+                        },
                       ),
                     ],
                   );

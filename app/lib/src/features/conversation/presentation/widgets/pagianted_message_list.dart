@@ -8,6 +8,7 @@ import 'package:flutter_blurhash/flutter_blurhash.dart';
 import 'package:flutter_linkify/flutter_linkify.dart';
 import 'package:path/path.dart' as p;
 import 'package:matrix/src/core/open_in_app_url.dart';
+import 'package:matrix/src/features/conversation/presentation/widgets/audio_message_waveform.dart';
 import 'package:matrix/src/core/timeline_local_hidden_store.dart';
 import 'package:matrix/src/features/conversation/domain/models/conversation_state.dart'
     hide MessageType;
@@ -39,94 +40,107 @@ const String _kTimelineDeletedBubbleSubtitle =
 Widget _timelineRemovedOnDeviceBubbleBody(
   BuildContext context,
   Color accentColor,
+  bool isOutgoing,
 ) {
   final theme = Theme.of(context);
   final muted = theme.colorScheme.onSurfaceVariant;
   const titleSize = 12.5;
   const subSize = 11.5;
+  final align = isOutgoing ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+  final textAlign = isOutgoing ? TextAlign.end : TextAlign.start;
+  final icon = Icon(
+    Icons.visibility_off_outlined,
+    size: 18,
+    color: accentColor.withValues(alpha: 0.92),
+  );
+  final textBlock = Expanded(
+    child: Column(
+      crossAxisAlignment: align,
+      children: [
+        Text(
+          'Message removed',
+          textAlign: textAlign,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: accentColor,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.3,
+            fontSize: titleSize,
+            height: 1.25,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          'You hid this message on this device.',
+          textAlign: textAlign,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: muted,
+            fontStyle: FontStyle.italic,
+            height: 1.3,
+            fontSize: subSize,
+          ),
+        ),
+      ],
+    ),
+  );
   return Row(
     crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Icon(
-        Icons.visibility_off_outlined,
-        size: 18,
-        color: accentColor.withValues(alpha: 0.92),
-      ),
-      const SizedBox(width: 8),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Message removed',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: accentColor,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.3,
-                fontSize: titleSize,
-                height: 1.25,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              'You hid this message on this device.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: muted,
-                fontStyle: FontStyle.italic,
-                height: 1.3,
-                fontSize: subSize,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ],
+    children: isOutgoing
+        ? [textBlock, const SizedBox(width: 8), icon]
+        : [icon, const SizedBox(width: 8), textBlock],
   );
 }
 
 /// Full-width deleted state inside a message bubble (redacted event).
-Widget _timelineDeletedBubbleBody(BuildContext context, Color accentColor) {
+Widget _timelineDeletedBubbleBody(
+  BuildContext context,
+  Color accentColor,
+  bool isOutgoing,
+) {
   final theme = Theme.of(context);
   final muted = theme.colorScheme.onSurfaceVariant;
   const titleSize = 12.5;
   const subSize = 11.5;
+  final align = isOutgoing ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+  final textAlign = isOutgoing ? TextAlign.end : TextAlign.start;
+  final icon = Icon(
+    Icons.chat_bubble_outline,
+    size: 18,
+    color: accentColor.withValues(alpha: 0.92),
+  );
+  final textBlock = Expanded(
+    child: Column(
+      crossAxisAlignment: align,
+      children: [
+        Text(
+          'Deleted message',
+          textAlign: textAlign,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: accentColor,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.3,
+            fontSize: titleSize,
+            height: 1.25,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          _kTimelineDeletedBubbleSubtitle,
+          textAlign: textAlign,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: muted,
+            fontStyle: FontStyle.italic,
+            height: 1.3,
+            fontSize: subSize,
+          ),
+        ),
+      ],
+    ),
+  );
   return Row(
     crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Icon(
-        Icons.chat_bubble_outline,
-        size: 18,
-        color: accentColor.withValues(alpha: 0.92),
-      ),
-      const SizedBox(width: 8),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Deleted message',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: accentColor,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.3,
-                fontSize: titleSize,
-                height: 1.25,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              _kTimelineDeletedBubbleSubtitle,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: muted,
-                fontStyle: FontStyle.italic,
-                height: 1.3,
-                fontSize: subSize,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ],
+    children: isOutgoing
+        ? [textBlock, const SizedBox(width: 8), icon]
+        : [icon, const SizedBox(width: 8), textBlock],
   );
 }
 
@@ -258,7 +272,6 @@ class PaginatedMessageList extends StatefulWidget {
     required this.onVisibleRange, // Optional: for read receipts
     this.onOpenAttachment,
     this.jumpToEventNotifier,
-    this.onStartReply,
     this.isGroupRoom = false,
     required this.onToggleReaction,
     required this.onShowReactionReactors,
@@ -280,9 +293,6 @@ class PaginatedMessageList extends StatefulWidget {
 
   /// When set to a non-empty event id (e.g. from room info), scrolls that bubble into view.
   final ValueNotifier<String?>? jumpToEventNotifier;
-
-  /// Swipe horizontally on a message row to start inline reply (requires [Message.eventId]).
-  final void Function(Message message)? onStartReply;
 
   /// When true, long-pressing a reaction chip opens [onShowReactionReactors]; tap still toggles.
   final bool isGroupRoom;
@@ -385,9 +395,11 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
     super.dispose();
   }
 
+  /// Prefer [Message.transactionId] so local echoes keep the same [ValueKey] when
+  /// [eventId] arrives; avoids bubble teardown/rebuild and scroll flicker.
   String _stableMessageKey(Message m) {
-    if (m.eventId.isNotEmpty) return 'e:${m.eventId}';
     if (m.transactionId.isNotEmpty) return 't:${m.transactionId}';
+    if (m.eventId.isNotEmpty) return 'e:${m.eventId}';
     return 'x:${m.timestamp}:${m.content.hashCode}';
   }
 
@@ -691,6 +703,20 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
 
     if (!mounted) return;
 
+    // [loadOlder] may replace [initialMessages] from the parent (room timeline stream)
+    // while we await. Apply the usual prepend offset fix immediately so we are not
+    // stuck with a stale offset until the first layout frame.
+    void nudgeScrollIfExtentChanged(double previousMax) {
+      if (!_controller.hasClients) return;
+      final pos = _controller.position;
+      final max = pos.maxScrollExtent;
+      final delta = max - previousMax;
+      if (delta.abs() <= 0.5) return;
+      pos.jumpTo((pos.pixels + delta).clamp(0.0, max));
+    }
+
+    nudgeScrollIfExtentChanged(beforeMax);
+
     if (older.isNotEmpty) {
       setState(() {
         widget.initialMessages.insertAll(0, older);
@@ -707,13 +733,23 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
       });
     }
 
-    // Adjust scroll so content doesn't jump (works for both insert and state-replace).
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_controller.hasClients) return;
-      final afterMax = _controller.position.maxScrollExtent;
-      final delta = afterMax - beforeMax;
-      _controller.jumpTo(_controller.position.pixels + delta);
-    });
+    // Loading footer removal + lazy [SliverList] extent can change across frames.
+    final preFrameMax = _controller.hasClients
+        ? _controller.position.maxScrollExtent
+        : 0.0;
+    void runLayoutCorrectionPasses(int remaining, double lastMax) {
+      if (remaining <= 0) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_controller.hasClients) return;
+        nudgeScrollIfExtentChanged(lastMax);
+        runLayoutCorrectionPasses(
+          remaining - 1,
+          _controller.position.maxScrollExtent,
+        );
+      });
+    }
+
+    runLayoutCorrectionPasses(3, preFrameMax);
   }
 
   // Call this when a brand-new message arrives (push from server)
@@ -811,24 +847,18 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
                   return KeyedSubtree(
                     key: useJumpKey
                         ? jumpKey
-                        : ValueKey(
-                            message.eventId.isNotEmpty
-                                ? message.eventId
-                                : (message.transactionId.isNotEmpty
-                                      ? message.transactionId
-                                      : 'm-${message.timestamp}-${message.content.hashCode}'),
-                          ),
+                        : ValueKey(_stableMessageKey(message)),
                     child: _buildMessageBubble(
                       message,
                       index: index,
                       prev: index + 1 < display.length
                           ? display[index + 1]
                           : null,
+                      next: index > 0 ? display[index - 1] : null,
                       roomId: widget.roomId,
                       loadMessageMedia: widget.loadMessageMedia,
                       onOpenAttachment: widget.onOpenAttachment,
                       jumpToEventNotifier: widget.jumpToEventNotifier,
-                      onStartReply: widget.onStartReply,
                       isGroupRoom: widget.isGroupRoom,
                       onToggleReaction: widget.onToggleReaction,
                       onShowReactionReactors: widget.onShowReactionReactors,
@@ -902,12 +932,12 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
     Message m, {
     int? index,
     Message? prev,
+    Message? next,
     required String roomId,
     required Future<Uint8List?> Function(String eventId, {bool thumbnail})
     loadMessageMedia,
     Future<void> Function(Message message)? onOpenAttachment,
     ValueNotifier<String?>? jumpToEventNotifier,
-    void Function(Message message)? onStartReply,
     required bool isGroupRoom,
     required Future<void> Function(Message message, String reactionKey)
     onToggleReaction,
@@ -923,13 +953,14 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
   }) {
     final bubble = MessageBubble(
       message: m,
+      previousMessage: prev,
+      nextMessage: next,
       roomId: roomId,
       isOutgoing: m.isOwn,
       loadMessageMedia: loadMessageMedia,
       onRetryFailedSend: widget.onRetryFailedSend,
       onOpenAttachment: onOpenAttachment,
       jumpToEventNotifier: jumpToEventNotifier,
-      onStartReply: onStartReply,
       isGroupRoom: isGroupRoom,
       onToggleReaction: onToggleReaction,
       onShowReactionReactors: onShowReactionReactors,
@@ -969,6 +1000,40 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
       ],
     );
   }
+}
+
+/// Visually “above” in chat = older row in [display] ([reverse] list).
+/// Groups when same sender and both fall in the same local calendar minute.
+bool _timelineGroupWithPrevious(Message message, Message? older) {
+  if (older == null) return false;
+  if (older.messageType != MessageType.message) return false;
+  if (message.messageType != MessageType.message) return false;
+  if (older.sender != message.sender) return false;
+  try {
+    final newer = DateTime.fromMillisecondsSinceEpoch(
+      message.timestamp.toInt(),
+    );
+    final prev = DateTime.fromMillisecondsSinceEpoch(
+      older.timestamp.toInt(),
+    );
+    if (newer.year != prev.year ||
+        newer.month != prev.month ||
+        newer.day != prev.day ||
+        newer.hour != prev.hour ||
+        newer.minute != prev.minute) {
+      return false;
+    }
+  } catch (_) {
+    return false;
+  }
+  return true;
+}
+
+/// Footer with name/time on the **newest** message in a same-sender / same-minute run
+/// ([nextBelow] is the adjacent newer row in the reversed `display` list, or null at bottom).
+bool _timelineShowMetaFooter(Message message, Message? nextBelow) {
+  if (nextBelow == null) return true;
+  return !_timelineGroupWithPrevious(nextBelow, message);
 }
 
 bool _shouldShowInlineReplyMediaThumb(Message message) {
@@ -1024,6 +1089,7 @@ class _InlineReplyQuote extends StatelessWidget {
     required this.headerColor,
     required this.borderColor,
     required this.loadMessageMedia,
+    required this.isOutgoing,
     this.jumpToEventNotifier,
   });
 
@@ -1032,6 +1098,7 @@ class _InlineReplyQuote extends StatelessWidget {
   final Color borderColor;
   final Future<Uint8List?> Function(String eventId, {bool thumbnail})
   loadMessageMedia;
+  final bool isOutgoing;
   final ValueNotifier<String?>? jumpToEventNotifier;
 
   @override
@@ -1044,24 +1111,43 @@ class _InlineReplyQuote extends StatelessWidget {
     final showMedia = _shouldShowInlineReplyMediaThumb(message);
     final meta = _inlineReplyTargetMetaLine(message);
     final parentDeleted = message.inReplyToParentRedacted;
+    final colAlign =
+        isOutgoing ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+    final textAlign = isOutgoing ? TextAlign.end : TextAlign.start;
 
     final inner = Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+      padding: EdgeInsetsDirectional.fromSTEB(
+        isOutgoing ? 8 : 10,
+        8,
+        isOutgoing ? 10 : 8,
+        8,
+      ),
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        border: Border(left: BorderSide(color: borderColor, width: 3)),
+        border: BorderDirectional(
+          start: isOutgoing
+              ? BorderSide.none
+              : BorderSide(color: borderColor, width: 3),
+          end: isOutgoing
+              ? BorderSide(color: borderColor, width: 3)
+              : BorderSide.none,
+        ),
         color: theme.colorScheme.surface.withValues(alpha: 0.22),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: colAlign,
         children: [
-          Text(
-            '> RE: $senderLabel',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: headerColor,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.4,
+          SizedBox(
+            width: double.infinity,
+            child: Text(
+              '> RE: $senderLabel',
+              textAlign: textAlign,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: headerColor,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.4,
+              ),
             ),
           ),
           if (parentDeleted) ...[
@@ -1070,13 +1156,17 @@ class _InlineReplyQuote extends StatelessWidget {
           ],
           if (!parentDeleted && !showMedia && message.inReplyToPreview.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text(
-              message.inReplyToPreview,
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.78),
-                height: 1.3,
+            SizedBox(
+              width: double.infinity,
+              child: Text(
+                message.inReplyToPreview,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                textAlign: textAlign,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.78),
+                  height: 1.3,
+                ),
               ),
             ),
           ],
@@ -1084,46 +1174,89 @@ class _InlineReplyQuote extends StatelessWidget {
             const SizedBox(height: 6),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _InlineReplyTargetThumb(
-                  key: ValueKey('ir-${message.inReplyToEventId}'),
-                  eventId: message.inReplyToEventId,
-                  kind: message.inReplyToRoomMsgKind,
-                  blurhash: message.inReplyToMediaBlurhash,
-                  loadMessageMedia: loadMessageMedia,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _timelineMediaKindTag(message.inReplyToRoomMsgKind),
-                        style: _timelineMono(
-                          theme,
-                          size: 11,
-                          weight: FontWeight.bold,
-                          color: headerColor.withValues(alpha: 0.88),
+              children: isOutgoing
+                  ? [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              _timelineMediaKindTag(message.inReplyToRoomMsgKind),
+                              textAlign: TextAlign.end,
+                              style: _timelineMono(
+                                theme,
+                                size: 11,
+                                weight: FontWeight.bold,
+                                color: headerColor.withValues(alpha: 0.88),
+                              ),
+                            ),
+                            if (meta != null) ...[
+                              const SizedBox(height: 3),
+                              Text(
+                                meta,
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.end,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.72,
+                                  ),
+                                  height: 1.25,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                      if (meta != null) ...[
-                        const SizedBox(height: 3),
-                        Text(
-                          meta,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.72,
+                      const SizedBox(width: 8),
+                      _InlineReplyTargetThumb(
+                        key: ValueKey('ir-${message.inReplyToEventId}'),
+                        eventId: message.inReplyToEventId,
+                        kind: message.inReplyToRoomMsgKind,
+                        blurhash: message.inReplyToMediaBlurhash,
+                        loadMessageMedia: loadMessageMedia,
+                      ),
+                    ]
+                  : [
+                      _InlineReplyTargetThumb(
+                        key: ValueKey('ir-${message.inReplyToEventId}'),
+                        eventId: message.inReplyToEventId,
+                        kind: message.inReplyToRoomMsgKind,
+                        blurhash: message.inReplyToMediaBlurhash,
+                        loadMessageMedia: loadMessageMedia,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _timelineMediaKindTag(message.inReplyToRoomMsgKind),
+                              style: _timelineMono(
+                                theme,
+                                size: 11,
+                                weight: FontWeight.bold,
+                                color: headerColor.withValues(alpha: 0.88),
+                              ),
                             ),
-                            height: 1.25,
-                          ),
+                            if (meta != null) ...[
+                              const SizedBox(height: 3),
+                              Text(
+                                meta,
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.72,
+                                  ),
+                                  height: 1.25,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                      ],
+                      ),
                     ],
-                  ),
-                ),
-              ],
             ),
           ],
         ],
@@ -1524,48 +1657,85 @@ class _PollMessageBodyState extends State<_PollMessageBody> {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: widget.isOutgoing
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.how_to_vote_outlined,
-                  size: 18,
-                  color: widget.accent.withValues(alpha: 0.95),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'POLL',
-                  style: TextStyle(
-                    color: widget.accent,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.4,
-                    fontSize: 11,
-                    fontFamily: MatrixTheme.fontFamily,
-                  ),
-                ),
-                const Spacer(),
-                Wrap(
-                  spacing: 5,
-                  runSpacing: 4,
-                  alignment: WrapAlignment.end,
-                  children: [
-                    _chip(_kindLabel(kind)),
-                    if (ended) _chip('CLOSED'),
-                    if (edited) _chip('EDITED'),
-                  ],
-                ),
-              ],
+              children: widget.isOutgoing
+                  ? [
+                      Wrap(
+                        spacing: 5,
+                        runSpacing: 4,
+                        alignment: WrapAlignment.end,
+                        children: [
+                          _chip(_kindLabel(kind)),
+                          if (ended) _chip('CLOSED'),
+                          if (edited) _chip('EDITED'),
+                        ],
+                      ),
+                      const Spacer(),
+                      Text(
+                        'POLL',
+                        style: TextStyle(
+                          color: widget.accent,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.4,
+                          fontSize: 11,
+                          fontFamily: MatrixTheme.fontFamily,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.how_to_vote_outlined,
+                        size: 18,
+                        color: widget.accent.withValues(alpha: 0.95),
+                      ),
+                    ]
+                  : [
+                      Icon(
+                        Icons.how_to_vote_outlined,
+                        size: 18,
+                        color: widget.accent.withValues(alpha: 0.95),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'POLL',
+                        style: TextStyle(
+                          color: widget.accent,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.4,
+                          fontSize: 11,
+                          fontFamily: MatrixTheme.fontFamily,
+                        ),
+                      ),
+                      const Spacer(),
+                      Wrap(
+                        spacing: 5,
+                        runSpacing: 4,
+                        alignment: WrapAlignment.end,
+                        children: [
+                          _chip(_kindLabel(kind)),
+                          if (ended) _chip('CLOSED'),
+                          if (edited) _chip('EDITED'),
+                        ],
+                      ),
+                    ],
             ),
             const SizedBox(height: 8),
-            Text(
-              _kindSubtitle(kind),
-              style: TextStyle(
-                color: MatrixTheme.matrixDarkGreen.withValues(alpha: 0.92),
-                height: 1.35,
-                fontSize: 11,
-                fontFamily: MatrixTheme.fontFamily,
+            SizedBox(
+              width: double.infinity,
+              child: Text(
+                _kindSubtitle(kind),
+                textAlign:
+                    widget.isOutgoing ? TextAlign.end : TextAlign.start,
+                style: TextStyle(
+                  color: MatrixTheme.matrixDarkGreen.withValues(alpha: 0.92),
+                  height: 1.35,
+                  fontSize: 11,
+                  fontFamily: MatrixTheme.fontFamily,
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -1575,62 +1745,111 @@ class _PollMessageBodyState extends State<_PollMessageBody> {
               color: panelBorder.withValues(alpha: 0.65),
             ),
             const SizedBox(height: 10),
-            Text(
-              widget.message.content,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: qColor,
-                fontWeight: FontWeight.w700,
-                height: 1.35,
-                fontFamily: MatrixTheme.fontFamily,
+            SizedBox(
+              width: double.infinity,
+              child: Text(
+                widget.message.content,
+                textAlign:
+                    widget.isOutgoing ? TextAlign.end : TextAlign.start,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: qColor,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                  fontFamily: MatrixTheme.fontFamily,
+                ),
               ),
             ),
             if (parsed != null) ...[
               const SizedBox(height: 10),
               Row(
-                children: [
-                  Icon(
-                    Icons.tune,
-                    size: 14,
-                    color: scheme.onSurfaceVariant.withValues(alpha: 0.85),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Up to $maxSel choice${maxSel == 1 ? '' : 's'} · '
-                      '$totalSel response${totalSel == 1 ? '' : 's'}',
-                      style: TextStyle(
-                        color: scheme.onSurfaceVariant,
-                        fontSize: 11,
-                        fontFamily: MatrixTheme.fontFamily,
-                      ),
-                    ),
-                  ),
-                ],
+                children: widget.isOutgoing
+                    ? [
+                        Expanded(
+                          child: Text(
+                            'Up to $maxSel choice${maxSel == 1 ? '' : 's'} · '
+                            '$totalSel response${totalSel == 1 ? '' : 's'}',
+                            textAlign: TextAlign.end,
+                            style: TextStyle(
+                              color: scheme.onSurfaceVariant,
+                              fontSize: 11,
+                              fontFamily: MatrixTheme.fontFamily,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(
+                          Icons.tune,
+                          size: 14,
+                          color: scheme.onSurfaceVariant.withValues(alpha: 0.85),
+                        ),
+                      ]
+                    : [
+                        Icon(
+                          Icons.tune,
+                          size: 14,
+                          color: scheme.onSurfaceVariant.withValues(alpha: 0.85),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Up to $maxSel choice${maxSel == 1 ? '' : 's'} · '
+                            '$totalSel response${totalSel == 1 ? '' : 's'}',
+                            style: TextStyle(
+                              color: scheme.onSurfaceVariant,
+                              fontSize: 11,
+                              fontFamily: MatrixTheme.fontFamily,
+                            ),
+                          ),
+                        ),
+                      ],
               ),
             ],
             if (widget.message.eventId.isEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 10),
                 child: Row(
-                  children: [
-                    SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: widget.accent.withValues(alpha: 0.8),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Sending poll…',
-                      style: TextStyle(
-                        color: scheme.onSurfaceVariant,
-                        fontSize: 12,
-                        fontFamily: MatrixTheme.fontFamily,
-                      ),
-                    ),
-                  ],
+                  children: widget.isOutgoing
+                      ? [
+                          Expanded(
+                            child: Text(
+                              'Sending poll…',
+                              textAlign: TextAlign.end,
+                              style: TextStyle(
+                                color: scheme.onSurfaceVariant,
+                                fontSize: 12,
+                                fontFamily: MatrixTheme.fontFamily,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: widget.accent.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ]
+                      : [
+                          SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: widget.accent.withValues(alpha: 0.8),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Sending poll…',
+                            style: TextStyle(
+                              color: scheme.onSurfaceVariant,
+                              fontSize: 12,
+                              fontFamily: MatrixTheme.fontFamily,
+                            ),
+                          ),
+                        ],
                 ),
               )
             else if (rows.isNotEmpty) ...[
@@ -1645,25 +1864,46 @@ class _PollMessageBodyState extends State<_PollMessageBody> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
-                    children: [
-                      Icon(
-                        Icons.touch_app_outlined,
-                        size: 15,
-                        color: widget.accent.withValues(alpha: 0.8),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'Tap an option to vote',
-                          style: TextStyle(
-                            color: widget.accent.withValues(alpha: 0.88),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            fontFamily: MatrixTheme.fontFamily,
-                          ),
-                        ),
-                      ),
-                    ],
+                    children: widget.isOutgoing
+                        ? [
+                            Expanded(
+                              child: Text(
+                                'Tap an option to vote',
+                                textAlign: TextAlign.end,
+                                style: TextStyle(
+                                  color: widget.accent.withValues(alpha: 0.88),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  fontFamily: MatrixTheme.fontFamily,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Icon(
+                              Icons.touch_app_outlined,
+                              size: 15,
+                              color: widget.accent.withValues(alpha: 0.8),
+                            ),
+                          ]
+                        : [
+                            Icon(
+                              Icons.touch_app_outlined,
+                              size: 15,
+                              color: widget.accent.withValues(alpha: 0.8),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Tap an option to vote',
+                                style: TextStyle(
+                                  color: widget.accent.withValues(alpha: 0.88),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  fontFamily: MatrixTheme.fontFamily,
+                                ),
+                              ),
+                            ),
+                          ],
                   ),
                 ),
               ...rows.map((row) {
@@ -1844,13 +2084,14 @@ class MessageBubble extends StatelessWidget {
   const MessageBubble({
     super.key,
     required this.message,
+    this.previousMessage,
+    this.nextMessage,
     required this.roomId,
     required this.isOutgoing,
     required this.loadMessageMedia,
     this.onRetryFailedSend,
     this.onOpenAttachment,
     this.jumpToEventNotifier,
-    this.onStartReply,
     required this.isGroupRoom,
     required this.onToggleReaction,
     required this.onShowReactionReactors,
@@ -1862,6 +2103,12 @@ class MessageBubble extends StatelessWidget {
   static const Color _receivedAccent = Color(0xFF58A6FF);
 
   final Message message;
+
+  /// Older neighbor in the reversed timeline list (visually above this bubble).
+  final Message? previousMessage;
+
+  /// Newer neighbor (visually below); used to place name/time on the last message in a group.
+  final Message? nextMessage;
   final String roomId;
   final bool isOutgoing;
   final Future<Uint8List?> Function(String eventId, {bool thumbnail})
@@ -1869,7 +2116,6 @@ class MessageBubble extends StatelessWidget {
   final Future<void> Function(String transactionId)? onRetryFailedSend;
   final Future<void> Function(Message message)? onOpenAttachment;
   final ValueNotifier<String?>? jumpToEventNotifier;
-  final void Function(Message message)? onStartReply;
   final bool isGroupRoom;
   final Future<void> Function(Message message, String reactionKey)
   onToggleReaction;
@@ -1922,85 +2168,95 @@ class MessageBubble extends StatelessWidget {
       fontFeatures: const [ui.FontFeature.tabularFigures()],
     );
 
+    final rxLabel = Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Text(
+        '// RX',
+        style: MatrixTheme.labelStyle.copyWith(
+          fontSize: 9,
+          letterSpacing: 2,
+          color: tagColor,
+          height: 1,
+        ),
+      ),
+    );
+
     return Padding(
       padding: const EdgeInsets.only(top: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Text(
-              '// RX',
-              style: MatrixTheme.labelStyle.copyWith(
-                fontSize: 9,
-                letterSpacing: 2,
-                color: tagColor,
-                height: 1,
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
+          if (!isOutgoing) ...[rxLabel, const SizedBox(width: 6)],
           Expanded(
             child: Wrap(
               spacing: 4,
               runSpacing: 4,
+              alignment:
+                  isOutgoing ? WrapAlignment.end : WrapAlignment.start,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: message.reactions.map((e) {
                 final own = e.containsOwn;
+                final hitPad = isGroupRoom
+                    ? const EdgeInsets.symmetric(horizontal: 10, vertical: 8)
+                    : const EdgeInsets.symmetric(horizontal: 4, vertical: 2);
                 return InkWell(
                   onTap: () => _onReactionChipTap(e),
                   onLongPress: isGroupRoom
                       ? () => _onReactionChipLongPress(context, e)
                       : null,
-                  borderRadius: BorderRadius.circular(3),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: MatrixTheme.terminalDarkGreen.withValues(
-                        alpha: 0.55,
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: hitPad,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 2,
                       ),
-                      borderRadius: BorderRadius.circular(3),
-                      border: Border.all(
-                        color: own
-                            ? MatrixTheme.matrixGreen.withValues(alpha: 0.5)
-                            : MatrixTheme.terminalBorder,
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          e.key,
-                          textHeightBehavior: const TextHeightBehavior(
-                            applyHeightToFirstAscent: false,
-                            applyHeightToLastDescent: false,
-                          ),
-                          style: const TextStyle(fontSize: 12, height: 1.05),
+                      decoration: BoxDecoration(
+                        color: MatrixTheme.terminalDarkGreen.withValues(
+                          alpha: 0.55,
                         ),
-                        if (e.count > 1) ...[
-                          const SizedBox(width: 3),
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(
+                          color: own
+                              ? MatrixTheme.matrixGreen.withValues(alpha: 0.5)
+                              : MatrixTheme.terminalBorder,
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
                           Text(
-                            '×${e.count}',
-                            style: countStyle.copyWith(
-                              color: own
-                                  ? MatrixTheme.matrixLightGreen.withValues(
-                                      alpha: 0.85,
-                                    )
-                                  : MatrixTheme.matrixDarkGreen,
+                            e.key,
+                            textHeightBehavior: const TextHeightBehavior(
+                              applyHeightToFirstAscent: false,
+                              applyHeightToLastDescent: false,
                             ),
+                            style: const TextStyle(fontSize: 12, height: 1.05),
                           ),
+                          if (e.count > 1) ...[
+                            const SizedBox(width: 3),
+                            Text(
+                              '×${e.count}',
+                              style: countStyle.copyWith(
+                                color: own
+                                    ? MatrixTheme.matrixLightGreen.withValues(
+                                        alpha: 0.85,
+                                      )
+                                    : MatrixTheme.matrixDarkGreen,
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 );
               }).toList(),
             ),
           ),
+          if (isOutgoing) ...[const SizedBox(width: 6), rxLabel],
         ],
       ),
     );
@@ -2017,202 +2273,213 @@ class MessageBubble extends StatelessWidget {
     final barColor = isOutgoing ? sendAccentColor : _receivedAccent;
     final pending = message.sendState == EventSendStateKind.pending;
     final hiddenLocal = TimelineLocalHiddenStore.isHidden(message);
-    final canReply =
-        onStartReply != null &&
-        message.messageType == MessageType.message &&
-        !message.isRedacted &&
-        !hiddenLocal &&
-        message.eventId.isNotEmpty;
     final showMenu =
         onOpenMessageActions != null &&
         message.messageType == MessageType.message &&
         !message.isRedacted &&
         !hiddenLocal;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
+    final grouped = previousMessage != null &&
+        _timelineGroupWithPrevious(message, previousMessage);
+    final showMetaFooter = _timelineShowMetaFooter(message, nextMessage);
+    final bubbleMaxWidth = MediaQuery.sizeOf(context).width * 0.88;
+    final incomingBg = Color.alphaBlend(
+      _receivedAccent.withValues(alpha: 0.11),
+      theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.88),
+    );
+    final outgoingBg = Color.alphaBlend(
+      theme.colorScheme.primary.withValues(alpha: 0.14),
+      theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.62),
+    );
+    final metaNameStyle = MatrixTheme.messageTimeStyle.copyWith(
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.2,
+      height: 1.25,
+      color: isOutgoing
+          ? theme.colorScheme.primary
+          : _receivedAccent.withValues(alpha: 0.94),
+    );
+    final metaTimeStyle = MatrixTheme.messageTimeStyle.copyWith(
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.1,
+      height: 1.25,
+      color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
+      fontFeatures: const [ui.FontFeature.tabularFigures()],
+    );
+    final metaSepStyle = MatrixTheme.messageTimeStyle.copyWith(
+      fontSize: 11,
+      height: 1.25,
+      color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+    );
+    final messageBodyStyle = theme.textTheme.bodyLarge?.copyWith(
+      height: 1.38,
+      fontWeight: FontWeight.w500,
+      fontFamily: MatrixTheme.fontFamily,
+      color: isOutgoing ? theme.colorScheme.primary : _receivedAccent,
+    );
+    final linkStyle = messageBodyStyle?.copyWith(
+      decoration: TextDecoration.underline,
+      decorationColor:
+          isOutgoing ? theme.colorScheme.primary : _receivedAccent,
+    );
+    final showOverlayActions = pending || showMenu;
+    final bubbleCrossAxis =
+        isOutgoing ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+    final bubbleTextAlign = isOutgoing ? TextAlign.end : TextAlign.start;
+    final metaTextAlign = isOutgoing ? TextAlign.end : TextAlign.start;
 
-            /// Swipe horizontally (toward thread start) to start inline reply.
-            onHorizontalDragEnd: (details) {
-              if (!canReply) return;
-              final vx = details.velocity.pixelsPerSecond.dx;
-              const threshold = 280.0;
-              final rtl = Directionality.of(context) == TextDirection.rtl;
-              // Swipe “outward” to reply: right in LTR, left in RTL (same as many chat apps).
-              final swipeToReply = rtl ? vx < -threshold : vx > threshold;
-              if (swipeToReply) {
-                HapticFeedback.lightImpact();
-                onStartReply!(message);
-              }
-            },
+    return Align(
+      alignment: isOutgoing
+          ? AlignmentDirectional.centerEnd
+          : AlignmentDirectional.centerStart,
+      child: Container(
+        margin: EdgeInsetsDirectional.only(
+          bottom: grouped ? 4 : 10,
+          start: isOutgoing ? 36 : 6,
+          end: isOutgoing ? 6 : 36,
+        ),
+        constraints: BoxConstraints(maxWidth: bubbleMaxWidth),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
 
-            /// Long-press opens the quick reaction picker (reply is swipe).
-            onLongPress: _canReactToMessage
-                ? () {
-                    HapticFeedback.lightImpact();
-                    _openQuickReactionPicker(context);
-                  }
-                : null,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      '> ${message.displayName}',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: isOutgoing
-                            ? theme.colorScheme.primary
-                            : _receivedAccent,
-                        fontWeight: FontWeight.bold,
-                      ),
+              /// Long-press opens the quick reaction picker.
+              onLongPress: _canReactToMessage
+                  ? () {
+                      HapticFeedback.lightImpact();
+                      _openQuickReactionPicker(context);
+                    }
+                  : null,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsetsDirectional.only(
+                      start: isOutgoing
+                          ? (showOverlayActions ? 40 : 12)
+                          : 12,
+                      top: 10,
+                      end: isOutgoing
+                          ? 12
+                          : (showOverlayActions ? 40 : 12),
+                      bottom: 10,
                     ),
-                    const Spacer(),
-                    if (pending) ...[
-                      SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: theme.colorScheme.tertiary,
-                        ),
+                    decoration: BoxDecoration(
+                      border: BorderDirectional(
+                        start: isOutgoing
+                            ? BorderSide.none
+                            : BorderSide(color: barColor, width: 3),
+                        end: isOutgoing
+                            ? BorderSide(color: barColor, width: 3)
+                            : BorderSide.none,
                       ),
-                      const SizedBox(width: 6),
-                    ],
-                    if (showMenu)
-                      IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 32,
-                          minHeight: 32,
-                        ),
-                        iconSize: 20,
-                        tooltip: 'Message actions',
-                        onPressed: () {
-                          HapticFeedback.lightImpact();
-                          onOpenMessageActions!(context);
-                        },
-                        icon: Icon(
-                          Icons.more_horiz,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    Text(
-                      message.formattedDate,
-                      style: theme.textTheme.bodySmall,
+                      color: isOutgoing ? outgoingBg : incomingBg,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    border: BorderDirectional(
-                      start: BorderSide(color: barColor, width: 3),
-                    ),
-                    color: isOutgoing
-                        ? theme.colorScheme.surfaceContainerHighest.withValues(
-                            alpha: 0.5,
-                          )
-                        : theme.colorScheme.surfaceContainerLow.withValues(
-                            alpha: 0.75,
-                          ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                    child: Column(
+                      crossAxisAlignment: bubbleCrossAxis,
+                      children: [
                       if (message.isRedacted)
-                        _timelineDeletedBubbleBody(context, barColor)
+                        _timelineDeletedBubbleBody(
+                          context,
+                          barColor,
+                          isOutgoing,
+                        )
                       else if (hiddenLocal)
-                        _timelineRemovedOnDeviceBubbleBody(context, barColor)
-                      else ...[
-                      if (message.inReplyToEventId.isNotEmpty)
-                        _InlineReplyQuote(
-                          message: message,
-                          headerColor: barColor,
-                          borderColor: barColor.withValues(alpha: 0.75),
-                          loadMessageMedia: loadMessageMedia,
-                          jumpToEventNotifier: jumpToEventNotifier,
-                        ),
-                      if (message.roomMsgKind == RoomMessageKind.poll)
-                        _PollMessageBody(
-                          key: ValueKey(
-                            '${message.eventId}_${message.pollStateJson.hashCode}',
-                          ),
-                          message: message,
-                          accent: barColor,
-                          isOutgoing: isOutgoing,
-                          onVote:
-                              onPollVote != null && message.eventId.isNotEmpty
-                              ? (ids) => onPollVote!(message.eventId, ids)
-                              : null,
+                        _timelineRemovedOnDeviceBubbleBody(
+                          context,
+                          barColor,
+                          isOutgoing,
                         )
-                      else if (_wantsMediaPreview(message))
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: _MessageMediaPreview(
-                            timelineMediaKey: message.eventId.isNotEmpty
-                                ? message.eventId
-                                : message.transactionId,
-                            kind: message.roomMsgKind,
-                            fileLabel: message.content,
-                            caption: message.content,
-                            mediaMimetype: message.mediaMimetype,
-                            mediaSizeBytes: message.mediaSizeBytes,
-                            mediaBlurhash: message.mediaBlurhash,
-                            mediaPreviewWidth: message.mediaPreviewWidth,
-                            mediaPreviewHeight: message.mediaPreviewHeight,
+                      else ...[
+                        if (message.inReplyToEventId.isNotEmpty)
+                          _InlineReplyQuote(
+                            message: message,
+                            isOutgoing: isOutgoing,
+                            headerColor: barColor,
+                            borderColor: barColor.withValues(alpha: 0.75),
                             loadMessageMedia: loadMessageMedia,
-                            onOpen:
-                                onOpenAttachment != null &&
-                                    (message.eventId.isNotEmpty ||
-                                        message.transactionId.isNotEmpty)
-                                ? () => onOpenAttachment!(message)
+                            jumpToEventNotifier: jumpToEventNotifier,
+                          ),
+                        if (message.roomMsgKind == RoomMessageKind.poll)
+                          _PollMessageBody(
+                            key: ValueKey(
+                              '${message.eventId}_${message.pollStateJson.hashCode}',
+                            ),
+                            message: message,
+                            accent: barColor,
+                            isOutgoing: isOutgoing,
+                            onVote:
+                                onPollVote != null && message.eventId.isNotEmpty
+                                ? (ids) => onPollVote!(message.eventId, ids)
                                 : null,
+                          )
+                        else if (_wantsMediaPreview(message))
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: _MessageMediaPreview(
+                              timelineMediaKey: message.eventId.isNotEmpty
+                                  ? message.eventId
+                                  : message.transactionId,
+                              kind: message.roomMsgKind,
+                              fileLabel: message.content,
+                              caption: message.content,
+                              mediaMimetype: message.mediaMimetype,
+                              mediaSizeBytes: message.mediaSizeBytes,
+                              mediaBlurhash: message.mediaBlurhash,
+                              mediaPreviewWidth: message.mediaPreviewWidth,
+                              mediaPreviewHeight: message.mediaPreviewHeight,
+                              audioDurationMs: message.audioDurationMs,
+                              audioWaveform: message.audioWaveform,
+                              loadMessageMedia: loadMessageMedia,
+                              onOpen:
+                                  onOpenAttachment != null &&
+                                      (message.eventId.isNotEmpty ||
+                                          message.transactionId.isNotEmpty)
+                                  ? () => onOpenAttachment!(message)
+                                  : null,
+                            ),
+                          )
+                        else ...[
+                          SizedBox(
+                            width: double.infinity,
+                            child: SelectableLinkify(
+                              text: message.content,
+                              style: messageBodyStyle,
+                              linkStyle: linkStyle,
+                              textAlign: bubbleTextAlign,
+                              onOpen: (link) => openMatrixUrl(context, link.url),
+                            ),
                           ),
-                        )
-                      else ...[
-                        SelectableLinkify(
-                          text: message.content,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: isOutgoing ? null : _receivedAccent,
-                          ),
-                          linkStyle: theme.textTheme.bodyMedium?.copyWith(
-                            color: isOutgoing
-                                ? theme.colorScheme.primary
-                                : _receivedAccent,
-                            decoration: TextDecoration.underline,
-                            decorationColor: isOutgoing
-                                ? theme.colorScheme.primary
-                                : _receivedAccent,
-                          ),
-                          onOpen: (link) => openMatrixUrl(context, link.url),
-                        ),
-                        if (matrixLinkPreviewsJsonHasData(
-                          message.linkPreviewsJson,
-                        ))
-                          MatrixLinkPreviewCards(
-                            linkPreviewsJson: message.linkPreviewsJson,
-                            accentColor: barColor,
-                            compact: true,
-                            onOpenUrl: (u) => openMatrixUrl(context, u),
-                          ),
-                      ],
+                          if (matrixLinkPreviewsJsonHasData(
+                            message.linkPreviewsJson,
+                          ))
+                            MatrixLinkPreviewCards(
+                              linkPreviewsJson: message.linkPreviewsJson,
+                              accentColor: barColor,
+                              compact: true,
+                              onOpenUrl: (u) => openMatrixUrl(context, u),
+                            ),
+                        ],
                       ],
                       if (!message.isRedacted && !hiddenLocal)
                         _reactionsStrip(context, barColor),
                       if (message.sendState == EventSendStateKind.failed &&
                           message.sendError.isNotEmpty) ...[
                         const SizedBox(height: 8),
-                        Text(
-                          message.sendError,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.error,
+                        Align(
+                          alignment: isOutgoing
+                              ? AlignmentDirectional.centerEnd
+                              : AlignmentDirectional.centerStart,
+                          child: Text(
+                            message.sendError,
+                            textAlign: bubbleTextAlign,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.error,
+                            ),
                           ),
                         ),
                       ],
@@ -2221,20 +2488,135 @@ class MessageBubble extends StatelessWidget {
                           message.transactionId.isNotEmpty &&
                           onRetryFailedSend != null) ...[
                         const SizedBox(height: 8),
-                        TextButton.icon(
-                          onPressed: () =>
-                              onRetryFailedSend!(message.transactionId),
-                          icon: const Icon(Icons.refresh, size: 18),
-                          label: const Text('Retry send'),
+                        Align(
+                          alignment: isOutgoing
+                              ? AlignmentDirectional.centerEnd
+                              : AlignmentDirectional.centerStart,
+                          child: TextButton.icon(
+                            onPressed: () =>
+                                onRetryFailedSend!(message.transactionId),
+                            icon: const Icon(Icons.refresh, size: 18),
+                            label: const Text('Retry send'),
+                          ),
                         ),
                       ],
+                      if (showMetaFooter)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: Text.rich(
+                              TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: message.displayName,
+                                    style: metaNameStyle,
+                                  ),
+                                  TextSpan(text: ' · ', style: metaSepStyle),
+                                  TextSpan(
+                                    text: message.formattedDate,
+                                    style: metaTimeStyle,
+                                  ),
+                                ],
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: metaTextAlign,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
+                if (showOverlayActions)
+                  PositionedDirectional(
+                    top: 0,
+                    start: isOutgoing ? 0 : null,
+                    end: isOutgoing ? null : 0,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: isOutgoing
+                          ? [
+                              if (showMenu)
+                                IconButton(
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 32,
+                                    minHeight: 32,
+                                  ),
+                                  iconSize: 20,
+                                  tooltip: 'Message actions',
+                                  onPressed: () {
+                                    HapticFeedback.lightImpact();
+                                    onOpenMessageActions!(context);
+                                  },
+                                  icon: Icon(
+                                    Icons.more_horiz,
+                                    color: theme.colorScheme.onSurfaceVariant
+                                        .withValues(alpha: 0.85),
+                                  ),
+                                ),
+                              if (pending)
+                                Padding(
+                                  padding:
+                                      const EdgeInsetsDirectional.only(
+                                    top: 6,
+                                    start: 2,
+                                  ),
+                                  child: SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: theme.colorScheme.tertiary,
+                                    ),
+                                  ),
+                                ),
+                            ]
+                          : [
+                              if (pending)
+                                Padding(
+                                  padding:
+                                      const EdgeInsetsDirectional.only(
+                                    top: 6,
+                                    end: 2,
+                                  ),
+                                  child: SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: theme.colorScheme.tertiary,
+                                    ),
+                                  ),
+                                ),
+                              if (showMenu)
+                                IconButton(
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 32,
+                                    minHeight: 32,
+                                  ),
+                                  iconSize: 20,
+                                  tooltip: 'Message actions',
+                                  onPressed: () {
+                                    HapticFeedback.lightImpact();
+                                    onOpenMessageActions!(context);
+                                  },
+                                  icon: Icon(
+                                    Icons.more_horiz,
+                                    color: theme.colorScheme.onSurfaceVariant
+                                        .withValues(alpha: 0.85),
+                                  ),
+                                ),
+                            ],
+                    ),
+                  ),
               ],
             ),
           ),
         ],
+        ),
       ),
     );
   }
@@ -2694,6 +3076,8 @@ Future<_TimelinePreviewMeta?> _timelineImagePreviewMeta(Uint8List data) async {
 /// Fixed thumbnail frame when an event thumbnail is shown (remaining width → metadata).
 const double _kTimelineThumbPortraitW = 45;
 const double _kTimelineThumbPortraitH = 60;
+/// Wider slot so MSC / placeholder waveform bars are visible in the bubble.
+const double _kAudioWaveformThumbW = 76;
 const double _kTimelineThumbLandscapeW = 80;
 const double _kTimelineThumbLandscapeH = 45;
 
@@ -2889,12 +3273,21 @@ Widget _mediaTerminalDetailsColumn({
   required int mediaPreviewWidth,
   required int mediaPreviewHeight,
   required bool showTapHint,
+  BigInt? audioDurationMs,
 }) {
   final ext = _timelineExtLower(fileLabel);
   final mime = _timelineAttachmentMimeLabel(mediaMimetype, kind, ext);
   final sizeStr = _formatTimelineMediaSize(mediaSizeBytes);
   final metaBits = <String>[mime];
   if (sizeStr != null) metaBits.add(sizeStr);
+  final audioDur = audioDurationMs ?? BigInt.zero;
+  if (kind == RoomMessageKind.audio && audioDur > BigInt.zero) {
+    final msTotal = audioDur.toInt().clamp(0, 1 << 30);
+    final d = Duration(milliseconds: msTotal);
+    final mm = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final ss = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    metaBits.add('$mm:$ss');
+  }
   final metaLine = metaBits.join(' · ');
   final tag = _timelineMediaKindTag(kind);
   final accent = theme.colorScheme.primary;
@@ -3021,6 +3414,7 @@ Widget _timelineNoThumbnailRow({
   required int mediaPreviewWidth,
   required int mediaPreviewHeight,
   required bool showTapHint,
+  BigInt? audioDurationMs,
 }) {
   final icon = switch (kind) {
     RoomMessageKind.image => Icons.image_not_supported_outlined,
@@ -3056,6 +3450,7 @@ Widget _timelineNoThumbnailRow({
       mediaPreviewWidth: mediaPreviewWidth,
       mediaPreviewHeight: mediaPreviewHeight,
       showTapHint: showTapHint,
+      audioDurationMs: audioDurationMs,
     ),
   );
 }
@@ -3071,6 +3466,8 @@ class _MessageMediaPreview extends StatefulWidget {
     required this.mediaBlurhash,
     required this.mediaPreviewWidth,
     required this.mediaPreviewHeight,
+    required this.audioDurationMs,
+    required this.audioWaveform,
     required this.loadMessageMedia,
     this.onOpen,
   });
@@ -3097,6 +3494,8 @@ class _MessageMediaPreview extends StatefulWidget {
   /// Known width/height for loading-frame aspect (thumbnail preferred in Rust).
   final int mediaPreviewWidth;
   final int mediaPreviewHeight;
+  final BigInt audioDurationMs;
+  final List<double> audioWaveform;
   final Future<Uint8List?> Function(String eventId, {bool thumbnail})
   loadMessageMedia;
   final Future<void> Function()? onOpen;
@@ -3174,17 +3573,89 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
         _bytes = b;
         _previewMeta = meta;
         _loading = false;
-        if (b == null || b.isEmpty) {
+        if (b != null && b.isNotEmpty) {
+          _error = null;
+        } else if (!_canUseBlurhashAsThumbnailFallback()) {
           _error = 'Preview unavailable';
+        } else {
+          _error = null;
         }
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = '$e';
+        if (_canUseBlurhashAsThumbnailFallback()) {
+          _error = null;
+        } else {
+          _error = '$e';
+        }
       });
     }
+  }
+
+  /// Image / video / file events may carry MSC2448 blurhash; use it when bytes are not ready.
+  bool _canUseBlurhashAsThumbnailFallback() {
+    if (widget.mediaBlurhash.trim().isEmpty) return false;
+    return widget.kind == RoomMessageKind.image ||
+        widget.kind == RoomMessageKind.video ||
+        widget.kind == RoomMessageKind.file;
+  }
+
+  /// Thumb slot while loading, or when thumbnail download failed but [mediaBlurhash] is set.
+  Widget _mediaPreviewThumbBlurhashOrSpinner(ThemeData theme) {
+    final frame = _timelineLoadingThumbFrameSize(
+      widget.mediaPreviewWidth,
+      widget.mediaPreviewHeight,
+    );
+    final tw = frame.width;
+    final th = frame.height;
+    final scheme = theme.colorScheme;
+    final blur = widget.mediaBlurhash.trim();
+    return SizedBox(
+      width: tw,
+      height: th,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(3),
+          color: scheme.surfaceContainerLow.withValues(alpha: 0.35),
+        ),
+        child: blur.isNotEmpty
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: BlurHash(hash: blur, imageFit: BoxFit.cover),
+              )
+            : Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: scheme.primary,
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _mediaPreviewPanelWithBlurhashThumb(ThemeData theme) {
+    final thumb = _mediaPreviewThumbBlurhashOrSpinner(theme);
+    final showHint = widget.onOpen != null;
+    return _mediaTerminalPanel(
+      thumb: thumb,
+      details: _mediaTerminalDetailsColumn(
+        theme: theme,
+        kind: widget.kind,
+        fileLabel: widget.fileLabel,
+        mediaMimetype: widget.mediaMimetype,
+        mediaSizeBytes: widget.mediaSizeBytes,
+        mediaPreviewWidth: widget.mediaPreviewWidth,
+        mediaPreviewHeight: widget.mediaPreviewHeight,
+        showTapHint: showHint,
+        audioDurationMs: widget.audioDurationMs,
+      ),
+    );
   }
 
   @override
@@ -3192,54 +3663,7 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
     final theme = Theme.of(context);
     if (_loading) {
       final extra = _extraCaption(theme);
-      // Match loaded layout: fixed frame + side info; blurhash or spinner in the thumb slot.
-      final frame = _timelineLoadingThumbFrameSize(
-        widget.mediaPreviewWidth,
-        widget.mediaPreviewHeight,
-      );
-      final tw = frame.width;
-      final th = frame.height;
-      final scheme = theme.colorScheme;
-      final blur = widget.mediaBlurhash.trim();
-      final thumb = SizedBox(
-        width: tw,
-        height: th,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(3),
-            color: scheme.surfaceContainerLow.withValues(alpha: 0.35),
-          ),
-          child: blur.isNotEmpty
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
-                  child: BlurHash(hash: blur, imageFit: BoxFit.cover),
-                )
-              : Center(
-                  child: SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: scheme.primary,
-                    ),
-                  ),
-                ),
-        ),
-      );
-      final showHint = widget.onOpen != null;
-      final panel = _mediaTerminalPanel(
-        thumb: thumb,
-        details: _mediaTerminalDetailsColumn(
-          theme: theme,
-          kind: widget.kind,
-          fileLabel: widget.fileLabel,
-          mediaMimetype: widget.mediaMimetype,
-          mediaSizeBytes: widget.mediaSizeBytes,
-          mediaPreviewWidth: widget.mediaPreviewWidth,
-          mediaPreviewHeight: widget.mediaPreviewHeight,
-          showTapHint: showHint,
-        ),
-      );
+      final panel = _mediaPreviewPanelWithBlurhashThumb(theme);
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [panel, if (extra != null) extra],
@@ -3256,6 +3680,7 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
         mediaPreviewWidth: widget.mediaPreviewWidth,
         mediaPreviewHeight: widget.mediaPreviewHeight,
         showTapHint: widget.onOpen != null,
+        audioDurationMs: widget.audioDurationMs,
       );
       final extra = _extraCaption(theme);
       return _maybeWrapOpen(
@@ -3268,20 +3693,22 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
       );
     }
     if (widget.kind == RoomMessageKind.audio) {
-      final audioThumb = SizedBox(
-        width: _kTimelineThumbPortraitW,
-        height: _kTimelineThumbPortraitH,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(3),
-            color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.4),
-          ),
-          child: Icon(
-            Icons.audiotrack,
-            color: theme.colorScheme.primary.withValues(alpha: 0.9),
-            size: 22,
-          ),
-        ),
+      final wf = widget.audioWaveform;
+      final hasRealWaveform =
+          wf.isNotEmpty && wf.any((v) => v > 0.004);
+      final samples = hasRealWaveform
+          ? wf
+          : placeholderAudioWaveformBars(
+              widget.timelineMediaKey.isEmpty
+                  ? widget.fileLabel
+                  : widget.timelineMediaKey,
+              barCount: 28,
+            );
+      final audioThumb = AudioMessageWaveformBars(
+        samples: samples,
+        height: _kTimelineThumbPortraitH.toDouble(),
+        width: _kAudioWaveformThumbW,
+        isPlaceholder: !hasRealWaveform,
       );
       final row = _mediaTerminalPanel(
         thumb: audioThumb,
@@ -3294,6 +3721,7 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
           mediaPreviewWidth: widget.mediaPreviewWidth,
           mediaPreviewHeight: widget.mediaPreviewHeight,
           showTapHint: widget.onOpen != null,
+          audioDurationMs: widget.audioDurationMs,
         ),
       );
       final audioCol = <Widget>[row];
@@ -3310,20 +3738,37 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
               ),
       );
     }
-    if (_bytes == null) return const SizedBox.shrink();
+    if (_bytes == null || _bytes!.isEmpty) {
+      if (_canUseBlurhashAsThumbnailFallback()) {
+        final extra = _extraCaption(theme);
+        final panel = _mediaPreviewPanelWithBlurhashThumb(theme);
+        return _maybeWrapOpen(
+          extra != null
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [panel, extra],
+                )
+              : panel,
+        );
+      }
+      return const SizedBox.shrink();
+    }
     final meta = _previewMeta;
     final preview = meta == null
-        ? _timelineNoThumbnailRow(
-            theme: theme,
-            kind: widget.kind,
-            ext: _timelineExtLower(widget.fileLabel),
-            fileLabel: widget.fileLabel,
-            mediaMimetype: widget.mediaMimetype,
-            mediaSizeBytes: widget.mediaSizeBytes,
-            mediaPreviewWidth: widget.mediaPreviewWidth,
-            mediaPreviewHeight: widget.mediaPreviewHeight,
-            showTapHint: widget.onOpen != null,
-          )
+        ? (_canUseBlurhashAsThumbnailFallback()
+              ? _mediaPreviewPanelWithBlurhashThumb(theme)
+              : _timelineNoThumbnailRow(
+                  theme: theme,
+                  kind: widget.kind,
+                  ext: _timelineExtLower(widget.fileLabel),
+                  fileLabel: widget.fileLabel,
+                  mediaMimetype: widget.mediaMimetype,
+                  mediaSizeBytes: widget.mediaSizeBytes,
+                  mediaPreviewWidth: widget.mediaPreviewWidth,
+                  mediaPreviewHeight: widget.mediaPreviewHeight,
+                  showTapHint: widget.onOpen != null,
+                  audioDurationMs: widget.audioDurationMs,
+                ))
         : _buildThumbnailWithSideInfo(theme, meta);
     final extra = _extraCaption(theme);
     return _maybeWrapOpen(
@@ -3349,6 +3794,12 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
     final tw = portrait ? _kTimelineThumbPortraitW : _kTimelineThumbLandscapeW;
     final th = portrait ? _kTimelineThumbPortraitH : _kTimelineThumbLandscapeH;
     Widget thumbDecodeError(_, Object __, StackTrace? ___) {
+      if (_canUseBlurhashAsThumbnailFallback()) {
+        return BlurHash(
+          hash: widget.mediaBlurhash.trim(),
+          imageFit: BoxFit.cover,
+        );
+      }
       return ColoredBox(
         color: theme.colorScheme.surfaceContainerHighest.withValues(
           alpha: 0.45,
@@ -3419,6 +3870,7 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
         mediaPreviewWidth: widget.mediaPreviewWidth,
         mediaPreviewHeight: widget.mediaPreviewHeight,
         showTapHint: widget.onOpen != null,
+        audioDurationMs: widget.audioDurationMs,
       ),
     );
   }

@@ -2,6 +2,7 @@ export 'src/bindings/matrix/client.dart';
 export 'src/bindings/matrix/file_send_progress.dart';
 export 'src/bindings/matrix/rooms.dart';
 export 'src/bindings/matrix/sync_service.dart';
+export 'src/bindings/matrix/sync_notifications.dart';
 export 'src/bindings/matrix/timelines.dart'
     show
         EventSendStateKind,

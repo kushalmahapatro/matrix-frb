@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:matrix/src/features/conversation/presentation/widgets/audio_message_waveform.dart';
 import 'package:matrix/src/core/video_send_media_prep.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -17,19 +18,29 @@ class MediaOutgoingSendScreen extends StatefulWidget {
     required this.filePath,
     this.mimeType,
     this.caption,
+    this.audioDurationMs,
+    this.audioWaveformNormalized,
+    this.audioAsVoiceMessage = false,
     required this.sendAttachment,
     required this.onCancelSend,
   });
 
   final String title;
   final String filePath;
-  final String? mimeType;
   final String? caption;
+  final int? audioDurationMs;
+  final List<double>? audioWaveformNormalized;
+  final bool audioAsVoiceMessage;
+
+  final String? mimeType;
 
   final Future<Result<Unit>> Function({
     AppTimelineSendPrep? prep,
     required String originalFilePath,
     required void Function(FileSendProgress p) onProgress,
+    int? audioDurationMs,
+    List<double>? audioWaveformNormalized,
+    required bool audioAsVoiceMessage,
   }) sendAttachment;
 
   final void Function() onCancelSend;
@@ -59,6 +70,8 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
   String? _error;
 
   bool get _isVideo => _isVideoFile(widget.filePath, widget.mimeType);
+
+  bool get _isAudio => _isAudioFile(widget.filePath, widget.mimeType);
 
   @override
   void initState() {
@@ -202,6 +215,9 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
           if (!mounted) return;
           setState(() => _rustProgress = p);
         },
+        audioDurationMs: widget.audioDurationMs,
+        audioWaveformNormalized: widget.audioWaveformNormalized,
+        audioAsVoiceMessage: widget.audioAsVoiceMessage,
       );
       prep = null;
       if (!mounted) return;
@@ -388,6 +404,47 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
         ],
       );
     }
+    if (_isAudio) {
+      final wf = widget.audioWaveformNormalized;
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.graphic_eq_rounded,
+              size: 64,
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Voice message',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (wf != null && wf.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              AudioMessageWaveformBars(
+                samples: wf,
+                height: 56,
+                width: 220,
+              ),
+            ],
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                p.basename(widget.filePath),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -415,6 +472,7 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isImage = _isImageFile(widget.filePath, widget.mimeType);
+    final isAudio = _isAudioFile(widget.filePath, widget.mimeType);
 
     return PopScope<Object?>(
       canPop: true,
@@ -463,7 +521,7 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
                   ),
                 ),
               ),
-              if (isImage)
+              if (isImage || isAudio)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: Text(
@@ -656,6 +714,19 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
     final m = mime?.toLowerCase().trim();
     if (m != null && m.startsWith('image/')) return true;
     return isProbableRasterImageFilePath(path);
+  }
+
+  bool _isAudioFile(String path, String? mime) {
+    final m = mime?.toLowerCase().trim();
+    if (m != null && m.startsWith('audio/')) return true;
+    final ext = p.extension(path).toLowerCase();
+    return ext == '.m4a' ||
+        ext == '.aac' ||
+        ext == '.mp3' ||
+        ext == '.ogg' ||
+        ext == '.opus' ||
+        ext == '.wav' ||
+        ext == '.flac';
   }
 }
 

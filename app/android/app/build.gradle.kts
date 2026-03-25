@@ -1,16 +1,21 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
-// Load keystore properties
-// val keystorePropertiesFile = rootProject.file("keystore.properties")
-// val keystoreProperties = Properties()
-// if (keystorePropertiesFile.exists()) {
-//     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
-// }
+// Load keystore properties (optional; debug uses the default debug keystore).
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+val releaseStoreFile = keystoreProperties.getProperty("storeFile")?.let { rootProject.file(it) }
 
 android {
     namespace = "dev.inve.matrixchat"
@@ -18,6 +23,7 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -37,43 +43,39 @@ android {
         versionName = flutter.versionName
     }
 
-    buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+            storeFile = releaseStoreFile
+            storePassword = keystoreProperties.getProperty("storePassword")
         }
+
     }
 
-    //  signingConfigs {
-    //     create("release") {
-    //         keyAlias = keystoreProperties["keyAlias"] as String?
-    //         keyPassword = keystoreProperties["keyPassword"] as String?
-    //         storeFile = keystoreProperties["storeFile"]?.let { file(it) }
-    //         storePassword = keystoreProperties["storePassword"] as String?
-    //     }
-    // }
-
-    // buildTypes {
-    //     release {
-    //         isMinifyEnabled = false
-    //         isShrinkResources = false
-    //     }
-    //     profile {
-    //         isMinifyEnabled = false
-    //         isShrinkResources = false
-    //     }
-    //     release {
-    //         signingConfig = signingConfigs.getByName("release")
-    //         proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-    //         isMinifyEnabled = false
-    //         isShrinkResources = false
-    //     }
-    // }
+    buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
+        // Use getByName: bare `profile { }` clashes with Kotlin Gradle DSL (KotlinSourceSet.profile).
+        getByName("profile") {
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
+        release {
+            signingConfig = signingConfigs.getByName("release")
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
+    }
 }
 
 dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     // TLS certificate verification on Android (required by rustls in Matrix SDK).
     // @aar: crate ships an AAR; without it Gradle may look for a .jar and fail resolution.
     implementation("rustls:rustls-platform-verifier:0.1.1@aar")

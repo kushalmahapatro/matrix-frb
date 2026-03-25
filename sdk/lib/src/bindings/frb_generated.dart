@@ -17,6 +17,7 @@ import 'matrix/client.dart';
 import 'matrix/file_send_progress.dart';
 import 'matrix/room_info.dart';
 import 'matrix/rooms.dart';
+import 'matrix/sync_notifications.dart';
 import 'matrix/sync_service.dart';
 import 'matrix/timelines.dart';
 import 'matrix/user_serach.dart';
@@ -75,7 +76,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => -1213224700;
+  int get rustContentHash => -99071645;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -198,6 +199,15 @@ abstract class RustLibApi extends BaseApi {
     required MatrixClient that,
   });
 
+  Future<bool> crateApiMatrixClientMatrixClientMarkTimelineAsRead({
+    required MatrixClient that,
+    required String roomId,
+  });
+
+  Future<bool> crateApiMatrixClientMatrixClientPauseSyncService({
+    required MatrixClient that,
+  });
+
   Future<void> crateApiMatrixClientMatrixClientRedactTimelineEvent({
     required MatrixClient that,
     required String roomId,
@@ -280,6 +290,9 @@ abstract class RustLibApi extends BaseApi {
     required String filePath,
     String? caption,
     String? appThumbnailJpegPath,
+    BigInt? audioDurationMs,
+    Float32List? audioWaveformNormalized,
+    required bool audioAsVoiceMessage,
   });
 
   Stream<FileSendProgress>
@@ -289,6 +302,9 @@ abstract class RustLibApi extends BaseApi {
     required String filePath,
     String? caption,
     String? appThumbnailJpegPath,
+    BigInt? audioDurationMs,
+    Float32List? audioWaveformNormalized,
+    required bool audioAsVoiceMessage,
   });
 
   Future<void> crateApiMatrixClientMatrixClientSetDisplayName({
@@ -316,6 +332,11 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Stream<List<RoomUpdate>> crateApiMatrixClientMatrixClientSubscribeToRoomList({
+    required MatrixClient that,
+  });
+
+  Stream<SyncNotificationSummary>
+  crateApiMatrixClientMatrixClientSubscribeToSyncNotifications({
     required MatrixClient that,
   });
 
@@ -1230,6 +1251,79 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "MatrixClient_logout", argNames: ["that"]);
 
   @override
+  Future<bool> crateApiMatrixClientMatrixClientMarkTimelineAsRead({
+    required MatrixClient that,
+    required String roomId,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          var arg1 = cst_encode_String(roomId);
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_mark_timeline_as_read(
+                port_,
+                arg0,
+                arg1,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_bool,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiMatrixClientMatrixClientMarkTimelineAsReadConstMeta,
+        argValues: [that, roomId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientMarkTimelineAsReadConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_mark_timeline_as_read",
+        argNames: ["that", "roomId"],
+      );
+
+  @override
+  Future<bool> crateApiMatrixClientMatrixClientPauseSyncService({
+    required MatrixClient that,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_pause_sync_service(
+                port_,
+                arg0,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_bool,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiMatrixClientMatrixClientPauseSyncServiceConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientPauseSyncServiceConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_pause_sync_service",
+        argNames: ["that"],
+      );
+
+  @override
   Future<void> crateApiMatrixClientMatrixClientRedactTimelineEvent({
     required MatrixClient that,
     required String roomId,
@@ -1741,6 +1835,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required String filePath,
     String? caption,
     String? appThumbnailJpegPath,
+    BigInt? audioDurationMs,
+    Float32List? audioWaveformNormalized,
+    required bool audioAsVoiceMessage,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -1753,6 +1850,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           var arg2 = cst_encode_String(filePath);
           var arg3 = cst_encode_opt_String(caption);
           var arg4 = cst_encode_opt_String(appThumbnailJpegPath);
+          var arg5 = cst_encode_opt_box_autoadd_u_64(audioDurationMs);
+          var arg6 = cst_encode_opt_list_prim_f_32_strict(
+            audioWaveformNormalized,
+          );
+          var arg7 = cst_encode_bool(audioAsVoiceMessage);
           return wire
               .wire__crate__api__matrix_client__MatrixClient_send_timeline_file(
                 port_,
@@ -1761,6 +1863,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
                 arg2,
                 arg3,
                 arg4,
+                arg5,
+                arg6,
+                arg7,
               );
         },
         codec: DcoCodec(
@@ -1768,7 +1873,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: dco_decode_String,
         ),
         constMeta: kCrateApiMatrixClientMatrixClientSendTimelineFileConstMeta,
-        argValues: [that, roomId, filePath, caption, appThumbnailJpegPath],
+        argValues: [
+          that,
+          roomId,
+          filePath,
+          caption,
+          appThumbnailJpegPath,
+          audioDurationMs,
+          audioWaveformNormalized,
+          audioAsVoiceMessage,
+        ],
         apiImpl: this,
       ),
     );
@@ -1784,6 +1898,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           "filePath",
           "caption",
           "appThumbnailJpegPath",
+          "audioDurationMs",
+          "audioWaveformNormalized",
+          "audioAsVoiceMessage",
         ],
       );
 
@@ -1795,6 +1912,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required String filePath,
     String? caption,
     String? appThumbnailJpegPath,
+    BigInt? audioDurationMs,
+    Float32List? audioWaveformNormalized,
+    required bool audioAsVoiceMessage,
   }) {
     final progress = RustStreamSink<FileSendProgress>();
     unawaited(
@@ -1809,7 +1929,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             var arg2 = cst_encode_String(filePath);
             var arg3 = cst_encode_opt_String(caption);
             var arg4 = cst_encode_opt_String(appThumbnailJpegPath);
-            var arg5 = cst_encode_StreamSink_file_send_progress_Dco(progress);
+            var arg5 = cst_encode_opt_box_autoadd_u_64(audioDurationMs);
+            var arg6 = cst_encode_opt_list_prim_f_32_strict(
+              audioWaveformNormalized,
+            );
+            var arg7 = cst_encode_bool(audioAsVoiceMessage);
+            var arg8 = cst_encode_StreamSink_file_send_progress_Dco(progress);
             return wire
                 .wire__crate__api__matrix_client__MatrixClient_send_timeline_file_with_progress(
                   port_,
@@ -1819,6 +1944,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
                   arg3,
                   arg4,
                   arg5,
+                  arg6,
+                  arg7,
+                  arg8,
                 );
           },
           codec: DcoCodec(
@@ -1833,6 +1961,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             filePath,
             caption,
             appThumbnailJpegPath,
+            audioDurationMs,
+            audioWaveformNormalized,
+            audioAsVoiceMessage,
             progress,
           ],
           apiImpl: this,
@@ -1852,6 +1983,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           "filePath",
           "caption",
           "appThumbnailJpegPath",
+          "audioDurationMs",
+          "audioWaveformNormalized",
+          "audioAsVoiceMessage",
           "progress",
         ],
       );
@@ -2096,6 +2230,51 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   get kCrateApiMatrixClientMatrixClientSubscribeToRoomListConstMeta =>
       const TaskConstMeta(
         debugName: "MatrixClient_subscribe_to_room_list",
+        argNames: ["that", "stream"],
+      );
+
+  @override
+  Stream<SyncNotificationSummary>
+  crateApiMatrixClientMatrixClientSubscribeToSyncNotifications({
+    required MatrixClient that,
+  }) {
+    final stream = RustStreamSink<SyncNotificationSummary>();
+    unawaited(
+      handler.executeNormal(
+        NormalTask(
+          callFfi: (port_) {
+            var arg0 =
+                cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                  that,
+                );
+            var arg1 = cst_encode_StreamSink_sync_notification_summary_Dco(
+              stream,
+            );
+            return wire
+                .wire__crate__api__matrix_client__MatrixClient_subscribe_to_sync_notifications(
+                  port_,
+                  arg0,
+                  arg1,
+                );
+          },
+          codec: DcoCodec(
+            decodeSuccessData: dco_decode_unit,
+            decodeErrorData: null,
+          ),
+          constMeta:
+              kCrateApiMatrixClientMatrixClientSubscribeToSyncNotificationsConstMeta,
+          argValues: [that, stream],
+          apiImpl: this,
+        ),
+      ),
+    );
+    return stream.stream;
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientSubscribeToSyncNotificationsConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_subscribe_to_sync_notifications",
         argNames: ["that", "stream"],
       );
 
@@ -2664,6 +2843,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  RustStreamSink<SyncNotificationSummary>
+  dco_decode_StreamSink_sync_notification_summary_Dco(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError();
+  }
+
+  @protected
   RustStreamSink<SyncState> dco_decode_StreamSink_sync_state_Dco(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     throw UnimplementedError();
@@ -2737,8 +2923,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ClientConfig dco_decode_client_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 6)
-      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
     return ClientConfig(
       sessionPath: dco_decode_String(arr[0]),
       homeserverUrl: dco_decode_String(arr[1]),
@@ -2749,6 +2935,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       proxy: dco_decode_opt_String(arr[3]),
       passphrase: dco_decode_opt_String(arr[4]),
       showHomeServerForUsername: dco_decode_bool(arr[5]),
+      mediaCachePath: dco_decode_opt_String(arr[6]),
     );
   }
 
@@ -2770,6 +2957,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   EventSendStateKind dco_decode_event_send_state_kind(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return EventSendStateKind.values[raw as int];
+  }
+
+  @protected
+  double dco_decode_f_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as double;
   }
 
   @protected
@@ -2846,6 +3039,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  Float32List dco_decode_list_prim_f_32_strict(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as Float32List;
+  }
+
+  @protected
   List<int> dco_decode_list_prim_u_8_loose(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as List<int>;
@@ -2909,8 +3108,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Message dco_decode_message(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 31)
-      throw Exception('unexpected arr length: expect 31 but see ${arr.length}');
+    if (arr.length != 33)
+      throw Exception('unexpected arr length: expect 33 but see ${arr.length}');
     return Message(
       eventId: dco_decode_String(arr[0]),
       transactionId: dco_decode_String(arr[1]),
@@ -2928,21 +3127,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       mediaBlurhash: dco_decode_String(arr[13]),
       mediaPreviewWidth: dco_decode_u_32(arr[14]),
       mediaPreviewHeight: dco_decode_u_32(arr[15]),
-      inReplyToEventId: dco_decode_String(arr[16]),
-      inReplyToSender: dco_decode_String(arr[17]),
-      inReplyToPreview: dco_decode_String(arr[18]),
-      inReplyToRoomMsgKind: dco_decode_room_message_kind(arr[19]),
-      inReplyToMediaMimetype: dco_decode_String(arr[20]),
-      inReplyToMediaSizeBytes: dco_decode_u_64(arr[21]),
-      inReplyToMediaBlurhash: dco_decode_String(arr[22]),
-      inReplyToMediaPreviewWidth: dco_decode_u_32(arr[23]),
-      inReplyToMediaPreviewHeight: dco_decode_u_32(arr[24]),
-      inReplyToParentRedacted: dco_decode_bool(arr[25]),
-      reactions: dco_decode_list_message_reaction_entry(arr[26]),
-      pollOptionsJson: dco_decode_String(arr[27]),
-      pollStateJson: dco_decode_String(arr[28]),
-      linkPreviewsJson: dco_decode_String(arr[29]),
-      isRedacted: dco_decode_bool(arr[30]),
+      audioDurationMs: dco_decode_u_64(arr[16]),
+      audioWaveform: dco_decode_list_prim_f_32_strict(arr[17]),
+      inReplyToEventId: dco_decode_String(arr[18]),
+      inReplyToSender: dco_decode_String(arr[19]),
+      inReplyToPreview: dco_decode_String(arr[20]),
+      inReplyToRoomMsgKind: dco_decode_room_message_kind(arr[21]),
+      inReplyToMediaMimetype: dco_decode_String(arr[22]),
+      inReplyToMediaSizeBytes: dco_decode_u_64(arr[23]),
+      inReplyToMediaBlurhash: dco_decode_String(arr[24]),
+      inReplyToMediaPreviewWidth: dco_decode_u_32(arr[25]),
+      inReplyToMediaPreviewHeight: dco_decode_u_32(arr[26]),
+      inReplyToParentRedacted: dco_decode_bool(arr[27]),
+      reactions: dco_decode_list_message_reaction_entry(arr[28]),
+      pollOptionsJson: dco_decode_String(arr[29]),
+      pollStateJson: dco_decode_String(arr[30]),
+      linkPreviewsJson: dco_decode_String(arr[31]),
+      isRedacted: dco_decode_bool(arr[32]),
     );
   }
 
@@ -3048,6 +3249,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   List<Message>? dco_decode_opt_list_message(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_list_message(raw);
+  }
+
+  @protected
+  Float32List? dco_decode_opt_list_prim_f_32_strict(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_list_prim_f_32_strict(raw);
   }
 
   @protected
@@ -3174,6 +3381,31 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       unreadMentions: dco_decode_opt_box_autoadd_u_64(arr[7]),
       unreadMessages: dco_decode_opt_box_autoadd_u_64(arr[8]),
       message: dco_decode_opt_box_autoadd_message(arr[9]),
+    );
+  }
+
+  @protected
+  SyncNotificationKind dco_decode_sync_notification_kind(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return SyncNotificationKind.values[raw as int];
+  }
+
+  @protected
+  SyncNotificationSummary dco_decode_sync_notification_summary(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 9)
+      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
+    return SyncNotificationSummary(
+      roomId: dco_decode_String(arr[0]),
+      roomDisplayName: dco_decode_opt_String(arr[1]),
+      kind: dco_decode_sync_notification_kind(arr[2]),
+      senderId: dco_decode_String(arr[3]),
+      senderDisplayName: dco_decode_opt_String(arr[4]),
+      bodyPreview: dco_decode_String(arr[5]),
+      isHighlight: dco_decode_bool(arr[6]),
+      isNoisy: dco_decode_bool(arr[7]),
+      eventId: dco_decode_String(arr[8]),
     );
   }
 
@@ -3429,6 +3661,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  RustStreamSink<SyncNotificationSummary>
+  sse_decode_StreamSink_sync_notification_summary_Dco(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    throw UnimplementedError('Unreachable ()');
+  }
+
+  @protected
   RustStreamSink<SyncState> sse_decode_StreamSink_sync_state_Dco(
     SseDeserializer deserializer,
   ) {
@@ -3515,6 +3756,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_proxy = sse_decode_opt_String(deserializer);
     var var_passphrase = sse_decode_opt_String(deserializer);
     var var_showHomeServerForUsername = sse_decode_bool(deserializer);
+    var var_mediaCachePath = sse_decode_opt_String(deserializer);
     return ClientConfig(
       sessionPath: var_sessionPath,
       homeserverUrl: var_homeserverUrl,
@@ -3522,6 +3764,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       proxy: var_proxy,
       passphrase: var_passphrase,
       showHomeServerForUsername: var_showHomeServerForUsername,
+      mediaCachePath: var_mediaCachePath,
     );
   }
 
@@ -3547,6 +3790,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_i_32(deserializer);
     return EventSendStateKind.values[inner];
+  }
+
+  @protected
+  double sse_decode_f_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getFloat32();
   }
 
   @protected
@@ -3645,6 +3894,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       ans_.add(sse_decode_message_reaction_entry(deserializer));
     }
     return ans_;
+  }
+
+  @protected
+  Float32List sse_decode_list_prim_f_32_strict(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var len_ = sse_decode_i_32(deserializer);
+    return deserializer.buffer.getFloat32List(len_);
   }
 
   @protected
@@ -3781,6 +4037,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_mediaBlurhash = sse_decode_String(deserializer);
     var var_mediaPreviewWidth = sse_decode_u_32(deserializer);
     var var_mediaPreviewHeight = sse_decode_u_32(deserializer);
+    var var_audioDurationMs = sse_decode_u_64(deserializer);
+    var var_audioWaveform = sse_decode_list_prim_f_32_strict(deserializer);
     var var_inReplyToEventId = sse_decode_String(deserializer);
     var var_inReplyToSender = sse_decode_String(deserializer);
     var var_inReplyToPreview = sse_decode_String(deserializer);
@@ -3813,6 +4071,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       mediaBlurhash: var_mediaBlurhash,
       mediaPreviewWidth: var_mediaPreviewWidth,
       mediaPreviewHeight: var_mediaPreviewHeight,
+      audioDurationMs: var_audioDurationMs,
+      audioWaveform: var_audioWaveform,
       inReplyToEventId: var_inReplyToEventId,
       inReplyToSender: var_inReplyToSender,
       inReplyToPreview: var_inReplyToPreview,
@@ -3989,6 +4249,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  Float32List? sse_decode_opt_list_prim_f_32_strict(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_list_prim_f_32_strict(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
   RoomDetails sse_decode_room_details(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_roomId = sse_decode_String(deserializer);
@@ -4148,6 +4421,42 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       unreadMentions: var_unreadMentions,
       unreadMessages: var_unreadMessages,
       message: var_message,
+    );
+  }
+
+  @protected
+  SyncNotificationKind sse_decode_sync_notification_kind(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return SyncNotificationKind.values[inner];
+  }
+
+  @protected
+  SyncNotificationSummary sse_decode_sync_notification_summary(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_roomId = sse_decode_String(deserializer);
+    var var_roomDisplayName = sse_decode_opt_String(deserializer);
+    var var_kind = sse_decode_sync_notification_kind(deserializer);
+    var var_senderId = sse_decode_String(deserializer);
+    var var_senderDisplayName = sse_decode_opt_String(deserializer);
+    var var_bodyPreview = sse_decode_String(deserializer);
+    var var_isHighlight = sse_decode_bool(deserializer);
+    var var_isNoisy = sse_decode_bool(deserializer);
+    var var_eventId = sse_decode_String(deserializer);
+    return SyncNotificationSummary(
+      roomId: var_roomId,
+      roomDisplayName: var_roomDisplayName,
+      kind: var_kind,
+      senderId: var_senderId,
+      senderDisplayName: var_senderDisplayName,
+      bodyPreview: var_bodyPreview,
+      isHighlight: var_isHighlight,
+      isNoisy: var_isNoisy,
+      eventId: var_eventId,
     );
   }
 
@@ -4354,6 +4663,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  double cst_encode_f_32(double raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw;
+  }
+
+  @protected
   int cst_encode_file_rotation(FileRotation raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return cst_encode_i_32(raw.index);
@@ -4403,6 +4718,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   int cst_encode_room_message_kind(RoomMessageKind raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_i_32(raw.index);
+  }
+
+  @protected
+  int cst_encode_sync_notification_kind(SyncNotificationKind raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return cst_encode_i_32(raw.index);
   }
@@ -4652,6 +4973,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_StreamSink_sync_notification_summary_Dco(
+    RustStreamSink<SyncNotificationSummary> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(
+      self.setupAndSerialize(
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_sync_notification_summary,
+          decodeErrorData: dco_decode_AnyhowException,
+        ),
+      ),
+      serializer,
+    );
+  }
+
+  @protected
   void sse_encode_StreamSink_sync_state_Dco(
     RustStreamSink<SyncState> self,
     SseSerializer serializer,
@@ -4752,6 +5090,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_String(self.proxy, serializer);
     sse_encode_opt_String(self.passphrase, serializer);
     sse_encode_bool(self.showHomeServerForUsername, serializer);
+    sse_encode_opt_String(self.mediaCachePath, serializer);
   }
 
   @protected
@@ -4772,6 +5111,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_f_32(double self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putFloat32(self);
   }
 
   @protected
@@ -4857,6 +5202,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     for (final item in self) {
       sse_encode_message_reaction_entry(item, serializer);
     }
+  }
+
+  @protected
+  void sse_encode_list_prim_f_32_strict(
+    Float32List self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    serializer.buffer.putFloat32List(self);
   }
 
   @protected
@@ -4987,6 +5342,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.mediaBlurhash, serializer);
     sse_encode_u_32(self.mediaPreviewWidth, serializer);
     sse_encode_u_32(self.mediaPreviewHeight, serializer);
+    sse_encode_u_64(self.audioDurationMs, serializer);
+    sse_encode_list_prim_f_32_strict(self.audioWaveform, serializer);
     sse_encode_String(self.inReplyToEventId, serializer);
     sse_encode_String(self.inReplyToSender, serializer);
     sse_encode_String(self.inReplyToPreview, serializer);
@@ -5150,6 +5507,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_list_prim_f_32_strict(
+    Float32List? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_list_prim_f_32_strict(self, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_room_details(RoomDetails self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.roomId, serializer);
@@ -5256,6 +5626,32 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_box_autoadd_u_64(self.unreadMentions, serializer);
     sse_encode_opt_box_autoadd_u_64(self.unreadMessages, serializer);
     sse_encode_opt_box_autoadd_message(self.message, serializer);
+  }
+
+  @protected
+  void sse_encode_sync_notification_kind(
+    SyncNotificationKind self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_sync_notification_summary(
+    SyncNotificationSummary self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.roomId, serializer);
+    sse_encode_opt_String(self.roomDisplayName, serializer);
+    sse_encode_sync_notification_kind(self.kind, serializer);
+    sse_encode_String(self.senderId, serializer);
+    sse_encode_opt_String(self.senderDisplayName, serializer);
+    sse_encode_String(self.bodyPreview, serializer);
+    sse_encode_bool(self.isHighlight, serializer);
+    sse_encode_bool(self.isNoisy, serializer);
+    sse_encode_String(self.eventId, serializer);
   }
 
   @protected
@@ -5576,6 +5972,17 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
   Future<bool> logout() =>
       RustLib.instance.api.crateApiMatrixClientMatrixClientLogout(that: this);
 
+  /// Mark the room's main timeline as read (public read receipt on the latest event; updates unread counts).
+  Future<bool> markTimelineAsRead({required String roomId}) =>
+      RustLib.instance.api.crateApiMatrixClientMatrixClientMarkTimelineAsRead(
+        that: this,
+        roomId: roomId,
+      );
+
+  /// Stop sliding sync (e.g. when the app goes to background). Call [Self::restart_sync_service] on resume.
+  Future<bool> pauseSyncService() => RustLib.instance.api
+      .crateApiMatrixClientMatrixClientPauseSyncService(that: this);
+
   /// Redact a timeline message for **everyone** (`m.room.redaction`) or abort a matching local echo.
   ///
   /// Pass [event_id] for remote echoes, or [transaction_id] for a local row (matrix-sdk-ui picks redact vs abort).
@@ -5725,12 +6132,18 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
     required String filePath,
     String? caption,
     String? appThumbnailJpegPath,
+    BigInt? audioDurationMs,
+    Float32List? audioWaveformNormalized,
+    required bool audioAsVoiceMessage,
   }) => RustLib.instance.api.crateApiMatrixClientMatrixClientSendTimelineFile(
     that: this,
     roomId: roomId,
     filePath: filePath,
     caption: caption,
     appThumbnailJpegPath: appThumbnailJpegPath,
+    audioDurationMs: audioDurationMs,
+    audioWaveformNormalized: audioWaveformNormalized,
+    audioAsVoiceMessage: audioAsVoiceMessage,
   );
 
   /// Like [MatrixClient::send_timeline_file] but reports byte progress on `progress` and honours [MatrixClient::cancel_timeline_file_send].
@@ -5739,6 +6152,9 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
     required String filePath,
     String? caption,
     String? appThumbnailJpegPath,
+    BigInt? audioDurationMs,
+    Float32List? audioWaveformNormalized,
+    required bool audioAsVoiceMessage,
   }) => RustLib.instance.api
       .crateApiMatrixClientMatrixClientSendTimelineFileWithProgress(
         that: this,
@@ -5746,6 +6162,9 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
         filePath: filePath,
         caption: caption,
         appThumbnailJpegPath: appThumbnailJpegPath,
+        audioDurationMs: audioDurationMs,
+        audioWaveformNormalized: audioWaveformNormalized,
+        audioAsVoiceMessage: audioAsVoiceMessage,
       );
 
   /// Set the current user's display name (profile).
@@ -5788,6 +6207,12 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
   /// Call after [MatrixClient::start_sync_service]. Initial snapshot is sent immediately.
   Stream<List<RoomUpdate>> subscribeToRoomList() => RustLib.instance.api
       .crateApiMatrixClientMatrixClientSubscribeToRoomList(that: this);
+
+  /// Stream push-rule notifications from sync (messages, invites, etc.). Call after [Self::start_sync_service].
+  Stream<SyncNotificationSummary> subscribeToSyncNotifications() => RustLib
+      .instance
+      .api
+      .crateApiMatrixClientMatrixClientSubscribeToSyncNotifications(that: this);
 
   /// Subscribe to the canonical message list for a room. Emits the full list whenever it changes (timeline updates or send_message).
   /// Sends initial list immediately, then runs the timeline diff loop. Call after [MatrixClient::start_sync_service].

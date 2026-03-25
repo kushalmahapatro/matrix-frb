@@ -17,6 +17,10 @@ class ClientConfig {
   /// When `false`, UI may show Matrix user ids without the `:server` suffix (e.g. `@user` only).
   final bool showHomeServerForUsername;
 
+  /// Root directory for decrypted media cache (`thumbnails/`, `media/full/`, …). When `None` or
+  /// empty, the SDK keeps the default in-memory media store (non-persistent, small LRU).
+  final String? mediaCachePath;
+
   const ClientConfig({
     required this.sessionPath,
     required this.homeserverUrl,
@@ -24,6 +28,7 @@ class ClientConfig {
     this.proxy,
     this.passphrase,
     required this.showHomeServerForUsername,
+    this.mediaCachePath,
   });
 
   @override
@@ -33,7 +38,8 @@ class ClientConfig {
       rootCertificates.hashCode ^
       proxy.hashCode ^
       passphrase.hashCode ^
-      showHomeServerForUsername.hashCode;
+      showHomeServerForUsername.hashCode ^
+      mediaCachePath.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -45,5 +51,6 @@ class ClientConfig {
           rootCertificates == other.rootCertificates &&
           proxy == other.proxy &&
           passphrase == other.passphrase &&
-          showHomeServerForUsername == other.showHomeServerForUsername;
+          showHomeServerForUsername == other.showHomeServerForUsername &&
+          mediaCachePath == other.mediaCachePath;
 }

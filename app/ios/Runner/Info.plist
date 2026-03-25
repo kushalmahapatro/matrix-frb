@@ -68,5 +68,14 @@
 	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose photos and videos from your library to send in chat.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Take photos and videos to send in chat.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Record voice messages to send in chat.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

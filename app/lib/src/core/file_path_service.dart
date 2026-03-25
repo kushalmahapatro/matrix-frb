@@ -63,6 +63,18 @@ class FilePathService {
     throw Exception('Database path is not supported on this platform');
   }
 
+  /// Decrypted timeline media cache root for Rust [ClientConfig.mediaCachePath]
+  /// (`thumbnails/`, `media/full/`, …). Not stored as SQLite blobs.
+  Future<String> getMatrixMediaCachePath() async {
+    if (kIsWeb || kIsWasm) {
+      throw Exception('Matrix media cache path is not supported on web and wasm');
+    }
+    final Directory base = await getApplicationSupportDirectory();
+    final String dir = join(base.path, 'matrix_media_cache');
+    await Directory(dir).create(recursive: true);
+    return dir;
+  }
+
   Future<String> getLogsPath() async {
     if (kIsWeb || kIsWasm) {
       throw Exception('Logs path is not supported on web and wasm');

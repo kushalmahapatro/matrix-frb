@@ -131,6 +131,8 @@ pub(crate) async fn get_room_update_data(room: &Room, own_user_id: Option<&str>)
         media_blurhash: String::new(),
         media_preview_width: 0,
         media_preview_height: 0,
+        audio_duration_ms: 0,
+        audio_waveform: vec![],
         in_reply_to_event_id: String::new(),
         in_reply_to_sender: String::new(),
         in_reply_to_preview: String::new(),
@@ -194,6 +196,10 @@ pub(crate) async fn get_room_update_data(room: &Room, own_user_id: Option<&str>)
                 .as_message()
                 .map(|m| crate::matrix::timelines::sdk_ui_message_media_preview(m))
                 .unwrap_or((String::new(), 0, 0));
+            let (audio_duration_ms, audio_waveform) = content
+                .as_message()
+                .map(crate::matrix::timelines::sdk_ui_message_audio_details)
+                .unwrap_or((0, Vec::new()));
             let link_previews_json = content
                 .as_message()
                 .map(|m| crate::matrix::timelines::link_previews_json_for_sdk_message(m))
@@ -217,6 +223,8 @@ pub(crate) async fn get_room_update_data(room: &Room, own_user_id: Option<&str>)
                 media_blurhash,
                 media_preview_width,
                 media_preview_height,
+                audio_duration_ms,
+                audio_waveform,
                 in_reply_to_event_id: String::new(),
                 in_reply_to_sender: String::new(),
                 in_reply_to_preview: String::new(),

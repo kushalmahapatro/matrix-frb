@@ -17,7 +17,7 @@ use matrix_sdk::{
 };
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use tokio::sync::broadcast::error::RecvError;
+use tokio::sync::broadcast::{self, error::RecvError};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
@@ -30,6 +30,7 @@ use crate::{
         file_upload_cache_redaction,
         rooms::{self, RoomUpdate},
         send_timeline_file,
+        sync_notifications::SyncNotificationSummary,
         sync_service::{self, App},
         timeline_media,
         timelines::{self, Message},
@@ -68,6 +69,8 @@ pub struct MatrixClient {
     file_upload_redaction_handler_registered: Arc<AtomicBool>,
     /// Active [CancellationToken] for [MatrixClient::send_timeline_file_with_progress] (cancel via [MatrixClient::cancel_timeline_file_send]).
     file_send_cancel: Arc<Mutex<Option<CancellationToken>>>,
+    /// Broadcast hub for [MatrixClient::subscribe_to_sync_notifications]; filled when sync notification handler is registered.
+    sync_notification_tx: Arc<Mutex<Option<broadcast::Sender<SyncNotificationSummary>>>>,
 }
 
 impl MatrixClient {
@@ -92,7 +95,43 @@ impl MatrixClient {
             file_upload_cache,
             file_upload_redaction_handler_registered: Arc::new(AtomicBool::new(false)),
             file_send_cancel: Arc::new(Mutex::new(None)),
+            sync_notification_tx: Arc::new(Mutex::new(None)),
         })
+    }
+
+    async fn ensure_sync_notification_handler(&self) -> Result<(), String> {
+        let mut hub = self.sync_notification_tx.lock().await;
+        if hub.is_some() {
+            return Ok(());
+        }
+        let (tx, _rx) = broadcast::channel::<SyncNotificationSummary>(256);
+        let tx_handler = tx.clone();
+        self.client
+            .register_notification_handler(move |notification, room, _client| {
+                let tx = tx_handler.clone();
+                let room_id = room.room_id().to_owned();
+                async move {
+                    match crate::matrix::sync_notifications::summary_from_notification(
+                        notification,
+                        room,
+                    )
+                    .await
+                    {
+                        Some(s) => {
+                            let _ = tx.send(s);
+                        }
+                        None => {
+                            tracing::trace!(
+                                %room_id,
+                                "sync notification: dropped (could not build summary)"
+                            );
+                        }
+                    }
+                }
+            })
+            .await;
+        *hub = Some(tx);
+        Ok(())
     }
 
     /// Log in with username and password.
@@ -284,6 +323,7 @@ impl MatrixClient {
     /// Start the sync service (required for rooms and timeline to work).
     /// Stores the App in this client; rooms/timeline/sync state use it instead of global state.
     pub async fn start_sync_service(&self) -> Result<bool, String> {
+        self.ensure_sync_notification_handler().await?;
         let client = self.client.clone();
         let app_mutex = self.app.clone(); // same Arc as self.app
         let app = sync_service::start_sync_service(client).await?;
@@ -310,6 +350,18 @@ impl MatrixClient {
             .clone();
         drop(guard);
         sync_service::restart_sync_service(app).await
+    }
+
+    /// Stop sliding sync (e.g. when the app goes to background). Call [Self::restart_sync_service] on resume.
+    pub async fn pause_sync_service(&self) -> Result<bool, String> {
+        let app_mutex = self.app.clone();
+        let guard = app_mutex.lock().await;
+        let app = match guard.as_ref() {
+            Some(a) => a.clone(),
+            None => return Ok(true),
+        };
+        drop(guard);
+        sync_service::pause_sync_service(app).await
     }
 
     /// Send a message through the UI timeline (local echo, offline errors, retry via [Self::retry_failed_send]).
@@ -542,6 +594,29 @@ impl MatrixClient {
         .await
     }
 
+    /// Mark the room's main timeline as read (public read receipt on the latest event; updates unread counts).
+    pub async fn mark_timeline_as_read(&self, room_id: String) -> Result<bool, String> {
+        let room_id_parsed = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+        let app = self
+            .app
+            .lock()
+            .await
+            .clone()
+            .ok_or_else(|| "Sync not started; call start_sync_service first".to_string())?;
+
+        let timeline_arc = {
+            let tg = app.timelines.lock().unwrap();
+            tg.get(&room_id_parsed)
+                .map(|t| t.timeline.clone())
+                .ok_or_else(|| {
+                    "No timeline for this room yet; wait until it appears in the room list after sync."
+                        .to_string()
+                })?
+        };
+
+        timelines::mark_timeline_as_read(timeline_arc.as_ref()).await
+    }
+
     /// Redact a timeline message for **everyone** (`m.room.redaction`) or abort a matching local echo.
     ///
     /// Pass [event_id] for remote echoes, or [transaction_id] for a local row (matrix-sdk-ui picks redact vs abort).
@@ -599,6 +674,9 @@ impl MatrixClient {
         file_path: String,
         caption: Option<String>,
         app_thumbnail_jpeg_path: Option<String>,
+        audio_duration_ms: Option<u64>,
+        audio_waveform_normalized: Option<Vec<f32>>,
+        audio_as_voice_message: bool,
     ) -> Result<String, String> {
         let room_id_parsed = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
         let app = self
@@ -628,6 +706,9 @@ impl MatrixClient {
             file_path,
             caption,
             app_thumbnail_jpeg_path,
+            audio_duration_ms,
+            audio_waveform_normalized,
+            audio_as_voice_message,
             &mut noop,
             &cancel,
         )
@@ -643,6 +724,9 @@ impl MatrixClient {
         file_path: String,
         caption: Option<String>,
         app_thumbnail_jpeg_path: Option<String>,
+        audio_duration_ms: Option<u64>,
+        audio_waveform_normalized: Option<Vec<f32>>,
+        audio_as_voice_message: bool,
         progress: StreamSink<FileSendProgress>,
     ) -> Result<String, String> {
         let room_id_parsed = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
@@ -684,6 +768,9 @@ impl MatrixClient {
             file_path,
             caption,
             app_thumbnail_jpeg_path,
+            audio_duration_ms,
+            audio_waveform_normalized,
+            audio_as_voice_message,
             &mut emit,
             &cancel,
         )
@@ -1083,5 +1170,35 @@ impl MatrixClient {
         };
         drop(guard);
         sync_service::subscribe_sync_state(app, stream).await;
+    }
+
+    /// Stream push-rule notifications from sync (messages, invites, etc.). Call after [Self::start_sync_service].
+    pub async fn subscribe_to_sync_notifications(
+        &self,
+        stream: StreamSink<SyncNotificationSummary>,
+    ) {
+        // Register the Matrix handler + broadcast hub even if Dart subscribed slightly before
+        // `start_sync_service` (or after a cold start); otherwise the stream would never attach.
+        if let Err(e) = self.ensure_sync_notification_handler().await {
+            tracing::warn!("subscribe_to_sync_notifications: ensure_sync_notification_handler: {e}");
+            return;
+        }
+        let tx = self.sync_notification_tx.lock().await.clone();
+        let Some(tx) = tx else {
+            tracing::warn!("subscribe_to_sync_notifications: hub missing after ensure");
+            return;
+        };
+        let mut rx = tx.subscribe();
+        loop {
+            match rx.recv().await {
+                Ok(msg) => {
+                    if stream.add(msg).is_err() {
+                        break;
+                    }
+                }
+                Err(RecvError::Lagged(_)) => continue,
+                Err(RecvError::Closed) => break,
+            }
+        }
     }
 }

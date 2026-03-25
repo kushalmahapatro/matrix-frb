@@ -57,6 +57,12 @@ class Message {
   /// Pixel height for timeline thumb aspect (thumbnail `h` when set, else main media `h`).
   final int mediaPreviewHeight;
 
+  /// Voice/audio: `org.matrix.msc1767.audio` duration in ms, or `info.duration`, else 0.
+  final BigInt audioDurationMs;
+
+  /// Voice/audio: MSC waveform normalized to 0..=1 (empty when not present).
+  final Float32List audioWaveform;
+
   /// Event id this message replies to (`m.in_reply_to`), empty when not a reply.
   final String inReplyToEventId;
 
@@ -111,6 +117,8 @@ class Message {
     required this.mediaBlurhash,
     required this.mediaPreviewWidth,
     required this.mediaPreviewHeight,
+    required this.audioDurationMs,
+    required this.audioWaveform,
     required this.inReplyToEventId,
     required this.inReplyToSender,
     required this.inReplyToPreview,
@@ -146,6 +154,8 @@ class Message {
       mediaBlurhash.hashCode ^
       mediaPreviewWidth.hashCode ^
       mediaPreviewHeight.hashCode ^
+      audioDurationMs.hashCode ^
+      audioWaveform.hashCode ^
       inReplyToEventId.hashCode ^
       inReplyToSender.hashCode ^
       inReplyToPreview.hashCode ^
@@ -183,6 +193,8 @@ class Message {
           mediaBlurhash == other.mediaBlurhash &&
           mediaPreviewWidth == other.mediaPreviewWidth &&
           mediaPreviewHeight == other.mediaPreviewHeight &&
+          audioDurationMs == other.audioDurationMs &&
+          audioWaveform == other.audioWaveform &&
           inReplyToEventId == other.inReplyToEventId &&
           inReplyToSender == other.inReplyToSender &&
           inReplyToPreview == other.inReplyToPreview &&

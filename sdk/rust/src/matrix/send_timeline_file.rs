@@ -39,7 +39,8 @@ use matrix_sdk::ruma::{
             message::{
                 AudioInfo, AudioMessageEventContent, FileInfo, FileMessageEventContent,
                 ImageMessageEventContent, MessageType, RoomMessageEventContent,
-                TextMessageEventContent, VideoInfo, VideoMessageEventContent,
+                TextMessageEventContent, UnstableAmplitude, UnstableAudioDetailsContentBlock,
+                UnstableVoiceContentBlock, VideoInfo, VideoMessageEventContent,
             },
         },
     },
@@ -451,11 +452,36 @@ fn make_message_type(
                 _ => AudioInfo::new(),
             };
             audio_info.mimetype = Some(mime_type.as_ref().to_owned());
-            MessageType::Audio(assign!(AudioMessageEventContent::plain(body, file_mxc), {
+            let mut audio_content = assign!(AudioMessageEventContent::plain(body, file_mxc), {
                 formatted,
                 filename: filename_field,
                 info: Some(Box::new(audio_info)),
-            }))
+            });
+            let (dur_opt, wf_opt) = match info {
+                Some(AttachmentInfo::Audio(i)) | Some(AttachmentInfo::Voice(i)) => {
+                    (i.duration, i.waveform.as_deref())
+                }
+                _ => (None, None),
+            };
+            if let (Some(dur), Some(wf)) = (dur_opt, wf_opt) {
+                if !wf.is_empty() {
+                    let waveform: Vec<UnstableAmplitude> = wf
+                        .iter()
+                        .copied()
+                        .map(|v| {
+                            let scaled =
+                                (v.clamp(0.0, 1.0) * f32::from(UnstableAmplitude::MAX)) as u16;
+                            UnstableAmplitude::new(scaled)
+                        })
+                        .collect();
+                    audio_content.audio =
+                        Some(UnstableAudioDetailsContentBlock::new(dur, waveform));
+                }
+            }
+            if matches!(info, Some(AttachmentInfo::Voice(_))) {
+                audio_content.voice = Some(UnstableVoiceContentBlock::new());
+            }
+            MessageType::Audio(audio_content)
         }
         mime::VIDEO => {
             let mut video_info = match info {
@@ -611,6 +637,12 @@ where
     }
 }
 
+/// Optional MSC3245 / MSC1767 voice metadata for `m.audio` (waveform + duration).
+///
+/// When set with a non-empty waveform, encrypted-room **template reuse** from `file_upload_cache`
+/// is skipped so the event JSON matches this send.
+pub type AudioTimelineSendExtras = (Duration, Vec<f32>, bool);
+
 async fn send_timeline_file_inner<P>(
     timeline: &Timeline,
     client: &matrix_sdk::Client,
@@ -619,6 +651,7 @@ async fn send_timeline_file_inner<P>(
     file_path: String,
     caption: Option<String>,
     app_thumbnail_jpeg_path: Option<String>,
+    audio_extras: Option<AudioTimelineSendExtras>,
     progress: &mut P,
     cancel: &CancellationToken,
 ) -> Result<(), String>
@@ -659,6 +692,29 @@ where
     let hash = sha256_hex(&data);
     let caption_content = caption.map(TextMessageEventContent::plain);
     let mut info = attachment_info_for(&mime_type, &data);
+    if mime_type.type_() == mime::AUDIO {
+        if let Some((dur, wf, is_voice)) = audio_extras.as_ref() {
+            if !wf.is_empty() {
+                let size = match &info {
+                    Some(AttachmentInfo::Audio(i)) | Some(AttachmentInfo::Voice(i)) => i.size,
+                    _ => UInt::try_from(data.len()).ok(),
+                };
+                let base = BaseAudioInfo {
+                    duration: Some(*dur),
+                    waveform: Some(wf.clone()),
+                    size: size.or_else(|| UInt::try_from(data.len()).ok()),
+                };
+                info = Some(if *is_voice {
+                    AttachmentInfo::Voice(base)
+                } else {
+                    AttachmentInfo::Audio(base)
+                });
+            }
+        }
+    }
+    let skip_e2ee_template_reuse = audio_extras
+        .as_ref()
+        .is_some_and(|(_, wf, _)| !wf.is_empty());
 
     let generated_thumb =
         generate_attachment_thumbnail(path, &mime_type, &data, app_thumb_path).await;
@@ -670,7 +726,8 @@ where
         generated_thumb.as_ref().map(|(d, _, _, _)| sha256_hex(d));
 
     if encrypted {
-        if let Some(mut cached) = upload_cache.get_by_sha256(&hash).await {
+        if !skip_e2ee_template_reuse {
+            if let Some(mut cached) = upload_cache.get_by_sha256(&hash).await {
             if let Some(ref ej) = cached.e2ee_msgtype_json {
                 if cache_thumb_matches_entry(
                     &cached,
@@ -706,6 +763,7 @@ where
                     );
                     return Ok(());
                 }
+            }
             }
         }
 
@@ -885,6 +943,8 @@ where
 /// keyed by SHA-256 of **plaintext file bytes** (see module docs).
 ///
 /// `app_thumbnail_jpeg_path`: optional JPEG on disk from the Flutter `media` package (image + video timeline thumbnails).
+/// `audio_duration_ms` + `audio_waveform_normalized` (values in **0..=1**) populate `org.matrix.msc1767.audio` for `m.audio`.
+/// When `audio_as_voice_message` is `true`, also sets `org.matrix.msc3245.voice` (MSC3245 voice message).
 /// `progress` is invoked on the async runtime thread; `cancel` aborts in-flight uploads and queued encrypted sends cooperatively.
 pub async fn send_timeline_file_from_path<P>(
     timeline: &Timeline,
@@ -894,12 +954,21 @@ pub async fn send_timeline_file_from_path<P>(
     file_path: String,
     caption: Option<String>,
     app_thumbnail_jpeg_path: Option<String>,
+    audio_duration_ms: Option<u64>,
+    audio_waveform_normalized: Option<Vec<f32>>,
+    audio_as_voice_message: bool,
     progress: &mut P,
     cancel: &CancellationToken,
 ) -> Result<(), String>
 where
     P: FnMut(FileSendProgress) + Send,
 {
+    let audio_extras = match (audio_duration_ms, audio_waveform_normalized) {
+        (Some(ms), Some(wf)) if !wf.is_empty() => {
+            Some((Duration::from_millis(ms), wf, audio_as_voice_message))
+        }
+        _ => None,
+    };
     let room_id_parsed = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
     if timeline.room().room_id() != std::convert::AsRef::<RoomId>::as_ref(&room_id_parsed) {
         return Err("send_timeline_file: room_id does not match this timeline's room".to_string());
@@ -919,6 +988,7 @@ where
             file_path,
             caption,
             app_thumbnail_jpeg_path,
+            audio_extras,
             progress,
             cancel,
         ) => r,

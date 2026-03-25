@@ -24,6 +24,7 @@ import 'package:matrix/src/features/conversation/presentation/screens/conversati
 import 'package:matrix/src/features/conversation/presentation/screens/media_outgoing_send_screen.dart';
 import 'package:matrix/src/features/conversation/presentation/screens/room_info_screen.dart';
 import 'package:matrix/src/features/conversation/presentation/widgets/attachment_viewer.dart';
+import 'package:matrix/src/features/conversation/presentation/widgets/voice_record_sheet.dart';
 import 'package:matrix/src/features/conversation/presentation/widgets/pagianted_message_list.dart'
     show openTimelineQuickReactionPicker;
 import 'package:matrix_sdk/matrix_sdk.dart'
@@ -109,6 +110,9 @@ class ConversationScreenModel extends ElementaryModel {
     required String filePath,
     String? caption,
     String? mimeType,
+    int? audioDurationMs,
+    List<double>? audioWaveformNormalized,
+    bool audioAsVoiceMessage = false,
     required void Function(FileSendProgress p) onProgress,
   }) {
     return conversationService.sendTimelineFileWithProgress(
@@ -116,6 +120,9 @@ class ConversationScreenModel extends ElementaryModel {
       filePath: filePath,
       caption: caption,
       mimeType: mimeType,
+      audioDurationMs: audioDurationMs,
+      audioWaveformNormalized: audioWaveformNormalized,
+      audioAsVoiceMessage: audioAsVoiceMessage,
       onProgress: onProgress,
     );
   }
@@ -125,6 +132,9 @@ class ConversationScreenModel extends ElementaryModel {
     required String originalFilePath,
     AppTimelineSendPrep? prep,
     String? caption,
+    int? audioDurationMs,
+    List<double>? audioWaveformNormalized,
+    bool audioAsVoiceMessage = false,
     required void Function(FileSendProgress p) onProgress,
   }) {
     return conversationService.sendTimelineAttachment(
@@ -132,6 +142,9 @@ class ConversationScreenModel extends ElementaryModel {
       originalFilePath: originalFilePath,
       prep: prep,
       caption: caption,
+      audioDurationMs: audioDurationMs,
+      audioWaveformNormalized: audioWaveformNormalized,
+      audioAsVoiceMessage: audioAsVoiceMessage,
       onProgress: onProgress,
     );
   }
@@ -216,6 +229,10 @@ class ConversationScreenModel extends ElementaryModel {
       answerIds: answerIds,
     );
   }
+
+  Future<void> markTimelineAsRead(String roomId) {
+    return conversationService.markTimelineAsRead(roomId);
+  }
 }
 
 class ConversationScreenWM
@@ -231,6 +248,9 @@ class ConversationScreenWM
   TextEditingController get messageController => _messageController;
   ValueNotifier<bool> get isInvited => _isInvited;
 
+  /// `true` when the composer has non-whitespace text (send vs voice-record button).
+  ValueNotifier<bool> get composerHasText => _composerHasText;
+
   /// Non-null while a file send is in progress (shows banner + cancel).
   ValueNotifier<FileSendProgress?> get fileSendProgress => _fileSendProgress;
 
@@ -243,12 +263,17 @@ class ConversationScreenWM
   final ValueNotifier<FileSendProgress?> _fileSendProgress =
       ValueNotifier<FileSendProgress?>(null);
 
+  final ValueNotifier<bool> _composerHasText = ValueNotifier<bool>(false);
+
   /// Set from room info to scroll the timeline to an event id.
   final ValueNotifier<String?> jumpToTimelineEventId = ValueNotifier<String?>(
     null,
   );
 
-  /// Message the user is replying to (swipe message row); cleared after send or cancel.
+  /// Debounces [markTimelineAsRead] so scroll / timeline bursts do not spam the homeserver.
+  Timer? _markReadDebounce;
+
+  /// Message the user is replying to (e.g. from ⋮ menu); cleared after send or cancel.
   final ValueNotifier<Message?> replyDraft = ValueNotifier<Message?>(null);
 
   // Stream management: full message list from Rust
@@ -265,10 +290,15 @@ class ConversationScreenWM
   static const Duration _healthCheckInterval = Duration(minutes: 2);
   static const Duration _maxInactivityTime = Duration(minutes: 5);
 
+  void _syncComposerHasText() {
+    _composerHasText.value = _messageController.text.trim().isNotEmpty;
+  }
+
   @override
   void initWidgetModel() {
     super.initWidgetModel();
     _messageController = TextEditingController();
+    _messageController.addListener(_syncComposerHasText);
     _roomState = ValueNotifier(const ConversationState.loading());
     _isInvited = ValueNotifier(false);
 
@@ -293,10 +323,13 @@ class ConversationScreenWM
     MatrixService().unregisterTimelineSubscription(widget.roomId);
     _disposeStreams();
     _roomState.dispose();
+    _messageController.removeListener(_syncComposerHasText);
     _messageController.dispose();
+    _composerHasText.dispose();
     _isInvited.dispose();
     showPendingOutgoingInvite.dispose();
     _roomMetaDebounce?.cancel();
+    _markReadDebounce?.cancel();
     _fileSendProgress.dispose();
     jumpToTimelineEventId.dispose();
     replyDraft.dispose();
@@ -341,6 +374,7 @@ class ConversationScreenWM
       loadFullBytes: () => fetchRoomMessageMedia(id, thumbnail: false),
       filename: message.content,
       roomMsgKind: message.roomMsgKind,
+      mediaMimetype: message.mediaMimetype,
     );
   }
 
@@ -382,6 +416,16 @@ class ConversationScreenWM
       return;
     }
     showPendingOutgoingInvite.value = _shouldShowPendingOutgoingInvite(info);
+  }
+
+  /// Coalesces [markTimelineAsRead] while the timeline stream emits rapid diffs.
+  void _scheduleMarkTimelineRead() {
+    if (widget.status != ChatRoomStatus.joined) return;
+    _markReadDebounce?.cancel();
+    _markReadDebounce = Timer(const Duration(milliseconds: 400), () {
+      if (_disposed) return;
+      unawaited(model.markTimelineAsRead(widget.roomId).catchError((_) {}));
+    });
   }
 
   void _scheduleRoomMetaRefresh() {
@@ -684,7 +728,7 @@ class ConversationScreenWM
     await TimelineLocalHiddenStore.hideMessage(message);
   }
 
-  /// Swipe a message row (horizontal) to start inline reply (needs a server event id).
+  /// Start inline reply (needs a server event id); used from the message ⋮ menu.
   void beginReplyTo(Message message) {
     if (message.eventId.isEmpty) return;
     if (message.messageType != MessageType.message) return;
@@ -1415,6 +1459,24 @@ class ConversationScreenWM
               ),
               ListTile(
                 leading: Icon(
+                  Icons.photo_camera_outlined,
+                  color: theme.colorScheme.primary,
+                ),
+                title: const Text('Camera'),
+                subtitle: const Text('Photo or video'),
+                onTap: () => Navigator.pop(sheetContext, 'camera'),
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.mic_none_rounded,
+                  color: theme.colorScheme.primary,
+                ),
+                title: const Text('Voice message'),
+                subtitle: const Text('Record and send'),
+                onTap: () => Navigator.pop(sheetContext, 'voice'),
+              ),
+              ListTile(
+                leading: Icon(
                   Icons.folder_outlined,
                   color: theme.colorScheme.primary,
                 ),
@@ -1430,9 +1492,140 @@ class ConversationScreenWM
     if (choice == null || !context.mounted) return;
     if (choice == 'gallery') {
       await pickAndSendFromGallery();
+    } else if (choice == 'camera') {
+      await showCameraCaptureMenu();
+    } else if (choice == 'voice') {
+      await showVoiceRecordSheet();
     } else if (choice == 'file') {
       await pickAndSendFile();
     }
+  }
+
+  /// Photo vs video from the device camera (not supported on web).
+  Future<void> showCameraCaptureMenu() async {
+    if (kIsWeb) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Camera is not supported on web.'),
+          ),
+        );
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    final theme = Theme.of(context);
+    final mode = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(
+                  Icons.photo_camera_outlined,
+                  color: theme.colorScheme.primary,
+                ),
+                title: const Text('Photo'),
+                subtitle: const Text('Take a picture'),
+                onTap: () => Navigator.pop(sheetContext, 'photo'),
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.videocam_outlined,
+                  color: theme.colorScheme.primary,
+                ),
+                title: const Text('Video'),
+                subtitle: const Text('Record a clip'),
+                onTap: () => Navigator.pop(sheetContext, 'video'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (mode == null || !context.mounted) return;
+    if (mode == 'photo') {
+      await pickAndSendFromCameraPhoto();
+    } else if (mode == 'video') {
+      await pickAndSendFromCameraVideo();
+    }
+  }
+
+  Future<void> pickAndSendFromCameraPhoto() async {
+    if (kIsWeb) return;
+    final picker = ImagePicker();
+    final XFile? picked = await picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 92,
+    );
+    if (picked == null) return;
+    final path = await _pathForGalleryPick(picked);
+    if (path == null || path.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not access the camera photo.')),
+        );
+      }
+      return;
+    }
+    await _sendTimelineFileFromPath(
+      path,
+      mimeType: picked.mimeType ?? 'image/jpeg',
+    );
+  }
+
+  Future<void> pickAndSendFromCameraVideo() async {
+    if (kIsWeb) return;
+    final picker = ImagePicker();
+    final XFile? picked = await picker.pickVideo(
+      source: ImageSource.camera,
+      maxDuration: const Duration(minutes: 10),
+    );
+    if (picked == null) return;
+    final path = await _pathForGalleryPick(picked);
+    if (path == null || path.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not access the camera video.')),
+        );
+      }
+      return;
+    }
+    await _sendTimelineFileFromPath(
+      path,
+      mimeType: picked.mimeType ?? 'video/mp4',
+    );
+  }
+
+  Future<void> showVoiceRecordSheet() async {
+    if (kIsWeb) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Voice messages are not supported on web.'),
+          ),
+        );
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    final result = await showModalBottomSheet<VoiceRecordResult?>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => const VoiceRecordSheet(),
+    );
+    if (result == null || result.path.isEmpty || !context.mounted) return;
+    await _sendTimelineFileFromPath(
+      result.path,
+      mimeType: 'audio/mp4',
+      audioDurationMs: result.durationMs,
+      audioWaveformNormalized: result.waveform,
+      audioAsVoiceMessage: true,
+    );
   }
 
   Future<void> pickAndSendFromGallery() async {
@@ -1513,6 +1706,18 @@ class ConversationScreenWM
         return 'video/quicktime';
       case '.webm':
         return 'video/webm';
+      case '.m4a':
+        return 'audio/mp4';
+      case '.aac':
+        return 'audio/aac';
+      case '.mp3':
+        return 'audio/mpeg';
+      case '.ogg':
+        return 'audio/ogg';
+      case '.opus':
+        return 'audio/opus';
+      case '.wav':
+        return 'audio/wav';
       case '.pdf':
         return 'application/pdf';
       default:
@@ -1559,6 +1764,9 @@ class ConversationScreenWM
   Future<void> _sendTimelineFileFromPath(
     String path, {
     String? mimeType,
+    int? audioDurationMs,
+    List<double>? audioWaveformNormalized,
+    bool audioAsVoiceMessage = false,
   }) async {
     final caption = _messageController.text.trim();
     if (!kIsWeb && context.mounted) {
@@ -1570,16 +1778,25 @@ class ConversationScreenWM
             filePath: path,
             mimeType: mimeType,
             caption: caption.isEmpty ? null : caption,
+            audioDurationMs: audioDurationMs,
+            audioWaveformNormalized: audioWaveformNormalized,
+            audioAsVoiceMessage: audioAsVoiceMessage,
             sendAttachment: ({
               prep,
               required originalFilePath,
               required onProgress,
+              int? audioDurationMs,
+              List<double>? audioWaveformNormalized,
+              required bool audioAsVoiceMessage,
             }) =>
                 model.sendTimelineAttachment(
                   roomId: widget.roomId,
                   originalFilePath: originalFilePath,
                   prep: prep,
                   caption: caption.isEmpty ? null : caption,
+                  audioDurationMs: audioDurationMs,
+                  audioWaveformNormalized: audioWaveformNormalized,
+                  audioAsVoiceMessage: audioAsVoiceMessage,
                   onProgress: onProgress,
                 ),
             onCancelSend: () {
@@ -1600,6 +1817,9 @@ class ConversationScreenWM
         filePath: path,
         caption: caption.isEmpty ? null : caption,
         mimeType: mimeType,
+        audioDurationMs: audioDurationMs,
+        audioWaveformNormalized: audioWaveformNormalized,
+        audioAsVoiceMessage: audioAsVoiceMessage,
         onProgress: (p) {
           if (_disposed) return;
           final terminal =
@@ -1756,6 +1976,9 @@ class ConversationScreenWM
               messages: list,
               roomInfo: _roomInfo ?? roomInfo,
             );
+            if (widget.status == ChatRoomStatus.joined) {
+              _scheduleMarkTimelineRead();
+            }
             _scheduleRoomMetaRefresh();
           },
           onError: (error) {

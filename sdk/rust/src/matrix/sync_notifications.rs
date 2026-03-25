@@ -1,0 +1,111 @@
+//! Push-rule-driven sync notifications forwarded to Dart via FRB streams.
+
+use matrix_sdk::{
+    deserialized_responses::RawAnySyncOrStrippedTimelineEvent, ruma::events::AnySyncTimelineEvent,
+    Room,
+};
+use matrix_sdk_base::sync::Notification;
+use ruma::events::AnyMessageLikeEventContent;
+
+use super::client::format_user_id_for_display;
+
+/// Kind of Matrix event that produced the notification.
+#[derive(Clone, Debug)]
+pub enum SyncNotificationKind {
+    Message,
+    Invite,
+    Other,
+}
+
+/// Summary of a sync notification for local/system UI (titles, dedupe).
+#[derive(Clone, Debug)]
+pub struct SyncNotificationSummary {
+    pub room_id: String,
+    pub room_display_name: Option<String>,
+    pub kind: SyncNotificationKind,
+    pub sender_id: String,
+    pub sender_display_name: Option<String>,
+    pub body_preview: String,
+    pub is_highlight: bool,
+    pub is_noisy: bool,
+    pub event_id: String,
+}
+
+pub(crate) async fn summary_from_notification(
+    notification: Notification,
+    room: Room,
+) -> Option<SyncNotificationSummary> {
+    let room_id = room.room_id().to_string();
+    let room_display_name = room.cached_display_name().map(|n| n.to_string());
+    let is_highlight = notification.actions.iter().any(|a| a.is_highlight());
+    let is_noisy = notification.actions.iter().any(|a| a.sound().is_some());
+
+    match notification.event {
+        RawAnySyncOrStrippedTimelineEvent::Sync(raw) => {
+            let ev = raw.deserialize().ok()?;
+            let sender = ev.sender().to_string();
+            let sender_display_name = room
+                .get_member_no_sync(ev.sender())
+                .await
+                .ok()
+                .flatten()
+                .and_then(|m| m.display_name().map(|s| s.to_owned()));
+
+            let (kind, body_preview, event_id) = match &ev {
+                AnySyncTimelineEvent::MessageLike(ml) => {
+                    let eid = ml.event_id().to_string();
+                    let body = ml
+                        .original_content()
+                        .and_then(|c| match c {
+                            AnyMessageLikeEventContent::RoomMessage(msg) => {
+                                Some(msg.body().to_owned())
+                            }
+                            _ => None,
+                        })
+                        .unwrap_or_else(|| "New message".to_owned());
+                    (SyncNotificationKind::Message, body, eid)
+                }
+                _ => (
+                    SyncNotificationKind::Other,
+                    "New activity".to_owned(),
+                    ev.event_id().to_string(),
+                ),
+            };
+
+            Some(SyncNotificationSummary {
+                room_id,
+                room_display_name,
+                kind,
+                sender_id: format_user_id_for_display(&sender),
+                sender_display_name: sender_display_name
+                    .map(|s| format_user_id_for_display(&s)),
+                body_preview,
+                is_highlight,
+                is_noisy,
+                event_id,
+            })
+        }
+        RawAnySyncOrStrippedTimelineEvent::Stripped(raw) => {
+            let ev = raw.deserialize().ok()?;
+            let sender = ev.sender().to_string();
+            let sender_display_name = room
+                .get_member_no_sync(ev.sender())
+                .await
+                .ok()
+                .flatten()
+                .and_then(|m| m.display_name().map(|s| s.to_owned()));
+            Some(SyncNotificationSummary {
+                room_id,
+                room_display_name,
+                kind: SyncNotificationKind::Invite,
+                sender_id: format_user_id_for_display(&sender),
+                sender_display_name: sender_display_name
+                    .map(|s| format_user_id_for_display(&s)),
+                body_preview: "Room invite".to_owned(),
+                is_highlight,
+                is_noisy,
+                event_id: String::new(),
+            })
+        }
+    }
+}

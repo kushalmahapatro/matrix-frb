@@ -269,6 +269,10 @@ pub struct Message {
     pub media_preview_width: u32,
     /// Pixel height for timeline thumb aspect (thumbnail `h` when set, else main media `h`).
     pub media_preview_height: u32,
+    /// Voice/audio: `org.matrix.msc1767.audio` duration in ms, or `info.duration`, else 0.
+    pub audio_duration_ms: u64,
+    /// Voice/audio: MSC waveform normalized to 0..=1 (empty when not present).
+    pub audio_waveform: Vec<f32>,
     /// Event id this message replies to (`m.in_reply_to`), empty when not a reply.
     pub in_reply_to_event_id: String,
     /// Sender of the replied-to event when known.
@@ -594,6 +598,65 @@ pub(crate) fn sdk_ui_message_media_preview(msg: &SdkUiRoomMessage) -> (String, u
     }
 }
 
+/// Fallback: read `org.matrix.msc1767.audio` from the raw timeline JSON when the typed
+/// [`SdkUiRoomMessage`] payload does not surface it (e.g. sanitization / version skew).
+fn msc1767_audio_from_latest_json(ev: &EventTimelineItem) -> Option<(u64, Vec<f32>)> {
+    const AMP_MAX: f32 = 1024.0;
+    let raw = ev.latest_json()?;
+    let root: serde_json::Value = serde_json::from_str(raw.json().get()).ok()?;
+    let content = root.get("content")?.as_object()?;
+    let audio = content.get("org.matrix.msc1767.audio")?.as_object()?;
+    let dur_val = audio.get("duration")?;
+    let dur_ms = dur_val
+        .as_u64()
+        .or_else(|| dur_val.as_f64().map(|f| f.round().max(0.0) as u64))?;
+    let wf_json = audio.get("waveform")?.as_array()?;
+    if wf_json.is_empty() {
+        return Some((dur_ms, Vec::new()));
+    }
+    let wf: Vec<f32> = wf_json
+        .iter()
+        .filter_map(|x| {
+            x.as_u64()
+                .map(|u| (u as f32 / AMP_MAX).clamp(0.0, 1.0))
+                .or_else(|| {
+                    x.as_f64()
+                        .map(|f| (f as f32 / AMP_MAX).clamp(0.0, 1.0))
+                })
+        })
+        .collect();
+    Some((dur_ms, wf))
+}
+
+/// MSC1767 / MSC3245 `org.matrix.msc1767.audio`: duration (ms) and waveform samples in 0..=1.
+pub(crate) fn sdk_ui_message_audio_details(msg: &SdkUiRoomMessage) -> (u64, Vec<f32>) {
+    const AMP_MAX: f32 = 1024.0;
+    match msg.msgtype() {
+        RumaMessageType::Audio(a) => {
+            if let Some(details) = &a.audio {
+                let ms = details.duration.as_millis().min(u128::from(u64::MAX)) as u64;
+                let wf: Vec<f32> = details
+                    .waveform
+                    .iter()
+                    .map(|amp| {
+                        let u = optional_uint_to_u64(Some(amp.get())) as f32;
+                        (u / AMP_MAX).clamp(0.0, 1.0)
+                    })
+                    .collect();
+                return (ms, wf);
+            }
+            let dur_ms = a
+                .info
+                .as_deref()
+                .and_then(|i| i.duration)
+                .map(|d| d.as_millis().min(u128::from(u64::MAX)) as u64)
+                .unwrap_or(0);
+            (dur_ms, Vec::new())
+        }
+        _ => (0, Vec::new()),
+    }
+}
+
 fn event_media_attachment_info(ev: &EventTimelineItem) -> (String, u64) {
     let Some(msg) = ev.content().as_message() else {
         return (String::new(), 0);
@@ -788,6 +851,19 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
             let (media_mimetype, media_size_bytes) = event_media_attachment_info(ev);
             let (media_blurhash, media_preview_width, media_preview_height) =
                 event_media_attachment_preview(ev);
+            let (mut audio_duration_ms, mut audio_waveform) = ev
+                .content()
+                .as_message()
+                .map(sdk_ui_message_audio_details)
+                .unwrap_or((0, Vec::new()));
+            if audio_waveform.is_empty() {
+                if let Some((d, wf)) = msc1767_audio_from_latest_json(ev) {
+                    audio_duration_ms = audio_duration_ms.max(d);
+                    if !wf.is_empty() {
+                        audio_waveform = wf;
+                    }
+                }
+            }
             let ir = event_in_reply_snapshot(ev);
             let reactions = reaction_entries_from_event(ev, own_user_id);
             let (poll_options_json, poll_state_json) =
@@ -817,6 +893,8 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
                 media_blurhash,
                 media_preview_width,
                 media_preview_height,
+                audio_duration_ms,
+                audio_waveform,
                 in_reply_to_event_id: ir.event_id,
                 in_reply_to_sender: format_user_id_for_display(&ir.sender),
                 in_reply_to_preview: ir.preview,
@@ -855,6 +933,8 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
                     media_blurhash: String::new(),
                     media_preview_width: 0,
                     media_preview_height: 0,
+                    audio_duration_ms: 0,
+                    audio_waveform: vec![],
                     in_reply_to_event_id: String::new(),
                     in_reply_to_sender: String::new(),
                     in_reply_to_preview: String::new(),
@@ -888,6 +968,8 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
                     media_blurhash: String::new(),
                     media_preview_width: 0,
                     media_preview_height: 0,
+                    audio_duration_ms: 0,
+                    audio_waveform: vec![],
                     in_reply_to_event_id: String::new(),
                     in_reply_to_sender: String::new(),
                     in_reply_to_preview: String::new(),
@@ -921,6 +1003,8 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
                     media_blurhash: String::new(),
                     media_preview_width: 0,
                     media_preview_height: 0,
+                    audio_duration_ms: 0,
+                    audio_waveform: vec![],
                     in_reply_to_event_id: String::new(),
                     in_reply_to_sender: String::new(),
                     in_reply_to_preview: String::new(),
@@ -1197,6 +1281,15 @@ fn insert_if_not_duplicate(vec: &mut Vec<Message>, index: usize, msg: Message) {
     if !has && index <= vec.len() {
         vec.insert(index, msg);
     }
+}
+
+/// Send a public read receipt for the latest timeline event (and clear local unread when the SDK allows).
+pub(crate) async fn mark_timeline_as_read(timeline: &SdkTimeline) -> Result<bool, String> {
+    use matrix_sdk::ruma::api::client::receipt::create_receipt::v3::ReceiptType;
+    timeline
+        .mark_as_read(ReceiptType::Read)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Clone the shared UI timeline for a room (same instance as the sync listen_task).

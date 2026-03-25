@@ -2,6 +2,7 @@ pub mod attachment_thumbnails;
 pub mod authentication;
 pub mod document_preview;
 pub mod client;
+pub mod disk_media_store;
 pub mod file_send_progress;
 pub mod file_upload_cache;
 pub mod file_upload_cache_redaction;
@@ -14,6 +15,7 @@ pub mod send_timeline_file;
 pub mod status;
 pub mod timeline_media;
 pub mod sync_service;
+pub mod sync_notifications;
 pub mod timelines;
 pub mod user_serach;
 

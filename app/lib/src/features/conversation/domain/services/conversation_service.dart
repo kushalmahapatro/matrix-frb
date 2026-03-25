@@ -43,6 +43,15 @@ class ConversationService {
     return matrixService.client.subscribeToTimelineList(roomId: roomId);
   }
 
+  /// Public read receipt on the latest timeline event; updates SDK unread counts for the room.
+  Future<void> markTimelineAsRead(String roomId) async {
+    try {
+      await matrixService.client.markTimelineAsRead(roomId: roomId);
+    } catch (_) {
+      // Best-effort; opening the room should not fail the UI if the homeserver rejects receipts.
+    }
+  }
+
   /// Sliding Sync: subscribe this room for full required state + latest events (multiverse / Element).
   Future<void> roomListSubscribeToRooms(String roomId) async {
     await matrixService.client.roomListSubscribeToRooms(roomId: roomId);
@@ -98,6 +107,9 @@ class ConversationService {
     required String originalFilePath,
     AppTimelineSendPrep? prep,
     String? caption,
+    int? audioDurationMs,
+    List<double>? audioWaveformNormalized,
+    bool audioAsVoiceMessage = false,
     required void Function(FileSendProgress p) onProgress,
   }) async {
     if (prep != null) {
@@ -105,6 +117,9 @@ class ConversationService {
         roomId: roomId,
         prep: prep,
         caption: caption,
+        audioDurationMs: audioDurationMs,
+        audioWaveformNormalized: audioWaveformNormalized,
+        audioAsVoiceMessage: audioAsVoiceMessage,
         onProgress: onProgress,
       );
     }
@@ -113,6 +128,9 @@ class ConversationService {
       filePath: originalFilePath,
       caption: caption,
       appThumbnailJpegPath: null,
+      audioDurationMs: audioDurationMs,
+      audioWaveformNormalized: audioWaveformNormalized,
+      audioAsVoiceMessage: audioAsVoiceMessage,
       onProgress: onProgress,
     );
   }
@@ -122,6 +140,9 @@ class ConversationService {
     required String roomId,
     required AppTimelineSendPrep prep,
     String? caption,
+    int? audioDurationMs,
+    List<double>? audioWaveformNormalized,
+    bool audioAsVoiceMessage = false,
     required void Function(FileSendProgress p) onProgress,
   }) async {
     try {
@@ -130,6 +151,9 @@ class ConversationService {
         filePath: prep.filePathToSend,
         caption: caption,
         appThumbnailJpegPath: prep.appThumbnailJpegPath,
+        audioDurationMs: audioDurationMs,
+        audioWaveformNormalized: audioWaveformNormalized,
+        audioAsVoiceMessage: audioAsVoiceMessage,
         onProgress: onProgress,
       );
     } finally {
@@ -142,6 +166,9 @@ class ConversationService {
     required String filePath,
     String? caption,
     String? appThumbnailJpegPath,
+    int? audioDurationMs,
+    List<double>? audioWaveformNormalized,
+    bool audioAsVoiceMessage = false,
     required void Function(FileSendProgress p) onProgress,
   }) async {
     if (await isTimelineVideoSendCandidate(filePath, mimeType: null)) {
@@ -156,11 +183,18 @@ class ConversationService {
     }
     try {
       FileSendProgress? last;
+      final wf = audioWaveformNormalized;
       final stream = matrixService.client.sendTimelineFileWithProgress(
         roomId: roomId,
         filePath: filePath,
         caption: caption,
         appThumbnailJpegPath: appThumbnailJpegPath,
+        audioDurationMs:
+            audioDurationMs == null ? null : BigInt.from(audioDurationMs),
+        audioWaveformNormalized: wf == null || wf.isEmpty
+            ? null
+            : Float32List.fromList(wf),
+        audioAsVoiceMessage: audioAsVoiceMessage,
       );
       await for (final p in stream) {
         last = p;
@@ -200,6 +234,9 @@ class ConversationService {
 
     /// From [XFile.mimeType] / picker when the path has no video extension (e.g. `image_picker_…`).
     String? mimeType,
+    int? audioDurationMs,
+    List<double>? audioWaveformNormalized,
+    bool audioAsVoiceMessage = false,
     required void Function(FileSendProgress p) onProgress,
   }) async {
     AppTimelineSendPrep? prep;
@@ -229,6 +266,9 @@ class ConversationService {
         filePath: sendPath,
         caption: caption,
         appThumbnailJpegPath: appThumb,
+        audioDurationMs: audioDurationMs,
+        audioWaveformNormalized: audioWaveformNormalized,
+        audioAsVoiceMessage: audioAsVoiceMessage,
         onProgress: onProgress,
       );
     } finally {
@@ -265,6 +305,9 @@ class ConversationService {
     required String filePath,
     String? caption,
     String? mimeType,
+    int? audioDurationMs,
+    List<double>? audioWaveformNormalized,
+    bool audioAsVoiceMessage = false,
   }) async {
     AppTimelineSendPrep? prep;
     try {
@@ -289,11 +332,18 @@ class ConversationService {
     final appThumb = prep?.appThumbnailJpegPath;
 
     try {
+      final wf = audioWaveformNormalized;
       final eventId = await matrixService.client.sendTimelineFile(
         roomId: roomId,
         filePath: sendPath,
         caption: caption,
         appThumbnailJpegPath: appThumb,
+        audioDurationMs:
+            audioDurationMs == null ? null : BigInt.from(audioDurationMs),
+        audioWaveformNormalized: wf == null || wf.isEmpty
+            ? null
+            : Float32List.fromList(wf),
+        audioAsVoiceMessage: audioAsVoiceMessage,
       );
       return Success(eventId);
     } catch (e) {

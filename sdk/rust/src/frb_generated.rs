@@ -40,7 +40,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueNom,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1213224700;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -99071645;
 
 // Section: executor
 
@@ -1084,6 +1084,103 @@ fn wire__crate__api__matrix_client__MatrixClient_logout_impl(
         },
     )
 }
+fn wire__crate__api__matrix_client__MatrixClient_mark_timeline_as_read_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    room_id: impl CstDecode<String>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_mark_timeline_as_read",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_room_id = room_id.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::matrix_client::MatrixClient::mark_timeline_as_read(
+                                &*api_that_guard,
+                                api_room_id,
+                            )
+                            .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__matrix_client__MatrixClient_pause_sync_service_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_pause_sync_service",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::matrix_client::MatrixClient::pause_sync_service(
+                                &*api_that_guard,
+                            )
+                            .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__matrix_client__MatrixClient_redact_timeline_event_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     that: impl CstDecode<
@@ -1699,6 +1796,9 @@ fn wire__crate__api__matrix_client__MatrixClient_send_timeline_file_impl(
     file_path: impl CstDecode<String>,
     caption: impl CstDecode<Option<String>>,
     app_thumbnail_jpeg_path: impl CstDecode<Option<String>>,
+    audio_duration_ms: impl CstDecode<Option<u64>>,
+    audio_waveform_normalized: impl CstDecode<Option<Vec<f32>>>,
+    audio_as_voice_message: impl CstDecode<bool>,
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
@@ -1712,6 +1812,9 @@ fn wire__crate__api__matrix_client__MatrixClient_send_timeline_file_impl(
             let api_file_path = file_path.cst_decode();
             let api_caption = caption.cst_decode();
             let api_app_thumbnail_jpeg_path = app_thumbnail_jpeg_path.cst_decode();
+            let api_audio_duration_ms = audio_duration_ms.cst_decode();
+            let api_audio_waveform_normalized = audio_waveform_normalized.cst_decode();
+            let api_audio_as_voice_message = audio_as_voice_message.cst_decode();
             move |context| async move {
                 transform_result_dco::<_, _, String>(
                     (move || async move {
@@ -1739,6 +1842,9 @@ fn wire__crate__api__matrix_client__MatrixClient_send_timeline_file_impl(
                                 api_file_path,
                                 api_caption,
                                 api_app_thumbnail_jpeg_path,
+                                api_audio_duration_ms,
+                                api_audio_waveform_normalized,
+                                api_audio_as_voice_message,
                             )
                             .await?;
                         Ok(output_ok)
@@ -1758,6 +1864,9 @@ fn wire__crate__api__matrix_client__MatrixClient_send_timeline_file_with_progres
     file_path: impl CstDecode<String>,
     caption: impl CstDecode<Option<String>>,
     app_thumbnail_jpeg_path: impl CstDecode<Option<String>>,
+    audio_duration_ms: impl CstDecode<Option<u64>>,
+    audio_waveform_normalized: impl CstDecode<Option<Vec<f32>>>,
+    audio_as_voice_message: impl CstDecode<bool>,
     progress: impl CstDecode<
         StreamSink<
             crate::matrix::file_send_progress::FileSendProgress,
@@ -1765,7 +1874,7 @@ fn wire__crate__api__matrix_client__MatrixClient_send_timeline_file_with_progres
         >,
     >,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "MatrixClient_send_timeline_file_with_progress", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_that = that.cst_decode();let api_room_id = room_id.cst_decode();let api_file_path = file_path.cst_decode();let api_caption = caption.cst_decode();let api_app_thumbnail_jpeg_path = app_thumbnail_jpeg_path.cst_decode();let api_progress = progress.cst_decode(); move |context| async move {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "MatrixClient_send_timeline_file_with_progress", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_that = that.cst_decode();let api_room_id = room_id.cst_decode();let api_file_path = file_path.cst_decode();let api_caption = caption.cst_decode();let api_app_thumbnail_jpeg_path = app_thumbnail_jpeg_path.cst_decode();let api_audio_duration_ms = audio_duration_ms.cst_decode();let api_audio_waveform_normalized = audio_waveform_normalized.cst_decode();let api_audio_as_voice_message = audio_as_voice_message.cst_decode();let api_progress = progress.cst_decode(); move |context| async move {
                     transform_result_dco::<_, _, String>((move || async move {
                         let mut api_that_guard = None;
 let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(&api_that, 0, false)]);
@@ -1776,7 +1885,7 @@ let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decod
             }
         }
         let api_that_guard = api_that_guard.unwrap();
- let output_ok = crate::api::matrix_client::MatrixClient::send_timeline_file_with_progress(&*api_that_guard, api_room_id, api_file_path, api_caption, api_app_thumbnail_jpeg_path, api_progress).await?;   Ok(output_ok)
+ let output_ok = crate::api::matrix_client::MatrixClient::send_timeline_file_with_progress(&*api_that_guard, api_room_id, api_file_path, api_caption, api_app_thumbnail_jpeg_path, api_audio_duration_ms, api_audio_waveform_normalized, api_audio_as_voice_message, api_progress).await?;   Ok(output_ok)
                     })().await)
                 } })
 }
@@ -2096,6 +2205,33 @@ fn wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_list_impl(
             }
         },
     )
+}
+fn wire__crate__api__matrix_client__MatrixClient_subscribe_to_sync_notifications_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    stream: impl CstDecode<
+        StreamSink<
+            crate::matrix::sync_notifications::SyncNotificationSummary,
+            flutter_rust_bridge::for_generated::DcoCodec,
+        >,
+    >,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "MatrixClient_subscribe_to_sync_notifications", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_that = that.cst_decode();let api_stream = stream.cst_decode(); move |context| async move {
+                    transform_result_dco::<_, _, ()>((move || async move {
+                        let mut api_that_guard = None;
+let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(&api_that, 0, false)]);
+        for i in decode_indices_ {
+            match i {
+                0 => api_that_guard = Some(api_that.lockable_decode_async_ref().await),
+                _ => unreachable!(),
+            }
+        }
+        let api_that_guard = api_that_guard.unwrap();
+ let output_ok = Result::<_,()>::Ok({ crate::api::matrix_client::MatrixClient::subscribe_to_sync_notifications(&*api_that_guard, api_stream).await; })?;   Ok(output_ok)
+                    })().await)
+                } })
 }
 fn wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_list_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
@@ -2554,6 +2690,12 @@ impl CstDecode<crate::matrix::timelines::EventSendStateKind> for i32 {
         }
     }
 }
+impl CstDecode<f32> for f32 {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    fn cst_decode(self) -> f32 {
+        self
+    }
+}
 impl CstDecode<crate::logger::platform::FileRotation> for i32 {
     // Codec=Cst (C-struct based), see doc to use other codecs
     fn cst_decode(self) -> crate::logger::platform::FileRotation {
@@ -2676,6 +2818,17 @@ impl CstDecode<crate::matrix::timelines::RoomMessageKind> for i32 {
             5 => crate::matrix::timelines::RoomMessageKind::Poll,
             6 => crate::matrix::timelines::RoomMessageKind::Other,
             _ => unreachable!("Invalid variant for RoomMessageKind: {}", self),
+        }
+    }
+}
+impl CstDecode<crate::matrix::sync_notifications::SyncNotificationKind> for i32 {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    fn cst_decode(self) -> crate::matrix::sync_notifications::SyncNotificationKind {
+        match self {
+            0 => crate::matrix::sync_notifications::SyncNotificationKind::Message,
+            1 => crate::matrix::sync_notifications::SyncNotificationKind::Invite,
+            2 => crate::matrix::sync_notifications::SyncNotificationKind::Other,
+            _ => unreachable!("Invalid variant for SyncNotificationKind: {}", self),
         }
     }
 }
@@ -2890,6 +3043,19 @@ impl SseDecode
 
 impl SseDecode
     for StreamSink<
+        crate::matrix::sync_notifications::SyncNotificationSummary,
+        flutter_rust_bridge::for_generated::DcoCodec,
+    >
+{
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <String>::sse_decode(deserializer);
+        return StreamSink::deserialize(inner);
+    }
+}
+
+impl SseDecode
+    for StreamSink<
         crate::matrix::sync_service::SyncState,
         flutter_rust_bridge::for_generated::DcoCodec,
     >
@@ -2925,6 +3091,7 @@ impl SseDecode for crate::matrix::client::ClientConfig {
         let mut var_proxy = <Option<String>>::sse_decode(deserializer);
         let mut var_passphrase = <Option<String>>::sse_decode(deserializer);
         let mut var_showHomeServerForUsername = <bool>::sse_decode(deserializer);
+        let mut var_mediaCachePath = <Option<String>>::sse_decode(deserializer);
         return crate::matrix::client::ClientConfig {
             session_path: var_sessionPath,
             homeserver_url: var_homeserverUrl,
@@ -2932,6 +3099,7 @@ impl SseDecode for crate::matrix::client::ClientConfig {
             proxy: var_proxy,
             passphrase: var_passphrase,
             show_home_server_for_username: var_showHomeServerForUsername,
+            media_cache_path: var_mediaCachePath,
         };
     }
 }
@@ -2966,6 +3134,13 @@ impl SseDecode for crate::matrix::timelines::EventSendStateKind {
             2 => crate::matrix::timelines::EventSendStateKind::Failed,
             _ => unreachable!("Invalid variant for EventSendStateKind: {}", inner),
         };
+    }
+}
+
+impl SseDecode for f32 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        deserializer.cursor.read_f32::<NativeEndian>().unwrap()
     }
 }
 
@@ -3078,6 +3253,18 @@ impl SseDecode for Vec<crate::matrix::timelines::MessageReactionEntry> {
         let mut ans_ = vec![];
         for idx_ in 0..len_ {
             ans_.push(<crate::matrix::timelines::MessageReactionEntry>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<f32> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = vec![];
+        for idx_ in 0..len_ {
+            ans_.push(<f32>::sse_decode(deserializer));
         }
         return ans_;
     }
@@ -3225,6 +3412,8 @@ impl SseDecode for crate::matrix::timelines::Message {
         let mut var_mediaBlurhash = <String>::sse_decode(deserializer);
         let mut var_mediaPreviewWidth = <u32>::sse_decode(deserializer);
         let mut var_mediaPreviewHeight = <u32>::sse_decode(deserializer);
+        let mut var_audioDurationMs = <u64>::sse_decode(deserializer);
+        let mut var_audioWaveform = <Vec<f32>>::sse_decode(deserializer);
         let mut var_inReplyToEventId = <String>::sse_decode(deserializer);
         let mut var_inReplyToSender = <String>::sse_decode(deserializer);
         let mut var_inReplyToPreview = <String>::sse_decode(deserializer);
@@ -3259,6 +3448,8 @@ impl SseDecode for crate::matrix::timelines::Message {
             media_blurhash: var_mediaBlurhash,
             media_preview_width: var_mediaPreviewWidth,
             media_preview_height: var_mediaPreviewHeight,
+            audio_duration_ms: var_audioDurationMs,
+            audio_waveform: var_audioWaveform,
             in_reply_to_event_id: var_inReplyToEventId,
             in_reply_to_sender: var_inReplyToSender,
             in_reply_to_preview: var_inReplyToPreview,
@@ -3454,6 +3645,17 @@ impl SseDecode for Option<Vec<crate::matrix::timelines::Message>> {
     }
 }
 
+impl SseDecode for Option<Vec<f32>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<Vec<f32>>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for crate::matrix::room_info::RoomDetails {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3641,6 +3843,46 @@ impl SseDecode for crate::matrix::rooms::RoomUpdate {
             unread_mentions: var_unreadMentions,
             unread_messages: var_unreadMessages,
             message: var_message,
+        };
+    }
+}
+
+impl SseDecode for crate::matrix::sync_notifications::SyncNotificationKind {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::matrix::sync_notifications::SyncNotificationKind::Message,
+            1 => crate::matrix::sync_notifications::SyncNotificationKind::Invite,
+            2 => crate::matrix::sync_notifications::SyncNotificationKind::Other,
+            _ => unreachable!("Invalid variant for SyncNotificationKind: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::matrix::sync_notifications::SyncNotificationSummary {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_roomId = <String>::sse_decode(deserializer);
+        let mut var_roomDisplayName = <Option<String>>::sse_decode(deserializer);
+        let mut var_kind =
+            <crate::matrix::sync_notifications::SyncNotificationKind>::sse_decode(deserializer);
+        let mut var_senderId = <String>::sse_decode(deserializer);
+        let mut var_senderDisplayName = <Option<String>>::sse_decode(deserializer);
+        let mut var_bodyPreview = <String>::sse_decode(deserializer);
+        let mut var_isHighlight = <bool>::sse_decode(deserializer);
+        let mut var_isNoisy = <bool>::sse_decode(deserializer);
+        let mut var_eventId = <String>::sse_decode(deserializer);
+        return crate::matrix::sync_notifications::SyncNotificationSummary {
+            room_id: var_roomId,
+            room_display_name: var_roomDisplayName,
+            kind: var_kind,
+            sender_id: var_senderId,
+            sender_display_name: var_senderDisplayName,
+            body_preview: var_bodyPreview,
+            is_highlight: var_isHighlight,
+            is_noisy: var_isNoisy,
+            event_id: var_eventId,
         };
     }
 }
@@ -3885,6 +4127,7 @@ impl flutter_rust_bridge::IntoDart for crate::matrix::client::ClientConfig {
             self.show_home_server_for_username
                 .into_into_dart()
                 .into_dart(),
+            self.media_cache_path.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -4067,6 +4310,8 @@ impl flutter_rust_bridge::IntoDart for crate::matrix::timelines::Message {
             self.media_blurhash.into_into_dart().into_dart(),
             self.media_preview_width.into_into_dart().into_dart(),
             self.media_preview_height.into_into_dart().into_dart(),
+            self.audio_duration_ms.into_into_dart().into_dart(),
+            self.audio_waveform.into_into_dart().into_dart(),
             self.in_reply_to_event_id.into_into_dart().into_dart(),
             self.in_reply_to_sender.into_into_dart().into_dart(),
             self.in_reply_to_preview.into_into_dart().into_dart(),
@@ -4441,6 +4686,56 @@ impl flutter_rust_bridge::IntoIntoDart<crate::matrix::rooms::RoomUpdate>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::matrix::sync_notifications::SyncNotificationKind {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Message => 0.into_dart(),
+            Self::Invite => 1.into_dart(),
+            Self::Other => 2.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::matrix::sync_notifications::SyncNotificationKind
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::matrix::sync_notifications::SyncNotificationKind>
+    for crate::matrix::sync_notifications::SyncNotificationKind
+{
+    fn into_into_dart(self) -> crate::matrix::sync_notifications::SyncNotificationKind {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::matrix::sync_notifications::SyncNotificationSummary {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.room_id.into_into_dart().into_dart(),
+            self.room_display_name.into_into_dart().into_dart(),
+            self.kind.into_into_dart().into_dart(),
+            self.sender_id.into_into_dart().into_dart(),
+            self.sender_display_name.into_into_dart().into_dart(),
+            self.body_preview.into_into_dart().into_dart(),
+            self.is_highlight.into_into_dart().into_dart(),
+            self.is_noisy.into_into_dart().into_dart(),
+            self.event_id.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::matrix::sync_notifications::SyncNotificationSummary
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::matrix::sync_notifications::SyncNotificationSummary>
+    for crate::matrix::sync_notifications::SyncNotificationSummary
+{
+    fn into_into_dart(self) -> crate::matrix::sync_notifications::SyncNotificationSummary {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::matrix::sync_service::SyncState {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
@@ -4739,6 +5034,18 @@ impl SseEncode
 
 impl SseEncode
     for StreamSink<
+        crate::matrix::sync_notifications::SyncNotificationSummary,
+        flutter_rust_bridge::for_generated::DcoCodec,
+    >
+{
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        unimplemented!("")
+    }
+}
+
+impl SseEncode
+    for StreamSink<
         crate::matrix::sync_service::SyncState,
         flutter_rust_bridge::for_generated::DcoCodec,
     >
@@ -4772,6 +5079,7 @@ impl SseEncode for crate::matrix::client::ClientConfig {
         <Option<String>>::sse_encode(self.proxy, serializer);
         <Option<String>>::sse_encode(self.passphrase, serializer);
         <bool>::sse_encode(self.show_home_server_for_username, serializer);
+        <Option<String>>::sse_encode(self.media_cache_path, serializer);
     }
 }
 
@@ -4805,6 +5113,13 @@ impl SseEncode for crate::matrix::timelines::EventSendStateKind {
             },
             serializer,
         );
+    }
+}
+
+impl SseEncode for f32 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        serializer.cursor.write_f32::<NativeEndian>(self).unwrap();
     }
 }
 
@@ -4909,6 +5224,16 @@ impl SseEncode for Vec<crate::matrix::timelines::MessageReactionEntry> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <crate::matrix::timelines::MessageReactionEntry>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<f32> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <f32>::sse_encode(item, serializer);
         }
     }
 }
@@ -5031,6 +5356,8 @@ impl SseEncode for crate::matrix::timelines::Message {
         <String>::sse_encode(self.media_blurhash, serializer);
         <u32>::sse_encode(self.media_preview_width, serializer);
         <u32>::sse_encode(self.media_preview_height, serializer);
+        <u64>::sse_encode(self.audio_duration_ms, serializer);
+        <Vec<f32>>::sse_encode(self.audio_waveform, serializer);
         <String>::sse_encode(self.in_reply_to_event_id, serializer);
         <String>::sse_encode(self.in_reply_to_sender, serializer);
         <String>::sse_encode(self.in_reply_to_preview, serializer);
@@ -5213,6 +5540,16 @@ impl SseEncode for Option<Vec<crate::matrix::timelines::Message>> {
     }
 }
 
+impl SseEncode for Option<Vec<f32>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <Vec<f32>>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for crate::matrix::room_info::RoomDetails {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -5351,6 +5688,40 @@ impl SseEncode for crate::matrix::rooms::RoomUpdate {
         <Option<u64>>::sse_encode(self.unread_mentions, serializer);
         <Option<u64>>::sse_encode(self.unread_messages, serializer);
         <Option<crate::matrix::timelines::Message>>::sse_encode(self.message, serializer);
+    }
+}
+
+impl SseEncode for crate::matrix::sync_notifications::SyncNotificationKind {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::matrix::sync_notifications::SyncNotificationKind::Message => 0,
+                crate::matrix::sync_notifications::SyncNotificationKind::Invite => 1,
+                crate::matrix::sync_notifications::SyncNotificationKind::Other => 2,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::matrix::sync_notifications::SyncNotificationSummary {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.room_id, serializer);
+        <Option<String>>::sse_encode(self.room_display_name, serializer);
+        <crate::matrix::sync_notifications::SyncNotificationKind>::sse_encode(
+            self.kind, serializer,
+        );
+        <String>::sse_encode(self.sender_id, serializer);
+        <Option<String>>::sse_encode(self.sender_display_name, serializer);
+        <String>::sse_encode(self.body_preview, serializer);
+        <bool>::sse_encode(self.is_highlight, serializer);
+        <bool>::sse_encode(self.is_noisy, serializer);
+        <String>::sse_encode(self.event_id, serializer);
     }
 }
 
@@ -5713,6 +6084,25 @@ mod io {
     impl
         CstDecode<
             StreamSink<
+                crate::matrix::sync_notifications::SyncNotificationSummary,
+                flutter_rust_bridge::for_generated::DcoCodec,
+            >,
+        > for *mut wire_cst_list_prim_u_8_strict
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(
+            self,
+        ) -> StreamSink<
+            crate::matrix::sync_notifications::SyncNotificationSummary,
+            flutter_rust_bridge::for_generated::DcoCodec,
+        > {
+            let raw: String = self.cst_decode();
+            StreamSink::deserialize(raw)
+        }
+    }
+    impl
+        CstDecode<
+            StreamSink<
                 crate::matrix::sync_service::SyncState,
                 flutter_rust_bridge::for_generated::DcoCodec,
             >,
@@ -5803,6 +6193,7 @@ mod io {
                 proxy: self.proxy.cst_decode(),
                 passphrase: self.passphrase.cst_decode(),
                 show_home_server_for_username: self.show_home_server_for_username.cst_decode(),
+                media_cache_path: self.media_cache_path.cst_decode(),
             }
         }
     }
@@ -5874,6 +6265,15 @@ mod io {
                 flutter_rust_bridge::for_generated::vec_from_leak_ptr(wrap.ptr, wrap.len)
             };
             vec.into_iter().map(CstDecode::cst_decode).collect()
+        }
+    }
+    impl CstDecode<Vec<f32>> for *mut wire_cst_list_prim_f_32_strict {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> Vec<f32> {
+            unsafe {
+                let wrap = flutter_rust_bridge::for_generated::box_from_leak_ptr(self);
+                flutter_rust_bridge::for_generated::vec_from_leak_ptr(wrap.ptr, wrap.len)
+            }
         }
     }
     impl CstDecode<Vec<u8>> for *mut wire_cst_list_prim_u_8_loose {
@@ -5986,6 +6386,8 @@ mod io {
                 media_blurhash: self.media_blurhash.cst_decode(),
                 media_preview_width: self.media_preview_width.cst_decode(),
                 media_preview_height: self.media_preview_height.cst_decode(),
+                audio_duration_ms: self.audio_duration_ms.cst_decode(),
+                audio_waveform: self.audio_waveform.cst_decode(),
                 in_reply_to_event_id: self.in_reply_to_event_id.cst_decode(),
                 in_reply_to_sender: self.in_reply_to_sender.cst_decode(),
                 in_reply_to_preview: self.in_reply_to_preview.cst_decode(),
@@ -6119,6 +6521,24 @@ mod io {
             }
         }
     }
+    impl CstDecode<crate::matrix::sync_notifications::SyncNotificationSummary>
+        for wire_cst_sync_notification_summary
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::matrix::sync_notifications::SyncNotificationSummary {
+            crate::matrix::sync_notifications::SyncNotificationSummary {
+                room_id: self.room_id.cst_decode(),
+                room_display_name: self.room_display_name.cst_decode(),
+                kind: self.kind.cst_decode(),
+                sender_id: self.sender_id.cst_decode(),
+                sender_display_name: self.sender_display_name.cst_decode(),
+                body_preview: self.body_preview.cst_decode(),
+                is_highlight: self.is_highlight.cst_decode(),
+                is_noisy: self.is_noisy.cst_decode(),
+                event_id: self.event_id.cst_decode(),
+            }
+        }
+    }
     impl CstDecode<crate::logger::platform::TracingConfiguration> for wire_cst_tracing_configuration {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> crate::logger::platform::TracingConfiguration {
@@ -6174,6 +6594,7 @@ mod io {
                 proxy: core::ptr::null_mut(),
                 passphrase: core::ptr::null_mut(),
                 show_home_server_for_username: Default::default(),
+                media_cache_path: core::ptr::null_mut(),
             }
         }
     }
@@ -6229,6 +6650,8 @@ mod io {
                 media_blurhash: core::ptr::null_mut(),
                 media_preview_width: Default::default(),
                 media_preview_height: Default::default(),
+                audio_duration_ms: Default::default(),
+                audio_waveform: core::ptr::null_mut(),
                 in_reply_to_event_id: core::ptr::null_mut(),
                 in_reply_to_sender: core::ptr::null_mut(),
                 in_reply_to_preview: core::ptr::null_mut(),
@@ -6393,6 +6816,26 @@ mod io {
         }
     }
     impl Default for wire_cst_room_update {
+        fn default() -> Self {
+            Self::new_with_null_ptr()
+        }
+    }
+    impl NewWithNullPtr for wire_cst_sync_notification_summary {
+        fn new_with_null_ptr() -> Self {
+            Self {
+                room_id: core::ptr::null_mut(),
+                room_display_name: core::ptr::null_mut(),
+                kind: Default::default(),
+                sender_id: core::ptr::null_mut(),
+                sender_display_name: core::ptr::null_mut(),
+                body_preview: core::ptr::null_mut(),
+                is_highlight: Default::default(),
+                is_noisy: Default::default(),
+                event_id: core::ptr::null_mut(),
+            }
+        }
+    }
+    impl Default for wire_cst_sync_notification_summary {
         fn default() -> Self {
             Self::new_with_null_ptr()
         }
@@ -6678,6 +7121,25 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_mark_timeline_as_read(
+        port_: i64,
+        that: usize,
+        room_id: *mut wire_cst_list_prim_u_8_strict,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_mark_timeline_as_read_impl(
+            port_, that, room_id,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_pause_sync_service(
+        port_: i64,
+        that: usize,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_pause_sync_service_impl(port_, that)
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_redact_timeline_event(
         port_: i64,
         that: usize,
@@ -6858,6 +7320,9 @@ mod io {
         file_path: *mut wire_cst_list_prim_u_8_strict,
         caption: *mut wire_cst_list_prim_u_8_strict,
         app_thumbnail_jpeg_path: *mut wire_cst_list_prim_u_8_strict,
+        audio_duration_ms: *mut u64,
+        audio_waveform_normalized: *mut wire_cst_list_prim_f_32_strict,
+        audio_as_voice_message: bool,
     ) {
         wire__crate__api__matrix_client__MatrixClient_send_timeline_file_impl(
             port_,
@@ -6866,6 +7331,9 @@ mod io {
             file_path,
             caption,
             app_thumbnail_jpeg_path,
+            audio_duration_ms,
+            audio_waveform_normalized,
+            audio_as_voice_message,
         )
     }
 
@@ -6877,6 +7345,9 @@ mod io {
         file_path: *mut wire_cst_list_prim_u_8_strict,
         caption: *mut wire_cst_list_prim_u_8_strict,
         app_thumbnail_jpeg_path: *mut wire_cst_list_prim_u_8_strict,
+        audio_duration_ms: *mut u64,
+        audio_waveform_normalized: *mut wire_cst_list_prim_f_32_strict,
+        audio_as_voice_message: bool,
         progress: *mut wire_cst_list_prim_u_8_strict,
     ) {
         wire__crate__api__matrix_client__MatrixClient_send_timeline_file_with_progress_impl(
@@ -6886,6 +7357,9 @@ mod io {
             file_path,
             caption,
             app_thumbnail_jpeg_path,
+            audio_duration_ms,
+            audio_waveform_normalized,
+            audio_as_voice_message,
             progress,
         )
     }
@@ -6955,6 +7429,17 @@ mod io {
         stream: *mut wire_cst_list_prim_u_8_strict,
     ) {
         wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_list_impl(
+            port_, that, stream,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_sync_notifications(
+        port_: i64,
+        that: usize,
+        stream: *mut wire_cst_list_prim_u_8_strict,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_subscribe_to_sync_notifications_impl(
             port_, that, stream,
         )
     }
@@ -7237,6 +7722,17 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_cst_new_list_prim_f_32_strict(
+        len: i32,
+    ) -> *mut wire_cst_list_prim_f_32_strict {
+        let ans = wire_cst_list_prim_f_32_strict {
+            ptr: flutter_rust_bridge::for_generated::new_leak_vec_ptr(Default::default(), len),
+            len,
+        };
+        flutter_rust_bridge::for_generated::new_leak_box_ptr(ans)
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_cst_new_list_prim_u_8_loose(
         len: i32,
     ) -> *mut wire_cst_list_prim_u_8_loose {
@@ -7358,7 +7854,8 @@ homeserver_url: *mut wire_cst_list_prim_u_8_strict,
 root_certificates: *mut wire_cst_list_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerCertificate,
 proxy: *mut wire_cst_list_prim_u_8_strict,
 passphrase: *mut wire_cst_list_prim_u_8_strict,
-show_home_server_for_username: bool }
+show_home_server_for_username: bool,
+media_cache_path: *mut wire_cst_list_prim_u_8_strict }
     #[repr(C)]
     #[derive(Clone, Copy)]
     pub struct wire_cst_client_error {
@@ -7408,6 +7905,12 @@ show_home_server_for_username: bool }
     #[derive(Clone, Copy)]
     pub struct wire_cst_list_message_reaction_entry {
         ptr: *mut wire_cst_message_reaction_entry,
+        len: i32,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    pub struct wire_cst_list_prim_f_32_strict {
+        ptr: *mut f32,
         len: i32,
     }
     #[repr(C)]
@@ -7483,6 +7986,8 @@ show_home_server_for_username: bool }
         media_blurhash: *mut wire_cst_list_prim_u_8_strict,
         media_preview_width: u32,
         media_preview_height: u32,
+        audio_duration_ms: u64,
+        audio_waveform: *mut wire_cst_list_prim_f_32_strict,
         in_reply_to_event_id: *mut wire_cst_list_prim_u_8_strict,
         in_reply_to_sender: *mut wire_cst_list_prim_u_8_strict,
         in_reply_to_preview: *mut wire_cst_list_prim_u_8_strict,
@@ -7587,6 +8092,19 @@ show_home_server_for_username: bool }
         unread_mentions: *mut u64,
         unread_messages: *mut u64,
         message: *mut wire_cst_message,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    pub struct wire_cst_sync_notification_summary {
+        room_id: *mut wire_cst_list_prim_u_8_strict,
+        room_display_name: *mut wire_cst_list_prim_u_8_strict,
+        kind: i32,
+        sender_id: *mut wire_cst_list_prim_u_8_strict,
+        sender_display_name: *mut wire_cst_list_prim_u_8_strict,
+        body_preview: *mut wire_cst_list_prim_u_8_strict,
+        is_highlight: bool,
+        is_noisy: bool,
+        event_id: *mut wire_cst_list_prim_u_8_strict,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -7755,6 +8273,24 @@ mod web {
     impl
         CstDecode<
             StreamSink<
+                crate::matrix::sync_notifications::SyncNotificationSummary,
+                flutter_rust_bridge::for_generated::DcoCodec,
+            >,
+        > for String
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(
+            self,
+        ) -> StreamSink<
+            crate::matrix::sync_notifications::SyncNotificationSummary,
+            flutter_rust_bridge::for_generated::DcoCodec,
+        > {
+            StreamSink::deserialize(self)
+        }
+    }
+    impl
+        CstDecode<
+            StreamSink<
                 crate::matrix::sync_service::SyncState,
                 flutter_rust_bridge::for_generated::DcoCodec,
             >,
@@ -7786,8 +8322,8 @@ mod web {
                 .unwrap();
             assert_eq!(
                 self_.length(),
-                6,
-                "Expected 6 elements, got {}",
+                7,
+                "Expected 7 elements, got {}",
                 self_.length()
             );
             crate::matrix::client::ClientConfig {
@@ -7797,6 +8333,7 @@ mod web {
                 proxy: self_.get(3).cst_decode(),
                 passphrase: self_.get(4).cst_decode(),
                 show_home_server_for_username: self_.get(5).cst_decode(),
+                media_cache_path: self_.get(6).cst_decode(),
             }
         }
     }
@@ -7879,6 +8416,12 @@ mod web {
                 .iter()
                 .map(CstDecode::cst_decode)
                 .collect()
+        }
+    }
+    impl CstDecode<Vec<f32>> for Box<[f32]> {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> Vec<f32> {
+            self.into_vec()
         }
     }
     impl CstDecode<Vec<u8>> for Box<[u8]> {
@@ -7981,8 +8524,8 @@ mod web {
                 .unwrap();
             assert_eq!(
                 self_.length(),
-                31,
-                "Expected 31 elements, got {}",
+                33,
+                "Expected 33 elements, got {}",
                 self_.length()
             );
             crate::matrix::timelines::Message {
@@ -8002,21 +8545,23 @@ mod web {
                 media_blurhash: self_.get(13).cst_decode(),
                 media_preview_width: self_.get(14).cst_decode(),
                 media_preview_height: self_.get(15).cst_decode(),
-                in_reply_to_event_id: self_.get(16).cst_decode(),
-                in_reply_to_sender: self_.get(17).cst_decode(),
-                in_reply_to_preview: self_.get(18).cst_decode(),
-                in_reply_to_room_msg_kind: self_.get(19).cst_decode(),
-                in_reply_to_media_mimetype: self_.get(20).cst_decode(),
-                in_reply_to_media_size_bytes: self_.get(21).cst_decode(),
-                in_reply_to_media_blurhash: self_.get(22).cst_decode(),
-                in_reply_to_media_preview_width: self_.get(23).cst_decode(),
-                in_reply_to_media_preview_height: self_.get(24).cst_decode(),
-                in_reply_to_parent_redacted: self_.get(25).cst_decode(),
-                reactions: self_.get(26).cst_decode(),
-                poll_options_json: self_.get(27).cst_decode(),
-                poll_state_json: self_.get(28).cst_decode(),
-                link_previews_json: self_.get(29).cst_decode(),
-                is_redacted: self_.get(30).cst_decode(),
+                audio_duration_ms: self_.get(16).cst_decode(),
+                audio_waveform: self_.get(17).cst_decode(),
+                in_reply_to_event_id: self_.get(18).cst_decode(),
+                in_reply_to_sender: self_.get(19).cst_decode(),
+                in_reply_to_preview: self_.get(20).cst_decode(),
+                in_reply_to_room_msg_kind: self_.get(21).cst_decode(),
+                in_reply_to_media_mimetype: self_.get(22).cst_decode(),
+                in_reply_to_media_size_bytes: self_.get(23).cst_decode(),
+                in_reply_to_media_blurhash: self_.get(24).cst_decode(),
+                in_reply_to_media_preview_width: self_.get(25).cst_decode(),
+                in_reply_to_media_preview_height: self_.get(26).cst_decode(),
+                in_reply_to_parent_redacted: self_.get(27).cst_decode(),
+                reactions: self_.get(28).cst_decode(),
+                poll_options_json: self_.get(29).cst_decode(),
+                poll_state_json: self_.get(30).cst_decode(),
+                link_previews_json: self_.get(31).cst_decode(),
+                is_redacted: self_.get(32).cst_decode(),
             }
         }
     }
@@ -8067,6 +8612,12 @@ mod web {
     impl CstDecode<Option<String>> for Option<String> {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> Option<String> {
+            self.map(CstDecode::cst_decode)
+        }
+    }
+    impl CstDecode<Option<Vec<f32>>> for Option<Box<[f32]>> {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> Option<Vec<f32>> {
             self.map(CstDecode::cst_decode)
         }
     }
@@ -8224,6 +8775,33 @@ mod web {
                 unread_mentions: self_.get(7).cst_decode(),
                 unread_messages: self_.get(8).cst_decode(),
                 message: self_.get(9).cst_decode(),
+            }
+        }
+    }
+    impl CstDecode<crate::matrix::sync_notifications::SyncNotificationSummary>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::matrix::sync_notifications::SyncNotificationSummary {
+            let self_ = self
+                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap();
+            assert_eq!(
+                self_.length(),
+                9,
+                "Expected 9 elements, got {}",
+                self_.length()
+            );
+            crate::matrix::sync_notifications::SyncNotificationSummary {
+                room_id: self_.get(0).cst_decode(),
+                room_display_name: self_.get(1).cst_decode(),
+                kind: self_.get(2).cst_decode(),
+                sender_id: self_.get(3).cst_decode(),
+                sender_display_name: self_.get(4).cst_decode(),
+                body_preview: self_.get(5).cst_decode(),
+                is_highlight: self_.get(6).cst_decode(),
+                is_noisy: self_.get(7).cst_decode(),
+                event_id: self_.get(8).cst_decode(),
             }
         }
     }
@@ -8516,6 +9094,24 @@ mod web {
     impl
         CstDecode<
             StreamSink<
+                crate::matrix::sync_notifications::SyncNotificationSummary,
+                flutter_rust_bridge::for_generated::DcoCodec,
+            >,
+        > for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(
+            self,
+        ) -> StreamSink<
+            crate::matrix::sync_notifications::SyncNotificationSummary,
+            flutter_rust_bridge::for_generated::DcoCodec,
+        > {
+            StreamSink::deserialize(self.as_string().expect("should be a string"))
+        }
+    }
+    impl
+        CstDecode<
+            StreamSink<
                 crate::matrix::sync_service::SyncState,
                 flutter_rust_bridge::for_generated::DcoCodec,
             >,
@@ -8551,6 +9147,12 @@ mod web {
             (self.unchecked_into_f64() as i32).cst_decode()
         }
     }
+    impl CstDecode<f32> for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> f32 {
+            self.unchecked_into_f64() as _
+        }
+    }
     impl CstDecode<crate::logger::platform::FileRotation>
         for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
     {
@@ -8577,6 +9179,14 @@ mod web {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> i64 {
             ::std::convert::TryInto::<i64>::try_into(self).unwrap() as _
+        }
+    }
+    impl CstDecode<Vec<f32>> for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> Vec<f32> {
+            self.unchecked_into::<flutter_rust_bridge::for_generated::js_sys::Float32Array>()
+                .to_vec()
+                .into()
         }
     }
     impl CstDecode<Vec<u8>> for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue {
@@ -8632,6 +9242,14 @@ mod web {
     {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> crate::matrix::timelines::RoomMessageKind {
+            (self.unchecked_into_f64() as i32).cst_decode()
+        }
+    }
+    impl CstDecode<crate::matrix::sync_notifications::SyncNotificationKind>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::matrix::sync_notifications::SyncNotificationKind {
             (self.unchecked_into_f64() as i32).cst_decode()
         }
     }
@@ -8910,6 +9528,25 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_mark_timeline_as_read(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        room_id: String,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_mark_timeline_as_read_impl(
+            port_, that, room_id,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_pause_sync_service(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_pause_sync_service_impl(port_, that)
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__matrix_client__MatrixClient_redact_timeline_event(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -9090,6 +9727,9 @@ mod web {
         file_path: String,
         caption: Option<String>,
         app_thumbnail_jpeg_path: Option<String>,
+        audio_duration_ms: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        audio_waveform_normalized: Option<Box<[f32]>>,
+        audio_as_voice_message: bool,
     ) {
         wire__crate__api__matrix_client__MatrixClient_send_timeline_file_impl(
             port_,
@@ -9098,6 +9738,9 @@ mod web {
             file_path,
             caption,
             app_thumbnail_jpeg_path,
+            audio_duration_ms,
+            audio_waveform_normalized,
+            audio_as_voice_message,
         )
     }
 
@@ -9109,6 +9752,9 @@ mod web {
         file_path: String,
         caption: Option<String>,
         app_thumbnail_jpeg_path: Option<String>,
+        audio_duration_ms: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        audio_waveform_normalized: Option<Box<[f32]>>,
+        audio_as_voice_message: bool,
         progress: String,
     ) {
         wire__crate__api__matrix_client__MatrixClient_send_timeline_file_with_progress_impl(
@@ -9118,6 +9764,9 @@ mod web {
             file_path,
             caption,
             app_thumbnail_jpeg_path,
+            audio_duration_ms,
+            audio_waveform_normalized,
+            audio_as_voice_message,
             progress,
         )
     }
@@ -9187,6 +9836,17 @@ mod web {
         stream: String,
     ) {
         wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_list_impl(
+            port_, that, stream,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_subscribe_to_sync_notifications(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        stream: String,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_subscribe_to_sync_notifications_impl(
             port_, that, stream,
         )
     }

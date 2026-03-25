@@ -9,10 +9,13 @@ import '../matrix/client.dart';
 import '../matrix/file_send_progress.dart';
 import '../matrix/room_info.dart';
 import '../matrix/rooms.dart';
+import '../matrix/sync_notifications.dart';
 import '../matrix/sync_service.dart';
 import '../matrix/timelines.dart';
 import '../matrix/user_serach.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+
+// These functions are ignored because they are not marked as `pub`: `ensure_sync_notification_handler`
 
 // Rust type: RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>
 abstract class MatrixClient implements RustOpaqueInterface {
@@ -101,6 +104,12 @@ abstract class MatrixClient implements RustOpaqueInterface {
 
   /// Log out and clear the session.
   Future<bool> logout();
+
+  /// Mark the room's main timeline as read (public read receipt on the latest event; updates unread counts).
+  Future<bool> markTimelineAsRead({required String roomId});
+
+  /// Stop sliding sync (e.g. when the app goes to background). Call [Self::restart_sync_service] on resume.
+  Future<bool> pauseSyncService();
 
   /// Redact a timeline message for **everyone** (`m.room.redaction`) or abort a matching local echo.
   ///
@@ -191,6 +200,9 @@ abstract class MatrixClient implements RustOpaqueInterface {
     required String filePath,
     String? caption,
     String? appThumbnailJpegPath,
+    BigInt? audioDurationMs,
+    Float32List? audioWaveformNormalized,
+    required bool audioAsVoiceMessage,
   });
 
   /// Like [MatrixClient::send_timeline_file] but reports byte progress on `progress` and honours [MatrixClient::cancel_timeline_file_send].
@@ -199,6 +211,9 @@ abstract class MatrixClient implements RustOpaqueInterface {
     required String filePath,
     String? caption,
     String? appThumbnailJpegPath,
+    BigInt? audioDurationMs,
+    Float32List? audioWaveformNormalized,
+    required bool audioAsVoiceMessage,
   });
 
   /// Set the current user's display name (profile).
@@ -227,6 +242,9 @@ abstract class MatrixClient implements RustOpaqueInterface {
   /// Subscribe to the canonical room list. Emits the full list whenever it changes (sync or send_message).
   /// Call after [MatrixClient::start_sync_service]. Initial snapshot is sent immediately.
   Stream<List<RoomUpdate>> subscribeToRoomList();
+
+  /// Stream push-rule notifications from sync (messages, invites, etc.). Call after [Self::start_sync_service].
+  Stream<SyncNotificationSummary> subscribeToSyncNotifications();
 
   /// Subscribe to the canonical message list for a room. Emits the full list whenever it changes (timeline updates or send_message).
   /// Sends initial list immediately, then runs the timeline diff loop. Call after [MatrixClient::start_sync_service].

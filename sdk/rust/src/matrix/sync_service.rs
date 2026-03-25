@@ -238,6 +238,13 @@ pub(crate) async fn restart_sync_service(app: Arc<App>) -> Result<bool, String> 
     Ok(true)
 }
 
+/// Stop sliding sync (e.g. app backgrounded). Pair with [restart_sync_service] on resume.
+pub(crate) async fn pause_sync_service(app: Arc<App>) -> Result<bool, String> {
+    let sync = app.sync_service.clone();
+    sync.stop().await;
+    Ok(true)
+}
+
 /// Subscribe to sync state using the app stored in the client.
 pub(crate) async fn subscribe_sync_state(app: Arc<App>, stream: StreamSink<SyncState>) {
     let sync_service = app.sync_service.clone();

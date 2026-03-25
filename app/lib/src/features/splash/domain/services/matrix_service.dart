@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:matrix/src/core/domain/services/app_config.dart';
 import 'package:media/media.dart';
 import 'package:matrix/src/core/logging_service.dart';
+import 'package:matrix/src/core/notifications/matrix_notifications_coordinator.dart';
 import 'package:matrix_sdk/matrix_sdk.dart' as platform;
 import 'package:matrix_sdk/matrix_sdk.dart' as tracing;
 import 'package:matrix_sdk/matrix_sdk.dart';
@@ -40,10 +41,12 @@ class MatrixService {
   MatrixClient get client => _matrixClient;
   bool get isInitialized => _isInitialized;
   bool _isInitialized = false;
+  bool _notificationsStarted = false;
 
   Future<Result<bool>> initialize({
     required String dbPath,
     required String logsPath,
+    String? mediaCachePath,
     bool showHomeServerForUsername = true,
   }) async {
     // Initialize Rust logging
@@ -88,8 +91,11 @@ class MatrixService {
       sessionPath: dbPath,
       homeserverUrl: homeserverUrl.toString(),
       passphrase: 'password',
-      proxy: AppConfig.proxyEnabled ? AppConfig.proxyUrl : null,
+      proxy: AppConfig.proxyUrl?.isNotEmpty ?? false
+          ? AppConfig.proxyUrl
+          : null,
       showHomeServerForUsername: showHomeServerForUsername,
+      mediaCachePath: mediaCachePath,
     );
 
     try {
@@ -108,6 +114,32 @@ class MatrixService {
     } catch (e) {
       return Failure(Exception(e.toString()));
     }
+  }
+
+  /// After [MatrixClient.startSyncService], registers FCM + Matrix pusher and subscribes to sync notifications.
+  Future<void> startMatrixNotificationsIfReady() async {
+    if (!_isInitialized || kIsWeb) return;
+    try {
+      final loggedIn = await _matrixClient.isClientAuthenticated();
+      if (!loggedIn) return;
+      if (_notificationsStarted) return;
+      _notificationsStarted = true;
+      await MatrixNotificationsCoordinator.instance.initialize(
+        client: _matrixClient,
+      );
+    } catch (e) {
+      _notificationsStarted = false;
+      LoggingService.info(
+        'MatrixService',
+        'startMatrixNotificationsIfReady: $e',
+      );
+    }
+  }
+
+  Future<void> stopMatrixNotifications() async {
+    if (!_notificationsStarted) return;
+    _notificationsStarted = false;
+    await MatrixNotificationsCoordinator.instance.dispose();
   }
 
   Future<Result<bool>> isUserLoggedIn() async {
@@ -164,5 +196,6 @@ class MatrixService {
     for (final roomId in _timelineSubscriptions.keys.toList()) {
       unregisterTimelineSubscription(roomId);
     }
+    unawaited(stopMatrixNotifications());
   }
 }

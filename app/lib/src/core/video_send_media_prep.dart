@@ -217,10 +217,16 @@ class AppTimelineSendPrep {
     if (m != null && m.startsWith('image/')) {
       return _fromImage(path, onStage: onStage);
     }
-    if (await isTimelineVideoSendCandidate(path, mimeType: null)) {
+    if (m != null && m.startsWith('audio/')) {
+      return null;
+    }
+    if (isProbableAudioFilePath(path)) {
+      return null;
+    }
+    if (await isTimelineVideoSendCandidate(path, mimeType: mimeType)) {
       return _fromVideo(path, onStage: onStage, quality: videoQuality);
     }
-    if (await isTimelineImageSendCandidate(path, mimeType: null)) {
+    if (await isTimelineImageSendCandidate(path, mimeType: mimeType)) {
       return _fromImage(path, onStage: onStage);
     }
     return null;
@@ -282,16 +288,38 @@ bool isProbableVideoFilePath(String path) {
   return exts.contains(e);
 }
 
+/// Voice / music containers (often ISO BMFF like `.m4a` — must not use the video thumbnail pipeline).
+bool isProbableAudioFilePath(String path) {
+  const exts = {
+    'm4a',
+    'aac',
+    'mp3',
+    'ogg',
+    'oga',
+    'opus',
+    'wav',
+    'flac',
+    'caf',
+  };
+  final e = p.extension(path.toLowerCase()).replaceFirst('.', '');
+  return exts.contains(e);
+}
+
 /// True when we should run [prepareVideoForTimelineSend] so Rust gets a JPEG for `thumbnail_url`.
 ///
 /// Gallery picks often use names like `image_picker_…` with **no extension**; extension-only checks
 /// miss those and the Matrix event is sent **without** `info.thumbnail_url`, so the timeline falls
 /// back to thumbnailing the main video MXC (often MP4/MOV bytes, not a raster).
+///
+/// **Not** for audio: `.m4a` / `audio/mp4` share ISO BMFF `ftyp` with MP4, so we exclude `audio/*`
+/// and known audio extensions before [fileHeaderLooksLikeVideoContainer].
 Future<bool> isTimelineVideoSendCandidate(
   String path, {
   String? mimeType,
 }) async {
   final m = mimeType?.toLowerCase().trim();
+  if (m != null && m.startsWith('audio/')) return false;
+  if (isProbableAudioFilePath(path)) return false;
   if (m != null && m.startsWith('video/')) return true;
   if (isProbableVideoFilePath(path)) return true;
   return fileHeaderLooksLikeVideoContainer(path);

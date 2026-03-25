@@ -1,6 +1,7 @@
 import 'package:elementary/elementary.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_blurhash/flutter_blurhash.dart';
 import 'package:matrix/src/core/timeline_local_hidden_store.dart';
 import 'package:matrix/src/core/navigation/navigator_service.dart';
 import 'package:matrix/src/core/presentation/widgets/terminal_container.dart';
@@ -714,6 +715,15 @@ class _ChatListingMediaSubtitleState extends State<_ChatListingMediaSubtitle> {
   Uint8List? _bytes;
   bool _loading = true;
 
+  bool get _canUseSubtitleBlurhash {
+    final bh = widget.message.mediaBlurhash.trim();
+    if (bh.isEmpty) return false;
+    final k = widget.message.roomMsgKind;
+    return k == RoomMessageKind.image ||
+        k == RoomMessageKind.video ||
+        k == RoomMessageKind.file;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -790,20 +800,26 @@ class _ChatListingMediaSubtitleState extends State<_ChatListingMediaSubtitle> {
     final icon = _chatListingKindIcon(widget.message.roomMsgKind);
 
     Widget thumb;
+    final bh = widget.message.mediaBlurhash.trim();
     if (_loading) {
       thumb = SizedBox(
         width: _thumb,
         height: _thumb,
-        child: Center(
-          child: SizedBox(
-            width: 10,
-            height: 10,
-            child: CircularProgressIndicator(
-              strokeWidth: 1.5,
-              color: scheme.primary,
-            ),
-          ),
-        ),
+        child: _canUseSubtitleBlurhash
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(_thumbRadius),
+                child: BlurHash(hash: bh, imageFit: BoxFit.cover),
+              )
+            : Center(
+                child: SizedBox(
+                  width: 10,
+                  height: 10,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    color: scheme.primary,
+                  ),
+                ),
+              ),
       );
     } else if (_bytes != null && _bytes!.isNotEmpty) {
       thumb = ClipRRect(
@@ -814,8 +830,18 @@ class _ChatListingMediaSubtitleState extends State<_ChatListingMediaSubtitle> {
           height: _thumb,
           fit: BoxFit.cover,
           gaplessPlayback: true,
-          errorBuilder: (_, __, ___) =>
-              Icon(icon, size: 10, color: scheme.primary),
+          errorBuilder: (_, __, ___) => _canUseSubtitleBlurhash
+              ? BlurHash(hash: bh, imageFit: BoxFit.cover)
+              : Icon(icon, size: 10, color: scheme.primary),
+        ),
+      );
+    } else if (_canUseSubtitleBlurhash) {
+      thumb = ClipRRect(
+        borderRadius: BorderRadius.circular(_thumbRadius),
+        child: SizedBox(
+          width: _thumb,
+          height: _thumb,
+          child: BlurHash(hash: bh, imageFit: BoxFit.cover),
         ),
       );
     } else {

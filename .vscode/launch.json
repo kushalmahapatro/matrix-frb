@@ -14,8 +14,20 @@
             "request": "launch",
             "program": "lib/main.dart",
             "args": [
-                "--dart-define",
-                "PROXY=false",
+                "--dart-define-from-file",
+                "dart_defines/inve.json"
+            ]
+        },
+        {
+            "name": "App-Release",
+            "type": "dart",
+            "cwd": "${workspaceFolder}/app",
+            "request": "launch",
+            "program": "lib/main.dart",
+            "flutterMode": "release",
+            "args": [
+                "--dart-define-from-file",
+                "dart_defines/inve.json"
             ]
         }
     ]

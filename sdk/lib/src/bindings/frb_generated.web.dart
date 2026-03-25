@@ -18,6 +18,7 @@ import 'matrix/client.dart';
 import 'matrix/file_send_progress.dart';
 import 'matrix/room_info.dart';
 import 'matrix/rooms.dart';
+import 'matrix/sync_notifications.dart';
 import 'matrix/sync_service.dart';
 import 'matrix/timelines.dart';
 import 'matrix/user_serach.dart';
@@ -115,6 +116,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RustStreamSink<RoomUpdate> dco_decode_StreamSink_room_update_Dco(dynamic raw);
 
   @protected
+  RustStreamSink<SyncNotificationSummary>
+  dco_decode_StreamSink_sync_notification_summary_Dco(dynamic raw);
+
+  @protected
   RustStreamSink<SyncState> dco_decode_StreamSink_sync_state_Dco(dynamic raw);
 
   @protected
@@ -161,6 +166,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   EventSendStateKind dco_decode_event_send_state_kind(dynamic raw);
 
   @protected
+  double dco_decode_f_32(dynamic raw);
+
+  @protected
   FileRotation dco_decode_file_rotation(dynamic raw);
 
   @protected
@@ -191,6 +199,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<MessageReactionEntry> dco_decode_list_message_reaction_entry(
     dynamic raw,
   );
+
+  @protected
+  Float32List dco_decode_list_prim_f_32_strict(dynamic raw);
 
   @protected
   List<int> dco_decode_list_prim_u_8_loose(dynamic raw);
@@ -269,6 +280,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Message>? dco_decode_opt_list_message(dynamic raw);
 
   @protected
+  Float32List? dco_decode_opt_list_prim_f_32_strict(dynamic raw);
+
+  @protected
   RoomDetails dco_decode_room_details(dynamic raw);
 
   @protected
@@ -294,6 +308,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RoomUpdate dco_decode_room_update(dynamic raw);
+
+  @protected
+  SyncNotificationKind dco_decode_sync_notification_kind(dynamic raw);
+
+  @protected
+  SyncNotificationSummary dco_decode_sync_notification_summary(dynamic raw);
 
   @protected
   SyncState dco_decode_sync_state(dynamic raw);
@@ -410,6 +430,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<SyncNotificationSummary>
+  sse_decode_StreamSink_sync_notification_summary_Dco(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RustStreamSink<SyncState> sse_decode_StreamSink_sync_state_Dco(
     SseDeserializer deserializer,
   );
@@ -462,6 +488,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  double sse_decode_f_32(SseDeserializer deserializer);
+
+  @protected
   FileRotation sse_decode_file_rotation(SseDeserializer deserializer);
 
   @protected
@@ -492,6 +521,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<MessageReactionEntry> sse_decode_list_message_reaction_entry(
     SseDeserializer deserializer,
   );
+
+  @protected
+  Float32List sse_decode_list_prim_f_32_strict(SseDeserializer deserializer);
 
   @protected
   List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer);
@@ -588,6 +620,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Message>? sse_decode_opt_list_message(SseDeserializer deserializer);
 
   @protected
+  Float32List? sse_decode_opt_list_prim_f_32_strict(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RoomDetails sse_decode_room_details(SseDeserializer deserializer);
 
   @protected
@@ -615,6 +652,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RoomUpdate sse_decode_room_update(SseDeserializer deserializer);
+
+  @protected
+  SyncNotificationKind sse_decode_sync_notification_kind(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SyncNotificationSummary sse_decode_sync_notification_summary(
+    SseDeserializer deserializer,
+  );
 
   @protected
   SyncState sse_decode_sync_state(SseDeserializer deserializer);
@@ -752,6 +799,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  String cst_encode_StreamSink_sync_notification_summary_Dco(
+    RustStreamSink<SyncNotificationSummary> raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_String(
+      raw.setupAndSerialize(
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_sync_notification_summary,
+          decodeErrorData: dco_decode_AnyhowException,
+        ),
+      ),
+    );
+  }
+
+  @protected
   String cst_encode_StreamSink_sync_state_Dco(RustStreamSink<SyncState> raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return cst_encode_String(
@@ -832,6 +894,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_opt_String(raw.proxy),
       cst_encode_opt_String(raw.passphrase),
       cst_encode_bool(raw.showHomeServerForUsername),
+      cst_encode_opt_String(raw.mediaCachePath),
     ].jsify()!;
   }
 
@@ -896,6 +959,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   JSAny cst_encode_list_message_reaction_entry(List<MessageReactionEntry> raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return raw.map(cst_encode_message_reaction_entry).toList().jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_list_prim_f_32_strict(Float32List raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.jsify()!;
   }
 
   @protected
@@ -972,6 +1041,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_String(raw.mediaBlurhash),
       cst_encode_u_32(raw.mediaPreviewWidth),
       cst_encode_u_32(raw.mediaPreviewHeight),
+      cst_encode_u_64(raw.audioDurationMs),
+      cst_encode_list_prim_f_32_strict(raw.audioWaveform),
       cst_encode_String(raw.inReplyToEventId),
       cst_encode_String(raw.inReplyToSender),
       cst_encode_String(raw.inReplyToPreview),
@@ -1078,6 +1149,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  JSAny? cst_encode_opt_list_prim_f_32_strict(Float32List? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? null : cst_encode_list_prim_f_32_strict(raw);
+  }
+
+  @protected
   JSAny cst_encode_room_details(RoomDetails raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return [
@@ -1165,6 +1242,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_opt_box_autoadd_u_64(raw.unreadMentions),
       cst_encode_opt_box_autoadd_u_64(raw.unreadMessages),
       cst_encode_opt_box_autoadd_message(raw.message),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_sync_notification_summary(SyncNotificationSummary raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_String(raw.roomId),
+      cst_encode_opt_String(raw.roomDisplayName),
+      cst_encode_sync_notification_kind(raw.kind),
+      cst_encode_String(raw.senderId),
+      cst_encode_opt_String(raw.senderDisplayName),
+      cst_encode_String(raw.bodyPreview),
+      cst_encode_bool(raw.isHighlight),
+      cst_encode_bool(raw.isNoisy),
+      cst_encode_String(raw.eventId),
     ].jsify()!;
   }
 
@@ -1273,6 +1366,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int cst_encode_event_send_state_kind(EventSendStateKind raw);
 
   @protected
+  double cst_encode_f_32(double raw);
+
+  @protected
   int cst_encode_file_rotation(FileRotation raw);
 
   @protected
@@ -1298,6 +1394,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   int cst_encode_room_message_kind(RoomMessageKind raw);
+
+  @protected
+  int cst_encode_sync_notification_kind(SyncNotificationKind raw);
 
   @protected
   int cst_encode_sync_state(SyncState raw);
@@ -1412,6 +1511,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_StreamSink_sync_notification_summary_Dco(
+    RustStreamSink<SyncNotificationSummary> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_StreamSink_sync_state_Dco(
     RustStreamSink<SyncState> self,
     SseSerializer serializer,
@@ -1472,6 +1577,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_f_32(double self, SseSerializer serializer);
+
+  @protected
   void sse_encode_file_rotation(FileRotation self, SseSerializer serializer);
 
   @protected
@@ -1505,6 +1613,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_message_reaction_entry(
     List<MessageReactionEntry> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_prim_f_32_strict(
+    Float32List self,
     SseSerializer serializer,
   );
 
@@ -1624,6 +1738,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_list_prim_f_32_strict(
+    Float32List? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_room_details(RoomDetails self, SseSerializer serializer);
 
   @protected
@@ -1658,6 +1778,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_room_update(RoomUpdate self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_sync_notification_kind(
+    SyncNotificationKind self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_sync_notification_summary(
+    SyncNotificationSummary self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_sync_state(SyncState self, SseSerializer serializer);
@@ -1947,6 +2079,26 @@ class RustLibWire implements BaseWire {
     that,
   );
 
+  void wire__crate__api__matrix_client__MatrixClient_mark_timeline_as_read(
+    NativePortType port_,
+    int that,
+    String room_id,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_mark_timeline_as_read(
+        port_,
+        that,
+        room_id,
+      );
+
+  void wire__crate__api__matrix_client__MatrixClient_pause_sync_service(
+    NativePortType port_,
+    int that,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_pause_sync_service(
+        port_,
+        that,
+      );
+
   void wire__crate__api__matrix_client__MatrixClient_redact_timeline_event(
     NativePortType port_,
     int that,
@@ -2112,6 +2264,9 @@ class RustLibWire implements BaseWire {
     String file_path,
     String? caption,
     String? app_thumbnail_jpeg_path,
+    JSAny? audio_duration_ms,
+    JSAny? audio_waveform_normalized,
+    bool audio_as_voice_message,
   ) => wasmModule
       .wire__crate__api__matrix_client__MatrixClient_send_timeline_file(
         port_,
@@ -2120,6 +2275,9 @@ class RustLibWire implements BaseWire {
         file_path,
         caption,
         app_thumbnail_jpeg_path,
+        audio_duration_ms,
+        audio_waveform_normalized,
+        audio_as_voice_message,
       );
 
   void
@@ -2130,6 +2288,9 @@ class RustLibWire implements BaseWire {
     String file_path,
     String? caption,
     String? app_thumbnail_jpeg_path,
+    JSAny? audio_duration_ms,
+    JSAny? audio_waveform_normalized,
+    bool audio_as_voice_message,
     String progress,
   ) => wasmModule
       .wire__crate__api__matrix_client__MatrixClient_send_timeline_file_with_progress(
@@ -2139,6 +2300,9 @@ class RustLibWire implements BaseWire {
         file_path,
         caption,
         app_thumbnail_jpeg_path,
+        audio_duration_ms,
+        audio_waveform_normalized,
+        audio_as_voice_message,
         progress,
       );
 
@@ -2207,6 +2371,18 @@ class RustLibWire implements BaseWire {
     String stream,
   ) => wasmModule
       .wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_list(
+        port_,
+        that,
+        stream,
+      );
+
+  void
+  wire__crate__api__matrix_client__MatrixClient_subscribe_to_sync_notifications(
+    NativePortType port_,
+    int that,
+    String stream,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_subscribe_to_sync_notifications(
         port_,
         that,
         stream,
@@ -2535,6 +2711,19 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
   );
 
   external void
+  wire__crate__api__matrix_client__MatrixClient_mark_timeline_as_read(
+    NativePortType port_,
+    int that,
+    String room_id,
+  );
+
+  external void
+  wire__crate__api__matrix_client__MatrixClient_pause_sync_service(
+    NativePortType port_,
+    int that,
+  );
+
+  external void
   wire__crate__api__matrix_client__MatrixClient_redact_timeline_event(
     NativePortType port_,
     int that,
@@ -2633,6 +2822,9 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     String file_path,
     String? caption,
     String? app_thumbnail_jpeg_path,
+    JSAny? audio_duration_ms,
+    JSAny? audio_waveform_normalized,
+    bool audio_as_voice_message,
   );
 
   external void
@@ -2643,6 +2835,9 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     String file_path,
     String? caption,
     String? app_thumbnail_jpeg_path,
+    JSAny? audio_duration_ms,
+    JSAny? audio_waveform_normalized,
+    bool audio_as_voice_message,
     String progress,
   );
 
@@ -2683,6 +2878,13 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
 
   external void
   wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_list(
+    NativePortType port_,
+    int that,
+    String stream,
+  );
+
+  external void
+  wire__crate__api__matrix_client__MatrixClient_subscribe_to_sync_notifications(
     NativePortType port_,
     int that,
     String stream,

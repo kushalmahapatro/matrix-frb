@@ -128,22 +128,21 @@ class LoginScreenWM extends BaseWidgetModel<LoginScreen, LoginScreenModel> {
               )
           : await model.login(username: username, password: password);
 
-      result.fold(
-        (success) {
-          model.startSync();
-          _authState.value = const AuthState.authenticated();
-          widget.navigateToChatListingScreen(context);
-        },
-        (failure) {
-          _authState.value = AuthState.error(
-            message: 'AUTHENTICATION FAILED. CHECK CREDENTIALS.',
-          );
-          LoggingService.error(
-            'LOGIN_SCREEN',
-            'Authentication failed: ${failure.toString()}',
-          );
-        },
-      );
+      if (result.isSuccess() && result.getOrNull() == true) {
+        await model.startSync();
+        await MatrixService().startMatrixNotificationsIfReady();
+        if (!context.mounted) return;
+        _authState.value = const AuthState.authenticated();
+        widget.navigateToChatListingScreen(context);
+      } else {
+        _authState.value = AuthState.error(
+          message: 'AUTHENTICATION FAILED. CHECK CREDENTIALS.',
+        );
+        LoggingService.error(
+          'LOGIN_SCREEN',
+          'Authentication failed: ${result.exceptionOrNull()?.toString() ?? 'unknown'}',
+        );
+      }
     } catch (e) {
       _authState.value = AuthState.error(message: 'ERROR: $e');
       LoggingService.error('LOGIN_SCREEN', 'Unknown error: ${e.toString()}');

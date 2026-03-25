@@ -1,0 +1,7 @@
+{
+  "HOMESERVER": "https://matrix.org",
+  "MATRIX_PUSH_GATEWAY_URL": "https://matrix.org/_matrix/push/v1/notify",
+  "MATRIX_PUSH_APP_ID": "app_id",
+  "REGISTRATION_TOKEN": "",
+  "MATRIX_PAUSE_SYNC_ON_BACKGROUND": false
+}

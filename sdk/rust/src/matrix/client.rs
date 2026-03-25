@@ -10,6 +10,8 @@ use matrix_sdk::{
     store::StoreConfig,
     AuthSession, Client, SessionChange, SqliteCryptoStore, SqliteEventCacheStore, SqliteStateStore,
 };
+
+use super::disk_media_store::DiskMediaStore;
 use matrix_sdk::ruma::UserId;
 use once_cell::sync::OnceCell;
 use reqwest::ClientBuilder;
@@ -84,6 +86,9 @@ pub struct ClientConfig {
     pub passphrase: Option<String>,
     /// When `false`, UI may show Matrix user ids without the `:server` suffix (e.g. `@user` only).
     pub show_home_server_for_username: bool,
+    /// Root directory for decrypted media cache (`thumbnails/`, `media/full/`, …). When `None` or
+    /// empty, the SDK keeps the default in-memory media store (non-persistent, small LRU).
+    pub media_cache_path: Option<String>,
 }
 
 /// Configure the client so it's ready for sync'ing.
@@ -109,6 +114,7 @@ pub(crate) async fn configure_client(config: &ClientConfig) -> Result<Client, St
         proxy,
         passphrase,
         show_home_server_for_username: _,
+        media_cache_path,
     } = config;
 
     info!("Storage path: {}", session_path);
@@ -125,17 +131,27 @@ pub(crate) async fn configure_client(config: &ClientConfig) -> Result<Client, St
             .await
             .map_err(|e| format!("Error creating event_cache_store: {}", e))?;
 
+    let mut store_config = StoreConfig::new(
+        matrix_sdk::cross_process_lock::CrossProcessLockConfig::MultiProcess {
+            holder_name: "matrix".to_owned(),
+        },
+    )
+    .crypto_store(crypto_store)
+    .state_store(state_store)
+    .event_cache_store(event_cache_store);
+
+    if let Some(ref media_root) = media_cache_path {
+        if !media_root.trim().is_empty() {
+            let disk = DiskMediaStore::open(Path::new(media_root))
+                .await
+                .map_err(|e| format!("Disk media cache: {e}"))?;
+            store_config = store_config.media_store(disk);
+            info!("Media cache (filesystem): {}", media_root);
+        }
+    }
+
     let mut client_builder = Client::builder()
-        .store_config(
-            StoreConfig::new(
-                matrix_sdk::cross_process_lock::CrossProcessLockConfig::MultiProcess {
-                    holder_name: "matrix".to_owned(),
-                },
-            )
-            .crypto_store(crypto_store)
-            .state_store(state_store)
-            .event_cache_store(event_cache_store),
-        )
+        .store_config(store_config)
         .homeserver_url(&homeserver_url)
         .with_encryption_settings(EncryptionSettings {
             auto_enable_cross_signing: true,
