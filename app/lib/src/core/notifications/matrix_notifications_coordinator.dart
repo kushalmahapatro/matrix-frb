@@ -79,11 +79,12 @@ class MatrixNotificationsCoordinator {
   }
 
   Future<void> _ensureLocalPluginReady() async {
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosInit = DarwinInitializationSettings();
+    const androidInit = AndroidInitializationSettings('ic_stat_matrix');
+    const darwinInit = DarwinInitializationSettings();
     const init = InitializationSettings(
       android: androidInit,
-      iOS: iosInit,
+      iOS: darwinInit,
+      macOS: darwinInit,
     );
     await _local.initialize(init);
     if (_isAndroid()) {
@@ -256,6 +257,7 @@ class MatrixNotificationsCoordinator {
       _androidChannelId,
       _androidChannelName,
       channelDescription: 'Matrix messages and invites',
+      icon: 'ic_stat_matrix',
       importance: Importance.high,
       priority: Priority.high,
       groupKey: groupKey,

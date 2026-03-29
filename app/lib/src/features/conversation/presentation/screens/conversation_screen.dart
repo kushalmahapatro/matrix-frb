@@ -1,8 +1,8 @@
-import 'dart:typed_data';
-
 import 'package:elementary/elementary.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_blurhash/flutter_blurhash.dart';
+import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
 import 'package:matrix/src/core/navigation/navigator_service.dart';
 import 'package:matrix/src/core/timeline_local_hidden_store.dart';
 import 'package:matrix/src/core/presentation/widgets/terminal_container.dart';
@@ -32,16 +32,21 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
     required this.roomId,
     required this.roomName,
     required this.status,
+    this.implyLeading = true,
   }) : super(conversationScreenWMFactory);
 
   final String roomId;
   final String roomName;
   final ChatRoomStatus status;
 
+  /// When `false` (e.g. split-pane desktop), no back chevron on the app bar.
+  final bool implyLeading;
+
   @override
   Widget build(ConversationScreenWM wm) {
     return TerminalScreen(
-      title: roomName.toUpperCase(),
+      title: isDesktopTargetPlatform() ? roomName : roomName.toUpperCase(),
+      automaticallyImplyLeading: implyLeading,
       actions: [
         ValueListenableBuilder<ConversationState>(
           valueListenable: wm.roomState,
@@ -75,6 +80,7 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
           ),
           // Messages list
           Expanded(
+            // Avatar MXC map updates per bubble only (see PaginatedMessageList), not here.
             child: ListenableBuilder(
               listenable: Listenable.merge([
                 wm.roomState,
@@ -109,8 +115,11 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                   ),
                   loaded: (messages, roomInfo) {
                     return PaginatedMessageList(
+                      key: ValueKey(roomId),
                       roomId: roomId,
+                      senderAvatarMxcByUserId: wm.senderAvatarMxcByUserId,
                       loadMessageMedia: wm.fetchRoomMessageMedia,
+                      loadSenderAvatar: wm.fetchUserAvatarThumbnail,
                       onOpenAttachment: wm.openAttachment,
                       initialMessages: messages,
                       loadOlder: (Message oldest) async {
@@ -122,12 +131,14 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                       onRetryFailedSend: wm.retryFailedSend,
                       onVisibleRange:
                           (Message firstVisible, Message lastVisible) {},
+                      onBecameAtBottom: wm.onTimelineScrolledToBottom,
                       jumpToEventNotifier: wm.jumpToTimelineEventId,
                       isGroupRoom: !roomInfo.isDirect,
                       onToggleReaction: wm.toggleTimelineReaction,
                       onShowReactionReactors: wm.showReactionReactorsSheet,
                       onPollVote: wm.voteOnPoll,
-                      onShowMessageActions: wm.showMessageActionsMenu,
+                      onShowMessageActions: (ctx, m, o) =>
+                          wm.showMessageActionsMenu(ctx, m, o),
                     );
                   },
                   error: (errMessage) => Center(
@@ -226,7 +237,11 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.hourglass_top_outlined, size: 20, color: scheme.primary),
+              Icon(
+                Icons.hourglass_top_outlined,
+                size: 20,
+                color: scheme.primary,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -296,10 +311,7 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
               const SizedBox(height: 8),
               LinearProgressIndicator(value: ratio),
               const SizedBox(height: 8),
-              Text(
-                bytesLabel,
-                style: theme.textTheme.bodySmall,
-              ),
+              Text(bytesLabel, style: theme.textTheme.bodySmall),
             ],
           ),
         ),
@@ -418,16 +430,14 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
       padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
-          // Accent on the “your side” (end) to mirror incoming bubbles’ start bar.
-          border: BorderDirectional(
-            start: BorderSide.none,
-            end: BorderSide(color: accent, width: 3),
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.55,
           ),
+          border: Border(left: BorderSide(color: accent, width: 3)),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Padding(
-          padding: const EdgeInsetsDirectional.fromSTEB(4, 8, 10, 8),
+          padding: const EdgeInsets.fromLTRB(4, 8, 10, 8),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -439,12 +449,12 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
               ),
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       '> REPLY TO ${draft.displayName}',
-                      textAlign: TextAlign.end,
+                      textAlign: TextAlign.start,
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: accent,
                         fontWeight: FontWeight.bold,
@@ -456,6 +466,14 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          _ReplyDraftMediaThumb(
+                            key: ValueKey(
+                              '${draft.eventId}|${draft.transactionId}|${draft.roomMsgKind}',
+                            ),
+                            wm: wm,
+                            draft: draft,
+                          ),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Builder(
                               builder: (context) {
@@ -467,7 +485,7 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                                   meta,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.end,
+                                  textAlign: TextAlign.start,
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: theme.colorScheme.onSurface
                                         .withValues(alpha: 0.72),
@@ -475,14 +493,6 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                                 );
                               },
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          _ReplyDraftMediaThumb(
-                            key: ValueKey(
-                              '${draft.eventId}|${draft.transactionId}|${draft.roomMsgKind}',
-                            ),
-                            wm: wm,
-                            draft: draft,
                           ),
                         ],
                       )
@@ -493,9 +503,11 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                           _replyDraftTextPreview(draft),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.end,
+                          textAlign: TextAlign.start,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.8,
+                            ),
                           ),
                         ),
                       ),
@@ -511,68 +523,103 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
 
   Widget _buildMessageInput(BuildContext context, ConversationScreenWM wm) {
     final theme = Theme.of(context);
-    return Row(
-      children: [
-        Text(
-          '> ',
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.bold,
+    final desktop = isDesktopTargetPlatform();
+    final fieldPadding = EdgeInsets.symmetric(
+      horizontal: desktop ? 14 : 10,
+      vertical: desktop ? 12 : 8,
+    );
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        desktop ? 12 : 8,
+        8,
+        desktop ? 12 : 8,
+        desktop ? 14 : 10,
+      ),
+      child: Row(
+        children: [
+          Text(
+            '> ',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        ),
-        IconButton(
-          icon: Icon(Icons.attach_file, color: theme.colorScheme.primary),
-          onPressed: wm.showAttachMenu,
-          tooltip: 'Attach',
-        ),
-        Expanded(
-          child: TextField(
-            controller: wm.messageController,
-            style: theme.textTheme.bodyLarge,
-            decoration: InputDecoration(
-              hintText: wm.replyDraft.value != null
-                  ? 'Write a reply…'
-                  : 'Type your message...',
-              hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.colorScheme.primary.withValues(alpha: 0.5),
-              ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsetsDirectional.only(start: 8),
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(
-                  color: theme.colorScheme.primary,
-                  width: 0.5,
+          IconButton(
+            icon: Icon(Icons.attach_file, color: theme.colorScheme.primary),
+            onPressed: wm.showAttachMenu,
+            tooltip: 'Attach',
+          ),
+          Expanded(
+            child: Focus(
+              onKeyEvent: (node, event) {
+                if (event is! KeyDownEvent) {
+                  return KeyEventResult.ignored;
+                }
+                if (event.logicalKey != LogicalKeyboardKey.enter &&
+                    event.logicalKey != LogicalKeyboardKey.numpadEnter) {
+                  return KeyEventResult.ignored;
+                }
+                if (HardwareKeyboard.instance.isShiftPressed) {
+                  return KeyEventResult.ignored;
+                }
+                wm.sendMessage();
+                return KeyEventResult.handled;
+              },
+              child: TextField(
+                controller: wm.messageController,
+                focusNode: wm.composerFocusNode,
+                autocorrect: false,
+                style: theme.textTheme.bodyLarge,
+                decoration: InputDecoration(
+                  hintText: wm.replyDraft.value != null
+                      ? 'Write a reply…'
+                      : 'Type your message...',
+                  hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: fieldPadding,
+                  isDense: !desktop,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(desktop ? 8 : 4),
+                    borderSide: BorderSide(
+                      color: theme.colorScheme.primary,
+                      width: 0.5,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(desktop ? 8 : 4),
+                    borderSide: BorderSide(
+                      color: theme.colorScheme.primary,
+                      width: 1,
+                    ),
+                  ),
                 ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(
-                  color: theme.colorScheme.primary,
-                  width: 1,
-                ),
+                onSubmitted: (_) => wm.sendMessage(),
+                maxLines: null,
+                textInputAction: TextInputAction.newline,
               ),
             ),
-            onSubmitted: (_) => wm.sendMessage(),
-            maxLines: null,
           ),
-        ),
-        ValueListenableBuilder<bool>(
-          valueListenable: wm.composerHasText,
-          builder: (context, hasText, _) {
-            if (hasText) {
+          ValueListenableBuilder<bool>(
+            valueListenable: wm.composerHasText,
+            builder: (context, hasText, _) {
+              if (hasText) {
+                return IconButton(
+                  icon: Icon(Icons.send, color: theme.colorScheme.primary),
+                  onPressed: wm.sendMessage,
+                  tooltip: 'Send message',
+                );
+              }
               return IconButton(
-                icon: Icon(Icons.send, color: theme.colorScheme.primary),
-                onPressed: wm.sendMessage,
-                tooltip: 'Send message',
+                icon: Icon(Icons.mic_rounded, color: theme.colorScheme.primary),
+                onPressed: wm.showVoiceRecordSheet,
+                tooltip: 'Record voice message',
               );
-            }
-            return IconButton(
-              icon: Icon(Icons.mic_rounded, color: theme.colorScheme.primary),
-              onPressed: wm.showVoiceRecordSheet,
-              tooltip: 'Record voice message',
-            );
-          },
-        ),
-      ],
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -701,15 +748,14 @@ class _ReplyDraftMediaThumbState extends State<_ReplyDraftMediaThumb> {
       future: _thumbFuture,
       builder: (context, snapshot) {
         final bh = d.mediaBlurhash.trim();
-        final canBlur = bh.isNotEmpty &&
+        final canBlur =
+            bh.isNotEmpty &&
             (d.roomMsgKind == RoomMessageKind.image ||
                 d.roomMsgKind == RoomMessageKind.video ||
                 d.roomMsgKind == RoomMessageKind.file);
         if (snapshot.connectionState == ConnectionState.waiting) {
           if (canBlur) {
-            return framed(
-              BlurHash(hash: bh, imageFit: BoxFit.cover),
-            );
+            return framed(BlurHash(hash: bh, imageFit: BoxFit.cover));
           }
           return framed(
             const Center(
@@ -737,9 +783,7 @@ class _ReplyDraftMediaThumbState extends State<_ReplyDraftMediaThumb> {
           );
         }
         if (canBlur) {
-          return framed(
-            BlurHash(hash: bh, imageFit: BoxFit.cover),
-          );
+          return framed(BlurHash(hash: bh, imageFit: BoxFit.cover));
         }
         return framed(_replyDraftKindPlaceholder(d.roomMsgKind, theme));
       },
@@ -749,7 +793,10 @@ class _ReplyDraftMediaThumbState extends State<_ReplyDraftMediaThumb> {
 
 bool _replyThumbLooksLikeRaster(Uint8List data) {
   if (data.length < 12) return false;
-  if (data.length >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF) {
+  if (data.length >= 3 &&
+      data[0] == 0xFF &&
+      data[1] == 0xD8 &&
+      data[2] == 0xFF) {
     return true;
   }
   if (data.length >= 8 &&

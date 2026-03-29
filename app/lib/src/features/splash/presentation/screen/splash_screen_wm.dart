@@ -4,6 +4,7 @@ import 'package:elementary/elementary.dart';
 import 'package:matrix/src/core/domain/services/app_config.dart';
 import 'package:matrix/src/core/file_path_service.dart';
 import 'package:matrix/src/core/state_management/base_state_widget_model.dart';
+import 'package:matrix/src/features/settings/domain/profile_prefs.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
 import 'package:matrix/src/features/splash/presentation/screen/splash_screen.dart';
 import 'package:result_dart/result_dart.dart';
@@ -54,6 +55,7 @@ class SplashScreenWM extends BaseWidgetModel<SplashScreen, SplashScreenModel> {
     userLoggedIn.fold((success) async {
       if (success) {
         await model.startSync();
+        unawaited(ProfilePrefs.instance.refresh(MatrixService().client));
         await MatrixService().startMatrixNotificationsIfReady();
         if (context.mounted) {
           widget.navigateToChatScreen(context);

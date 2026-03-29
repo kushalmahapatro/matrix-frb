@@ -11,7 +11,7 @@ use matrix_sdk::Client;
 use matrix_sdk_ui::room_list_service::filters::new_filter_non_left;
 use matrix_sdk_ui::room_list_service::RoomList as SlidingSyncRoomList;
 use matrix_sdk_ui::sync_service::{State as MatrixSyncState, SyncService};
-use matrix_sdk_ui::timeline::{RoomExt, TimelineFocus};
+use matrix_sdk_ui::timeline::{RoomExt, TimelineFocus, TimelineReadReceiptTracking};
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::spawn;
@@ -149,6 +149,7 @@ impl App {
             {
                 let Ok(timeline) = room
                     .timeline_builder()
+                    .track_read_marker_and_receipts(TimelineReadReceiptTracking::MessageLikeEvents)
                     .with_focus(TimelineFocus::Live {
                         hide_threaded_events: true,
                     })

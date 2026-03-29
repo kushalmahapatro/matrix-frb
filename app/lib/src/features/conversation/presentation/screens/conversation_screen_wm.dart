@@ -7,6 +7,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:matrix/src/core/desktop/desktop_camera_flow.dart';
+import 'package:matrix/src/core/desktop/desktop_esc_scope.dart';
+import 'package:matrix/src/core/desktop/desktop_shell_scope.dart';
+import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
 import 'package:matrix/src/core/logging_service.dart';
 import 'package:matrix/src/core/navigation/navigator_service.dart';
 import 'package:matrix/src/core/timeline_local_hidden_store.dart';
@@ -29,6 +33,7 @@ import 'package:matrix/src/features/conversation/presentation/widgets/pagianted_
     show openTimelineQuickReactionPicker;
 import 'package:matrix_sdk/matrix_sdk.dart'
     show
+        EventSendStateKind,
         FileSendPhase,
         FileSendProgress,
         Message,
@@ -51,6 +56,16 @@ class ConversationScreenModel extends ElementaryModel {
 
   Future<ConversationInfo> loadRoomInfo(String roomId) async {
     return conversationService.loadRoomInfo(roomId);
+  }
+
+  Future<Result<({ConversationInfo info, RoomDetails details})>> loadRoomSnapshot(
+    String roomId,
+  ) {
+    return conversationService.loadRoomSnapshot(roomId);
+  }
+
+  Future<Result<RoomDetails>> getRoomDetails(String roomId) {
+    return conversationService.getRoomDetails(roomId);
   }
 
   Future<void> toggleTimelineReaction({
@@ -167,6 +182,13 @@ class ConversationScreenModel extends ElementaryModel {
     return r.fold((b) => b, (_) => null);
   }
 
+  Future<Uint8List?> fetchUserAvatarThumbnail(String mxcUri) async {
+    final t = mxcUri.trim();
+    if (t.isEmpty) return null;
+    final r = await conversationService.fetchUserAvatarThumbnail(mxcUri: t);
+    return r.fold((b) => b, (_) => null);
+  }
+
   Future<void> retryFailedSend(String roomId, String transactionId) {
     return conversationService.retryFailedSend(
       roomId: roomId,
@@ -241,8 +263,9 @@ class ConversationScreenWM
   late final ValueNotifier<ConversationState> _roomState;
   late final ValueNotifier<bool> _isInvited;
   late final TextEditingController _messageController;
-  final ValueNotifier<bool> showPendingOutgoingInvite =
-      ValueNotifier<bool>(false);
+  final ValueNotifier<bool> showPendingOutgoingInvite = ValueNotifier<bool>(
+    false,
+  );
 
   ValueNotifier<ConversationState> get roomState => _roomState;
   TextEditingController get messageController => _messageController;
@@ -250,6 +273,9 @@ class ConversationScreenWM
 
   /// `true` when the composer has non-whitespace text (send vs voice-record button).
   ValueNotifier<bool> get composerHasText => _composerHasText;
+
+  /// Primary message field; focused when the timeline first reaches [ConversationState.loaded].
+  FocusNode get composerFocusNode => _composerFocusNode;
 
   /// Non-null while a file send is in progress (shows banner + cancel).
   ValueNotifier<FileSendProgress?> get fileSendProgress => _fileSendProgress;
@@ -265,10 +291,43 @@ class ConversationScreenWM
 
   final ValueNotifier<bool> _composerHasText = ValueNotifier<bool>(false);
 
+  final FocusNode _composerFocusNode = FocusNode(debugLabel: 'messageComposer');
+
+  ConversationState? _prevRoomStateForComposerFocus;
+
+  void _onRoomStateForComposerFocus() {
+    if (_disposed) return;
+    final next = _roomState.value;
+    final prev = _prevRoomStateForComposerFocus;
+    _prevRoomStateForComposerFocus = next;
+
+    final nextLoaded = next.maybeWhen(
+      loaded: (_, __) => true,
+      orElse: () => false,
+    );
+    if (!nextLoaded) return;
+
+    final prevLoaded =
+        prev?.maybeWhen(loaded: (_, __) => true, orElse: () => false) ?? false;
+    if (prevLoaded) return;
+
+    if (_isInvited.value) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_disposed || !context.mounted || _isInvited.value) return;
+      _composerFocusNode.requestFocus();
+    });
+  }
+
   /// Set from room info to scroll the timeline to an event id.
   final ValueNotifier<String?> jumpToTimelineEventId = ValueNotifier<String?>(
     null,
   );
+
+  /// Current member avatars (`mxc://…`) keyed by Matrix user id; refreshes with room meta so
+  /// timeline bubbles pick up profile photo changes without re-fetching every event row.
+  final ValueNotifier<Map<String, String>> senderAvatarMxcByUserId =
+      ValueNotifier<Map<String, String>>(<String, String>{});
 
   /// Debounces [markTimelineAsRead] so scroll / timeline bursts do not spam the homeserver.
   Timer? _markReadDebounce;
@@ -301,6 +360,8 @@ class ConversationScreenWM
     _messageController.addListener(_syncComposerHasText);
     _roomState = ValueNotifier(const ConversationState.loading());
     _isInvited = ValueNotifier(false);
+    _prevRoomStateForComposerFocus = _roomState.value;
+    _roomState.addListener(_onRoomStateForComposerFocus);
 
     if (widget.status == ChatRoomStatus.invited) {
       _roomState.value = const ConversationState.waitingForInvite();
@@ -322,9 +383,11 @@ class ConversationScreenWM
   void dispose() {
     MatrixService().unregisterTimelineSubscription(widget.roomId);
     _disposeStreams();
+    _roomState.removeListener(_onRoomStateForComposerFocus);
     _roomState.dispose();
     _messageController.removeListener(_syncComposerHasText);
     _messageController.dispose();
+    _composerFocusNode.dispose();
     _composerHasText.dispose();
     _isInvited.dispose();
     showPendingOutgoingInvite.dispose();
@@ -333,6 +396,7 @@ class ConversationScreenWM
     _fileSendProgress.dispose();
     jumpToTimelineEventId.dispose();
     replyDraft.dispose();
+    senderAvatarMxcByUserId.dispose();
     _disposed = true;
     super.dispose();
   }
@@ -360,6 +424,10 @@ class ConversationScreenWM
     );
   }
 
+  Future<Uint8List?> fetchUserAvatarThumbnail(String mxcUri) {
+    return model.fetchUserAvatarThumbnail(mxcUri);
+  }
+
   Future<void> openAttachment(Message message) async {
     if (message.isRedacted) return;
     if (TimelineLocalHiddenStore.isHidden(message)) return;
@@ -379,15 +447,34 @@ class ConversationScreenWM
   }
 
   Future<void> _loadMessages() async {
-    _roomState.value = const ConversationState.loading();
+    // Isolates: timeline/room data comes from Rust via FFI and [Message]/[RoomDetails]
+    // are not sendable across isolates; SharedPreferences uses the platform channel on
+    // the root isolate. Heavy lifting stays native/async — we avoid duplicate Rust calls
+    // and overlap independent futures instead.
+    final hiddenFuture = TimelineLocalHiddenStore.ensureLoaded().catchError((_) {});
+    final roomSnapshotFuture = model.loadRoomSnapshot(widget.roomId);
+    final messagesFuture = model.loadMessages(widget.roomId);
+
+    await hiddenFuture;
 
     try {
-      await TimelineLocalHiddenStore.ensureLoaded();
-    } catch (_) {
-      // Still show chat if prefs fail
-    }
-    try {
-      _roomInfo = await model.loadRoomInfo(widget.roomId);
+      final roomRes = await roomSnapshotFuture;
+      roomRes.fold(
+        (snap) {
+          _roomInfo = snap.info;
+          if (!_disposed) {
+            _applyMemberAvatarOverridesFromDetails(snap.details);
+          }
+        },
+        (_) {
+          _roomInfo = ConversationInfo(
+            id: widget.roomId,
+            name: widget.roomName,
+            topic: '',
+            memberCount: 0,
+          );
+        },
+      );
     } catch (_) {
       _roomInfo = ConversationInfo(
         id: widget.roomId,
@@ -397,6 +484,32 @@ class ConversationScreenWM
       );
     }
     _syncPendingOutgoingInviteFromRoomInfo();
+
+    // One-shot timeline from Rust (same cache the stream will use) so split-view
+    // switches paint messages immediately instead of a long "loading" state.
+    try {
+      final snap = await messagesFuture;
+      snap.fold(
+        (list) {
+          if (_disposed) return;
+          _roomState.value = ConversationState.loaded(
+            messages: list,
+            roomInfo: _roomInfo!,
+          );
+          _lastUpdateTime = DateTime.now();
+        },
+        (_) {
+          if (!_disposed) {
+            _roomState.value = const ConversationState.loading();
+          }
+        },
+      );
+    } catch (_) {
+      if (!_disposed) {
+        _roomState.value = const ConversationState.loading();
+      }
+    }
+
     _listenToChatUpdates();
   }
 
@@ -428,6 +541,9 @@ class ConversationScreenWM
     });
   }
 
+  /// When the user scrolls back to the newest messages, send a read receipt for the latest event.
+  void onTimelineScrolledToBottom() => _scheduleMarkTimelineRead();
+
   void _scheduleRoomMetaRefresh() {
     if (widget.status != ChatRoomStatus.joined) return;
     _roomMetaDebounce?.cancel();
@@ -437,31 +553,56 @@ class ConversationScreenWM
     });
   }
 
+  void _applyMemberAvatarOverridesFromDetails(RoomDetails d) {
+    if (_disposed) return;
+    final map = <String, String>{};
+    for (final m in d.members) {
+      final a = m.avatarUrl.trim();
+      if (a.isNotEmpty) {
+        map[m.userId] = a;
+      }
+    }
+    senderAvatarMxcByUserId.value = map;
+  }
+
   Future<void> _refreshRoomMeta() async {
     if (_disposed || widget.status != ChatRoomStatus.joined) {
       if (!_disposed) showPendingOutgoingInvite.value = false;
       return;
     }
     try {
-      final info = await model.loadRoomInfo(widget.roomId);
+      final snapRes = await model.loadRoomSnapshot(widget.roomId);
       if (_disposed) return;
-      _roomInfo = info;
-      showPendingOutgoingInvite.value = _shouldShowPendingOutgoingInvite(info);
-      _roomState.value.maybeWhen(
-        loaded: (msgs, _) {
-          _roomState.value = ConversationState.loaded(
-            messages: msgs,
-            roomInfo: info,
+      snapRes.fold(
+        (snap) {
+          _roomInfo = snap.info;
+          showPendingOutgoingInvite.value =
+              _shouldShowPendingOutgoingInvite(snap.info);
+          _applyMemberAvatarOverridesFromDetails(snap.details);
+          _roomState.value.maybeWhen(
+            loaded: (msgs, _) {
+              _roomState.value = ConversationState.loaded(
+                messages: msgs,
+                roomInfo: snap.info,
+              );
+            },
+            orElse: () {},
           );
         },
-        orElse: () {},
+        (_) {
+          if (!_disposed) showPendingOutgoingInvite.value = false;
+        },
       );
     } catch (_) {
       if (!_disposed) showPendingOutgoingInvite.value = false;
     }
   }
 
-  void showMessageActionsMenu(BuildContext context, Message message) {
+  void showMessageActionsMenu(
+    BuildContext context,
+    Message message,
+    Offset anchorGlobal,
+  ) {
     if (message.messageType != MessageType.message ||
         message.isRedacted ||
         TimelineLocalHiddenStore.isHidden(message)) {
@@ -470,6 +611,93 @@ class ConversationScreenWM
     final canReply = message.eventId.isNotEmpty;
     final canReact =
         message.eventId.isNotEmpty || message.transactionId.isNotEmpty;
+    if (isDesktopTargetPlatform()) {
+      final theme = Theme.of(context);
+      unawaited(
+        showMenu<void>(
+          context: context,
+          position: desktopMenuPositionAt(context, anchorGlobal),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(
+              color: theme.colorScheme.outline.withValues(alpha: 0.45),
+            ),
+          ),
+          color: MatrixTheme.terminalBackground,
+          items: [
+            PopupMenuItem<void>(
+              enabled: canReply,
+              onTap: canReply
+                  ? () {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!this.context.mounted) return;
+                        beginReplyTo(message);
+                      });
+                    }
+                  : null,
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.reply_rounded, size: 22),
+                title: Text(
+                  'Reply',
+                  style: TextStyle(fontFamily: MatrixTheme.fontFamily),
+                ),
+              ),
+            ),
+            PopupMenuItem<void>(
+              enabled: canReact,
+              onTap: canReact
+                  ? () {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!this.context.mounted) return;
+                        openTimelineQuickReactionPicker(
+                          this.context,
+                          onToggle: (k) => toggleTimelineReaction(message, k),
+                        );
+                      });
+                    }
+                  : null,
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.emoji_emotions_outlined, size: 22),
+                title: Text(
+                  'React',
+                  style: TextStyle(fontFamily: MatrixTheme.fontFamily),
+                ),
+              ),
+            ),
+            PopupMenuItem<void>(
+              onTap: () {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!this.context.mounted) return;
+                  _showDeleteMessageChoices(
+                    this.context,
+                    message,
+                    anchorGlobal,
+                  );
+                });
+              },
+              child: ListTile(
+                dense: true,
+                leading: Icon(
+                  Icons.delete_outline,
+                  size: 22,
+                  color: theme.colorScheme.error,
+                ),
+                title: Text(
+                  'Delete…',
+                  style: TextStyle(
+                    fontFamily: MatrixTheme.fontFamily,
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -535,7 +763,7 @@ class ConversationScreenWM
                   Navigator.pop(ctx);
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (!context.mounted) return;
-                    _showDeleteMessageChoices(context, message);
+                    _showDeleteMessageChoices(context, message, anchorGlobal);
                   });
                 },
               ),
@@ -546,10 +774,79 @@ class ConversationScreenWM
     );
   }
 
-  void _showDeleteMessageChoices(BuildContext context, Message message) {
+  void _showDeleteMessageChoices(
+    BuildContext context,
+    Message message, [
+    Offset? menuAnchor,
+  ]) {
     final hasServerId = message.eventId.isNotEmpty;
     if (!hasServerId) {
       unawaited(_confirmHideMessageLocally(context, message));
+      return;
+    }
+    if (isDesktopTargetPlatform()) {
+      final theme = Theme.of(context);
+      final pos =
+          menuAnchor ??
+          Offset(
+            MediaQuery.sizeOf(context).width / 2,
+            MediaQuery.paddingOf(context).top + 48,
+          );
+      unawaited(
+        showMenu<void>(
+          context: context,
+          position: desktopMenuPositionAt(context, pos),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(
+              color: theme.colorScheme.outline.withValues(alpha: 0.45),
+            ),
+          ),
+          color: MatrixTheme.terminalBackground,
+          items: [
+            PopupMenuItem<void>(
+              onTap: () {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  unawaited(_deleteMessageForMe(message));
+                });
+              },
+              child: ListTile(
+                dense: true,
+                title: Text(
+                  'Delete for me',
+                  style: TextStyle(fontFamily: MatrixTheme.fontFamily),
+                ),
+                subtitle: Text(
+                  'Hide on this device only',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+            ),
+            PopupMenuItem<void>(
+              onTap: () {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!context.mounted) return;
+                  unawaited(_confirmRedactForEveryone(context, message));
+                });
+              },
+              child: ListTile(
+                dense: true,
+                title: Text(
+                  'Delete for everyone',
+                  style: TextStyle(
+                    fontFamily: MatrixTheme.fontFamily,
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+                subtitle: Text(
+                  'Redact for all members (if allowed)',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
       return;
     }
     showModalBottomSheet<void>(
@@ -742,7 +1039,10 @@ class ConversationScreenWM
     replyDraft.value = null;
   }
 
-  Future<void> toggleTimelineReaction(Message message, String reactionKey) async {
+  Future<void> toggleTimelineReaction(
+    Message message,
+    String reactionKey,
+  ) async {
     if (message.eventId.isEmpty && message.transactionId.isEmpty) return;
     if (message.isRedacted || TimelineLocalHiddenStore.isHidden(message)) {
       return;
@@ -770,6 +1070,10 @@ class ConversationScreenWM
     Message message,
     MessageReactionEntry entry,
   ) {
+    if (isDesktopTargetPlatform()) {
+      unawaited(_showReactionReactorsDesktopMenu(context, message, entry));
+      return;
+    }
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -795,8 +1099,9 @@ class ConversationScreenWM
                   );
                 }
                 final rawOwn = snapshot.data?.currentUserId;
-                final ownId =
-                    rawOwn != null && rawOwn.isNotEmpty ? rawOwn : null;
+                final ownId = rawOwn != null && rawOwn.isNotEmpty
+                    ? rawOwn
+                    : null;
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -854,6 +1159,77 @@ class ConversationScreenWM
     );
   }
 
+  Future<void> _showReactionReactorsDesktopMenu(
+    BuildContext context,
+    Message message,
+    MessageReactionEntry entry,
+  ) async {
+    final details = await MatrixService().client.getRoomDetails(
+      roomId: widget.roomId,
+    );
+    if (!context.mounted) return;
+    final theme = Theme.of(context);
+    final ownId = details.currentUserId.trim().isNotEmpty
+        ? details.currentUserId
+        : null;
+    final mq = MediaQuery.sizeOf(context);
+    await showMenu<void>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        mq.width * 0.35,
+        mq.height * 0.25,
+        mq.width * 0.35,
+        mq.height * 0.25,
+      ),
+      constraints: const BoxConstraints(maxWidth: 360, maxHeight: 420),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(
+          color: theme.colorScheme.outline.withValues(alpha: 0.45),
+        ),
+      ),
+      color: MatrixTheme.terminalBackground,
+      items: [
+        PopupMenuItem<void>(
+          enabled: false,
+          child: Text(
+            '${entry.key}  ·  ${entry.count}',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        ...entry.senders.map((u) {
+          final isSelf = ownId != null && u == ownId;
+          return PopupMenuItem<void>(
+            onTap: isSelf
+                ? () {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      unawaited(toggleTimelineReaction(message, entry.key));
+                    });
+                  }
+                : null,
+            child: ListTile(
+              dense: true,
+              leading: Icon(
+                Icons.person_outline,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              title: Text(u, overflow: TextOverflow.ellipsis),
+              trailing: isSelf
+                  ? Icon(
+                      Icons.close_rounded,
+                      size: 20,
+                      color: theme.colorScheme.error,
+                    )
+                  : null,
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
   Future<void> sendMessage() async {
     final content = _messageController.text.trim();
     if (content.isEmpty) return;
@@ -904,469 +1280,511 @@ class ConversationScreenWM
     var maxSel = 1;
     bool? submitted;
     try {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (ctx) {
-          final bottomInset = MediaQuery.viewInsetsOf(ctx).bottom;
-          final h = MediaQuery.sizeOf(ctx).height * 0.92;
-          return Align(
-            alignment: Alignment.bottomCenter,
-            child: Padding(
-              padding: EdgeInsets.only(bottom: bottomInset),
-              child: SizedBox(
-                height: h,
-                child: StatefulBuilder(
-                  builder: (ctx, setSt) {
-                    void addOption() {
-                      if (answerCtrls.length >= 12) return;
-                      setSt(() => answerCtrls.add(TextEditingController()));
-                    }
+      final usePollDialog = isDesktopTargetPlatform();
 
-                    void removeOption(int i) {
-                      if (answerCtrls.length <= 2) return;
-                      setSt(() {
-                        final removed = answerCtrls.removeAt(i);
-                        maxSel = maxSel.clamp(1, answerCtrls.length);
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          removed.dispose();
-                        });
-                      });
-                    }
+      Widget pollShell(BuildContext shellCtx, {required bool desktopChrome}) {
+        return StatefulBuilder(
+          builder: (ctx, setSt) {
+            void addOption() {
+              if (answerCtrls.length >= 12) return;
+              setSt(() => answerCtrls.add(TextEditingController()));
+            }
 
-                    final nAnswers = answerCtrls.length;
-                    final maxSelItems = List.generate(
-                      nAnswers,
-                      (i) => i + 1,
-                    );
+            void removeOption(int i) {
+              if (answerCtrls.length <= 2) return;
+              setSt(() {
+                final removed = answerCtrls.removeAt(i);
+                maxSel = maxSel.clamp(1, answerCtrls.length);
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  removed.dispose();
+                });
+              });
+            }
 
-                    return DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: MatrixTheme.terminalBlack.withValues(alpha: 0.98),
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(12),
-                        ),
-                        border: Border.all(
-                          color: MatrixTheme.matrixGreen.withValues(alpha: 0.4),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: MatrixTheme.matrixAccent.withValues(
-                              alpha: 0.12,
-                            ),
-                            blurRadius: 20,
+            final nAnswers = answerCtrls.length;
+            final maxSelItems = List.generate(nAnswers, (i) => i + 1);
+
+            return DecoratedBox(
+              decoration: BoxDecoration(
+                color: MatrixTheme.terminalBlack.withValues(alpha: 0.98),
+                borderRadius: desktopChrome
+                    ? BorderRadius.circular(12)
+                    : const BorderRadius.vertical(top: Radius.circular(12)),
+                border: Border.all(
+                  color: MatrixTheme.matrixGreen.withValues(alpha: 0.4),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: MatrixTheme.matrixAccent.withValues(alpha: 0.12),
+                    blurRadius: 20,
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (!desktopChrome) ...[
+                    const SizedBox(height: 10),
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: MatrixTheme.matrixDarkGreen.withValues(
+                            alpha: 0.55,
                           ),
-                        ],
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const SizedBox(height: 10),
-                          Center(
-                            child: Container(
-                              width: 40,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: MatrixTheme.matrixDarkGreen.withValues(
-                                  alpha: 0.55,
+                    ),
+                  ],
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 8, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '> COMPOSE // POLL',
+                            style: TextStyle(
+                              color: MatrixTheme.matrixLightGreen,
+                              fontFamily: MatrixTheme.fontFamily,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.6,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          color: MatrixTheme.matrixGreen,
+                          tooltip: 'Close',
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                      children: [
+                        Text(
+                          'Question',
+                          style: TextStyle(
+                            color: MatrixTheme.matrixDarkGreen.withValues(
+                              alpha: 0.9,
+                            ),
+                            fontFamily: MatrixTheme.fontFamily,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: qCtrl,
+                          maxLines: 3,
+                          style: TextStyle(
+                            color: MatrixTheme.matrixLightGreen,
+                            fontFamily: MatrixTheme.fontFamily,
+                          ),
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: MatrixTheme.terminalBackground
+                                .withValues(alpha: 0.9),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(4),
+                              borderSide: BorderSide(
+                                color: MatrixTheme.matrixGreen.withValues(
+                                  alpha: 0.45,
                                 ),
-                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(4),
+                              borderSide: BorderSide(
+                                color: MatrixTheme.matrixGreen.withValues(
+                                  alpha: 0.35,
+                                ),
                               ),
                             ),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 14, 8, 8),
+                        ),
+                        const SizedBox(height: 18),
+                        Row(
+                          children: [
+                            Text(
+                              'Answers',
+                              style: TextStyle(
+                                color: MatrixTheme.matrixDarkGreen.withValues(
+                                  alpha: 0.9,
+                                ),
+                                fontFamily: MatrixTheme.fontFamily,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            const Spacer(),
+                            TextButton.icon(
+                              onPressed: addOption,
+                              icon: Icon(
+                                Icons.add,
+                                size: 18,
+                                color: MatrixTheme.matrixAccent,
+                              ),
+                              label: Text(
+                                'Add',
+                                style: TextStyle(
+                                  color: MatrixTheme.matrixAccent,
+                                  fontFamily: MatrixTheme.fontFamily,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        ...List.generate(answerCtrls.length, (i) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
                             child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Expanded(
-                                  child: Text(
-                                    '> COMPOSE // POLL',
+                                  child: TextField(
+                                    controller: answerCtrls[i],
                                     style: TextStyle(
                                       color: MatrixTheme.matrixLightGreen,
                                       fontFamily: MatrixTheme.fontFamily,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.6,
-                                      fontSize: 13,
                                     ),
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.close),
-                                  color: MatrixTheme.matrixGreen,
-                                  tooltip: 'Close',
-                                  onPressed: () => Navigator.pop(ctx),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            child: ListView(
-                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                              children: [
-                                Text(
-                                  'Question',
-                                  style: TextStyle(
-                                    color: MatrixTheme.matrixDarkGreen
-                                        .withValues(alpha: 0.9),
-                                    fontFamily: MatrixTheme.fontFamily,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.8,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                TextField(
-                                  controller: qCtrl,
-                                  maxLines: 3,
-                                  style: TextStyle(
-                                    color: MatrixTheme.matrixLightGreen,
-                                    fontFamily: MatrixTheme.fontFamily,
-                                  ),
-                                  decoration: InputDecoration(
-                                    filled: true,
-                                    fillColor: MatrixTheme.terminalBackground
-                                        .withValues(alpha: 0.9),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(4),
-                                      borderSide: BorderSide(
+                                    decoration: InputDecoration(
+                                      labelText: 'Option ${i + 1}',
+                                      labelStyle: TextStyle(
                                         color: MatrixTheme.matrixGreen
-                                            .withValues(alpha: 0.45),
-                                      ),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(4),
-                                      borderSide: BorderSide(
-                                        color: MatrixTheme.matrixGreen
-                                            .withValues(alpha: 0.35),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 18),
-                                Row(
-                                  children: [
-                                    Text(
-                                      'Answers',
-                                      style: TextStyle(
-                                        color: MatrixTheme.matrixDarkGreen
-                                            .withValues(alpha: 0.9),
+                                            .withValues(alpha: 0.7),
                                         fontFamily: MatrixTheme.fontFamily,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 0.8,
+                                        fontSize: 12,
                                       ),
-                                    ),
-                                    const Spacer(),
-                                    TextButton.icon(
-                                      onPressed: addOption,
-                                      icon: Icon(
-                                        Icons.add,
-                                        size: 18,
-                                        color: MatrixTheme.matrixAccent,
-                                      ),
-                                      label: Text(
-                                        'Add',
-                                        style: TextStyle(
-                                          color: MatrixTheme.matrixAccent,
-                                          fontFamily: MatrixTheme.fontFamily,
+                                      filled: true,
+                                      fillColor: MatrixTheme.terminalBackground
+                                          .withValues(alpha: 0.85),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(4),
+                                        borderSide: BorderSide(
+                                          color: MatrixTheme.matrixGreen
+                                              .withValues(alpha: 0.35),
                                         ),
                                       ),
                                     ),
-                                  ],
+                                  ),
                                 ),
-                                const SizedBox(height: 4),
-                                ...List.generate(answerCtrls.length, (i) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: Row(
+                                if (answerCtrls.length > 2)
+                                  IconButton(
+                                    onPressed: () => removeOption(i),
+                                    icon: Icon(
+                                      Icons.remove_circle_outline,
+                                      color: MatrixTheme.warningOrange
+                                          .withValues(alpha: 0.85),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        }),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Result visibility',
+                          style: TextStyle(
+                            color: MatrixTheme.matrixDarkGreen.withValues(
+                              alpha: 0.9,
+                            ),
+                            fontFamily: MatrixTheme.fontFamily,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: MatrixTheme.matrixGreen.withValues(
+                                alpha: 0.35,
+                              ),
+                            ),
+                            color: MatrixTheme.terminalBackground.withValues(
+                              alpha: 0.75,
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => setSt(() => disclosed = false),
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      border: Border(
+                                        left: BorderSide(
+                                          color: !disclosed
+                                              ? MatrixTheme.matrixAccent
+                                              : Colors.transparent,
+                                          width: 3,
+                                        ),
+                                      ),
+                                      color: !disclosed
+                                          ? MatrixTheme.matrixAccent.withValues(
+                                              alpha: 0.08,
+                                            )
+                                          : null,
+                                    ),
+                                    child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Expanded(
-                                          child: TextField(
-                                            controller: answerCtrls[i],
-                                            style: TextStyle(
-                                              color:
-                                                  MatrixTheme.matrixLightGreen,
-                                              fontFamily:
-                                                  MatrixTheme.fontFamily,
-                                            ),
-                                            decoration: InputDecoration(
-                                              labelText: 'Option ${i + 1}',
-                                              labelStyle: TextStyle(
-                                                color: MatrixTheme.matrixGreen
-                                                    .withValues(alpha: 0.7),
-                                                fontFamily:
-                                                    MatrixTheme.fontFamily,
-                                                fontSize: 12,
-                                              ),
-                                              filled: true,
-                                              fillColor: MatrixTheme
-                                                  .terminalBackground
-                                                  .withValues(alpha: 0.85),
-                                              border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                                borderSide: BorderSide(
-                                                  color: MatrixTheme.matrixGreen
-                                                      .withValues(alpha: 0.35),
-                                                ),
-                                              ),
-                                            ),
+                                        Text(
+                                          'Undisclosed',
+                                          style: TextStyle(
+                                            color: MatrixTheme.matrixLightGreen,
+                                            fontFamily: MatrixTheme.fontFamily,
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
-                                        if (answerCtrls.length > 2)
-                                          IconButton(
-                                            onPressed: () => removeOption(i),
-                                            icon: Icon(
-                                              Icons.remove_circle_outline,
-                                              color: MatrixTheme.warningOrange
-                                                  .withValues(alpha: 0.85),
-                                            ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Counts stay hidden until the poll is closed.',
+                                          style: TextStyle(
+                                            color: MatrixTheme.matrixDarkGreen
+                                                .withValues(alpha: 0.95),
+                                            fontFamily: MatrixTheme.fontFamily,
+                                            fontSize: 11,
                                           ),
+                                        ),
                                       ],
                                     ),
-                                  );
-                                }),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'Result visibility',
-                                  style: TextStyle(
-                                    color: MatrixTheme.matrixDarkGreen
-                                        .withValues(alpha: 0.9),
-                                    fontFamily: MatrixTheme.fontFamily,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.8,
                                   ),
                                 ),
-                                const SizedBox(height: 6),
-                                DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(
-                                      color: MatrixTheme.matrixGreen
-                                          .withValues(alpha: 0.35),
-                                    ),
-                                    color: MatrixTheme.terminalBackground
-                                        .withValues(alpha: 0.75),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          onTap: () =>
-                                              setSt(() => disclosed = false),
-                                          child: Container(
-                                            width: double.infinity,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 10,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              border: Border(
-                                                left: BorderSide(
-                                                  color: !disclosed
-                                                      ? MatrixTheme.matrixAccent
-                                                      : Colors.transparent,
-                                                  width: 3,
-                                                ),
-                                              ),
-                                              color: !disclosed
-                                                  ? MatrixTheme.matrixAccent
-                                                      .withValues(alpha: 0.08)
-                                                  : null,
-                                            ),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  'Undisclosed',
-                                                  style: TextStyle(
-                                                    color: MatrixTheme
-                                                        .matrixLightGreen,
-                                                    fontFamily:
-                                                        MatrixTheme.fontFamily,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  'Counts stay hidden until the poll is closed.',
-                                                  style: TextStyle(
-                                                    color: MatrixTheme
-                                                        .matrixDarkGreen
-                                                        .withValues(alpha: 0.95),
-                                                    fontFamily:
-                                                        MatrixTheme.fontFamily,
-                                                    fontSize: 11,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      Divider(
-                                        height: 1,
-                                        color: MatrixTheme.matrixGreen
-                                            .withValues(alpha: 0.2),
-                                      ),
-                                      Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          onTap: () =>
-                                              setSt(() => disclosed = true),
-                                          child: Container(
-                                            width: double.infinity,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 10,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              border: Border(
-                                                left: BorderSide(
-                                                  color: disclosed
-                                                      ? MatrixTheme.matrixAccent
-                                                      : Colors.transparent,
-                                                  width: 3,
-                                                ),
-                                              ),
-                                              color: disclosed
-                                                  ? MatrixTheme.matrixAccent
-                                                      .withValues(alpha: 0.08)
-                                                  : null,
-                                            ),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  'Disclosed',
-                                                  style: TextStyle(
-                                                    color: MatrixTheme
-                                                        .matrixLightGreen,
-                                                    fontFamily:
-                                                        MatrixTheme.fontFamily,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  'Show who voted for each option as votes arrive.',
-                                                  style: TextStyle(
-                                                    color: MatrixTheme
-                                                        .matrixDarkGreen
-                                                        .withValues(alpha: 0.95),
-                                                    fontFamily:
-                                                        MatrixTheme.fontFamily,
-                                                    fontSize: 11,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                              ),
+                              Divider(
+                                height: 1,
+                                color: MatrixTheme.matrixGreen.withValues(
+                                  alpha: 0.2,
                                 ),
-                                const SizedBox(height: 16),
-                                Row(
-                                  children: [
-                                    Text(
-                                      'Max selections per voter',
-                                      style: TextStyle(
-                                        color: MatrixTheme.matrixLightGreen,
-                                        fontFamily: MatrixTheme.fontFamily,
-                                        fontSize: 13,
-                                      ),
+                              ),
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => setSt(() => disclosed = true),
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
                                     ),
-                                    const Spacer(),
-                                    DropdownButton<int>(
-                                      value: maxSel.clamp(1, nAnswers),
-                                      dropdownColor:
-                                          MatrixTheme.terminalBlack,
-                                      style: TextStyle(
-                                        color: MatrixTheme.matrixAccent,
-                                        fontFamily: MatrixTheme.fontFamily,
-                                      ),
-                                      items: maxSelItems
-                                          .map(
-                                            (e) => DropdownMenuItem(
-                                              value: e,
-                                              child: Text('$e'),
-                                            ),
-                                          )
-                                          .toList(),
-                                      onChanged: (v) => setSt(
-                                        () => maxSel = v ?? 1,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 24),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: OutlinedButton(
-                                        onPressed: () => Navigator.pop(ctx),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor:
-                                              MatrixTheme.matrixGreen,
-                                          side: BorderSide(
-                                            color: MatrixTheme.matrixGreen
-                                                .withValues(alpha: 0.5),
-                                          ),
+                                    decoration: BoxDecoration(
+                                      border: Border(
+                                        left: BorderSide(
+                                          color: disclosed
+                                              ? MatrixTheme.matrixAccent
+                                              : Colors.transparent,
+                                          width: 3,
                                         ),
-                                        child: Text(
-                                          'Cancel',
+                                      ),
+                                      color: disclosed
+                                          ? MatrixTheme.matrixAccent.withValues(
+                                              alpha: 0.08,
+                                            )
+                                          : null,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Disclosed',
                                           style: TextStyle(
+                                            color: MatrixTheme.matrixLightGreen,
                                             fontFamily: MatrixTheme.fontFamily,
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: FilledButton(
-                                        onPressed: () {
-                                          submitted = true;
-                                          Navigator.pop(ctx);
-                                        },
-                                        style: FilledButton.styleFrom(
-                                          backgroundColor:
-                                              MatrixTheme.matrixAccent,
-                                          foregroundColor:
-                                              MatrixTheme.terminalBlack,
-                                        ),
-                                        child: Text(
-                                          'Send poll',
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Show who voted for each option as votes arrive.',
                                           style: TextStyle(
+                                            color: MatrixTheme.matrixDarkGreen
+                                                .withValues(alpha: 0.95),
                                             fontFamily: MatrixTheme.fontFamily,
-                                            fontWeight: FontWeight.w700,
+                                            fontSize: 11,
                                           ),
                                         ),
-                                      ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    );
-                  },
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Text(
+                              'Max selections per voter',
+                              style: TextStyle(
+                                color: MatrixTheme.matrixLightGreen,
+                                fontFamily: MatrixTheme.fontFamily,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const Spacer(),
+                            DropdownButton<int>(
+                              value: maxSel.clamp(1, nAnswers),
+                              dropdownColor: MatrixTheme.terminalBlack,
+                              style: TextStyle(
+                                color: MatrixTheme.matrixAccent,
+                                fontFamily: MatrixTheme.fontFamily,
+                              ),
+                              items: maxSelItems
+                                  .map(
+                                    (e) => DropdownMenuItem(
+                                      value: e,
+                                      child: Text('$e'),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (v) => setSt(() => maxSel = v ?? 1),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: MatrixTheme.matrixGreen,
+                                  side: BorderSide(
+                                    color: MatrixTheme.matrixGreen.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Cancel',
+                                  style: TextStyle(
+                                    fontFamily: MatrixTheme.fontFamily,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: FilledButton(
+                                onPressed: () {
+                                  submitted = true;
+                                  Navigator.pop(ctx);
+                                },
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: MatrixTheme.matrixAccent,
+                                  foregroundColor: MatrixTheme.terminalBlack,
+                                ),
+                                child: Text(
+                                  'Send poll',
+                                  style: TextStyle(
+                                    fontFamily: MatrixTheme.fontFamily,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      }
+
+      if (usePollDialog) {
+        await showGeneralDialog<void>(
+          context: context,
+          barrierDismissible: true,
+          barrierLabel: MaterialLocalizations.of(
+            context,
+          ).modalBarrierDismissLabel,
+          transitionDuration: const Duration(milliseconds: 200),
+          transitionBuilder: (dialogCtx, animation, _, child) {
+            final curved = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            );
+            return FadeTransition(
+              opacity: curved,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.97, end: 1).animate(curved),
+                child: child,
+              ),
+            );
+          },
+          pageBuilder: (dialogCtx, a1, a2) {
+            final mq = MediaQuery.sizeOf(dialogCtx);
+            return Center(
+              child: Dialog(
+                backgroundColor: Colors.transparent,
+                insetPadding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 20,
+                ),
+                elevation: 0,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: 560,
+                    maxHeight: mq.height * 0.9,
+                  ),
+                  child: SizedBox(
+                    width: 520,
+                    height: mq.height * 0.82,
+                    child: DesktopEscScope(
+                      child: pollShell(dialogCtx, desktopChrome: true),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          );
-        },
-      );
+            );
+          },
+        );
+      } else {
+        await showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (ctx) {
+            final bottomInset = MediaQuery.viewInsetsOf(ctx).bottom;
+            final h = MediaQuery.sizeOf(ctx).height * 0.92;
+            return Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: bottomInset),
+                child: SizedBox(
+                  height: h,
+                  child: pollShell(ctx, desktopChrome: false),
+                ),
+              ),
+            );
+          },
+        );
+      }
       if (submitted != true || !context.mounted) return;
       final question = qCtrl.text.trim();
       final answers = answerCtrls
@@ -1390,9 +1808,9 @@ class ConversationScreenWM
       );
       if (!context.mounted) return;
       r.fold(
-        (_) => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Poll sent')),
-        ),
+        (_) => ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Poll sent'))),
         (f) => ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed: $f'),
@@ -1412,10 +1830,7 @@ class ConversationScreenWM
     }
   }
 
-  Future<void> voteOnPoll(
-    String pollEventId,
-    List<String> answerIds,
-  ) async {
+  Future<void> voteOnPoll(String pollEventId, List<String> answerIds) async {
     if (pollEventId.isEmpty || answerIds.isEmpty) return;
     final r = await model.sendPollResponse(
       roomId: widget.roomId,
@@ -1424,9 +1839,9 @@ class ConversationScreenWM
     );
     if (!context.mounted) return;
     r.fold(
-      (_) => ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vote recorded')),
-      ),
+      (_) => ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Vote recorded'))),
       (f) => ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Vote failed: $f'),
@@ -1440,30 +1855,35 @@ class ConversationScreenWM
   Future<void> showAttachMenu() async {
     if (!context.mounted) return;
     final theme = Theme.of(context);
-    final choice = await showModalBottomSheet<String>(
+    final choice = await showAdaptiveSheet<String>(
       context: context,
-      showDragHandle: true,
+      title: 'Attach',
       builder: (sheetContext) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ListTile(
-                leading: Icon(
-                  Icons.photo_library_outlined,
-                  color: theme.colorScheme.primary,
+              if (!isDesktopTargetPlatform())
+                ListTile(
+                  leading: Icon(
+                    Icons.photo_library_outlined,
+                    color: theme.colorScheme.primary,
+                  ),
+                  title: const Text('Photo or video'),
+                  subtitle: const Text('From gallery'),
+                  onTap: () => Navigator.pop(sheetContext, 'gallery'),
                 ),
-                title: const Text('Photo or video'),
-                subtitle: const Text('From gallery'),
-                onTap: () => Navigator.pop(sheetContext, 'gallery'),
-              ),
               ListTile(
                 leading: Icon(
                   Icons.photo_camera_outlined,
                   color: theme.colorScheme.primary,
                 ),
                 title: const Text('Camera'),
-                subtitle: const Text('Photo or video'),
+                subtitle: Text(
+                  isDesktopTargetPlatform()
+                      ? 'Webcam (pick device if several are available)'
+                      : 'Photo or video',
+                ),
                 onTap: () => Navigator.pop(sheetContext, 'camera'),
               ),
               ListTile(
@@ -1481,7 +1901,11 @@ class ConversationScreenWM
                   color: theme.colorScheme.primary,
                 ),
                 title: const Text('File'),
-                subtitle: const Text('Browse files'),
+                subtitle: Text(
+                  isDesktopTargetPlatform()
+                      ? 'Images, video, documents'
+                      : 'Browse files',
+                ),
                 onTap: () => Navigator.pop(sheetContext, 'file'),
               ),
             ],
@@ -1491,7 +1915,9 @@ class ConversationScreenWM
     );
     if (choice == null || !context.mounted) return;
     if (choice == 'gallery') {
-      await pickAndSendFromGallery();
+      if (!isDesktopTargetPlatform()) {
+        await pickAndSendFromGallery();
+      }
     } else if (choice == 'camera') {
       await showCameraCaptureMenu();
     } else if (choice == 'voice') {
@@ -1506,18 +1932,16 @@ class ConversationScreenWM
     if (kIsWeb) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Camera is not supported on web.'),
-          ),
+          const SnackBar(content: Text('Camera is not supported on web.')),
         );
       }
       return;
     }
     if (!context.mounted) return;
     final theme = Theme.of(context);
-    final mode = await showModalBottomSheet<String>(
+    final mode = await showAdaptiveSheet<String>(
       context: context,
-      showDragHandle: true,
+      title: 'Camera',
       builder: (sheetContext) {
         return SafeArea(
           child: Column(
@@ -1541,6 +1965,17 @@ class ConversationScreenWM
                 subtitle: const Text('Record a clip'),
                 onTap: () => Navigator.pop(sheetContext, 'video'),
               ),
+              if (isDesktopTargetPlatform()) ...[
+                ListTile(
+                  leading: Icon(
+                    Icons.folder_open_outlined,
+                    color: theme.colorScheme.primary,
+                  ),
+                  title: const Text('Choose image or video file'),
+                  subtitle: const Text('When camera is unavailable'),
+                  onTap: () => Navigator.pop(sheetContext, 'filemedia'),
+                ),
+              ],
             ],
           ),
         );
@@ -1551,53 +1986,114 @@ class ConversationScreenWM
       await pickAndSendFromCameraPhoto();
     } else if (mode == 'video') {
       await pickAndSendFromCameraVideo();
+    } else if (mode == 'filemedia') {
+      await pickAndSendMediaFromFilePicker();
     }
   }
 
   Future<void> pickAndSendFromCameraPhoto() async {
     if (kIsWeb) return;
-    final picker = ImagePicker();
-    final XFile? picked = await picker.pickImage(
-      source: ImageSource.camera,
-      imageQuality: 92,
-    );
-    if (picked == null) return;
-    final path = await _pathForGalleryPick(picked);
-    if (path == null || path.isEmpty) {
-      if (context.mounted) {
+    if (isDesktopTargetPlatform()) {
+      final cam = await pickDesktopCameraDescription(context);
+      if (!context.mounted) return;
+      if (cam == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not access the camera photo.')),
+          const SnackBar(
+            content: Text(
+              'No camera found. Attach an image with File instead.',
+            ),
+          ),
         );
+        return;
       }
+      final path = await showDialog<String?>(
+        context: context,
+        builder: (_) => DesktopCameraCaptureDialog(camera: cam),
+      );
+      if (path == null || path.isEmpty || !context.mounted) return;
+      await _sendTimelineFileFromPath(path, mimeType: 'image/jpeg');
       return;
     }
-    await _sendTimelineFileFromPath(
-      path,
-      mimeType: picked.mimeType ?? 'image/jpeg',
-    );
+    try {
+      final picker = ImagePicker();
+      final XFile? picked = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 92,
+      );
+      if (picked == null) return;
+      final path = await _pathForGalleryPick(picked);
+      if (path == null || path.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not access the camera photo.')),
+          );
+        }
+        return;
+      }
+      await _sendTimelineFileFromPath(
+        path,
+        mimeType: picked.mimeType ?? 'image/jpeg',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Camera unavailable: $e. Try “Choose image or video file”.',
+            ),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> pickAndSendFromCameraVideo() async {
     if (kIsWeb) return;
-    final picker = ImagePicker();
-    final XFile? picked = await picker.pickVideo(
-      source: ImageSource.camera,
-      maxDuration: const Duration(minutes: 10),
-    );
-    if (picked == null) return;
-    final path = await _pathForGalleryPick(picked);
-    if (path == null || path.isEmpty) {
+    if (isDesktopTargetPlatform()) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not access the camera video.')),
+          const SnackBar(
+            content: Text(
+              'Recording video from the camera is not available on desktop. '
+              'Choose a video file from File or “Choose image or video file”.',
+            ),
+          ),
         );
       }
+      await pickAndSendMediaFromFilePicker();
       return;
     }
-    await _sendTimelineFileFromPath(
-      path,
-      mimeType: picked.mimeType ?? 'video/mp4',
-    );
+    try {
+      final picker = ImagePicker();
+      final XFile? picked = await picker.pickVideo(
+        source: ImageSource.camera,
+        maxDuration: const Duration(minutes: 10),
+      );
+      if (picked == null) return;
+      final path = await _pathForGalleryPick(picked);
+      if (path == null || path.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not access the camera video.')),
+          );
+        }
+        return;
+      }
+      await _sendTimelineFileFromPath(
+        path,
+        mimeType: picked.mimeType ?? 'video/mp4',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Camera unavailable: $e. Try “Choose image or video file”.',
+            ),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> showVoiceRecordSheet() async {
@@ -1612,10 +2108,9 @@ class ConversationScreenWM
       return;
     }
     if (!context.mounted) return;
-    final result = await showModalBottomSheet<VoiceRecordResult?>(
+    final result = await showAdaptivePanel<VoiceRecordResult?>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
+      scrollControlled: true,
       builder: (ctx) => const VoiceRecordSheet(),
     );
     if (result == null || result.path.isEmpty || !context.mounted) return;
@@ -1639,6 +2134,10 @@ class ConversationScreenWM
       }
       return;
     }
+    if (isDesktopTargetPlatform()) {
+      await pickAndSendMediaFromFilePicker();
+      return;
+    }
     final picker = ImagePicker();
     final XFile? picked = await picker.pickMedia(imageQuality: 100);
     if (picked == null) return;
@@ -1652,6 +2151,48 @@ class ConversationScreenWM
       return;
     }
     await _sendTimelineFileFromPath(path, mimeType: picked.mimeType);
+  }
+
+  /// Desktop / fallback: images & videos via file picker (ImagePicker gallery is unreliable).
+  Future<void> pickAndSendMediaFromFilePicker() async {
+    if (kIsWeb) return;
+    final pick = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const [
+        'jpg',
+        'jpeg',
+        'png',
+        'gif',
+        'webp',
+        'heic',
+        'bmp',
+        'mp4',
+        'mov',
+        'webm',
+        'mkv',
+        'avi',
+        'm4v',
+      ],
+      allowMultiple: false,
+      withData: kIsWeb || !isDesktopTargetPlatform(),
+      lockParentWindow: isDesktopTargetPlatform(),
+    );
+    if (pick == null || pick.files.isEmpty) return;
+    if (!context.mounted) return;
+    final platformFile = pick.files.single;
+    final path = await _pathForFilePick(platformFile);
+    if (path == null || path.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not read the selected image or video.'),
+          ),
+        );
+      }
+      return;
+    }
+    final mime = _mimeForPickedFile(platformFile, path);
+    await _sendTimelineFileFromPath(path, mimeType: mime);
   }
 
   /// When the OS returns a content URI without a direct path, copy bytes to a temp file.
@@ -1734,14 +2275,17 @@ class ConversationScreenWM
       final m = _mimeByDottedExtension(dotted);
       if (m != null) return m;
     }
-    return _mimeByDottedExtension(path_lib.extension(resolvedPath).toLowerCase());
+    return _mimeByDottedExtension(
+      path_lib.extension(resolvedPath).toLowerCase(),
+    );
   }
 
   Future<void> pickAndSendFile() async {
     final pick = await FilePicker.platform.pickFiles(
       type: FileType.any,
       allowMultiple: false,
-      withData: !kIsWeb,
+      withData: kIsWeb || !isDesktopTargetPlatform(),
+      lockParentWindow: isDesktopTargetPlatform(),
     );
     if (pick == null || pick.files.isEmpty) return;
     if (!context.mounted) return;
@@ -1750,9 +2294,7 @@ class ConversationScreenWM
     if (path == null || path.isEmpty) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not read the selected file.'),
-          ),
+          const SnackBar(content: Text('Could not read the selected file.')),
         );
       }
       return;
@@ -1781,15 +2323,15 @@ class ConversationScreenWM
             audioDurationMs: audioDurationMs,
             audioWaveformNormalized: audioWaveformNormalized,
             audioAsVoiceMessage: audioAsVoiceMessage,
-            sendAttachment: ({
-              prep,
-              required originalFilePath,
-              required onProgress,
-              int? audioDurationMs,
-              List<double>? audioWaveformNormalized,
-              required bool audioAsVoiceMessage,
-            }) =>
-                model.sendTimelineAttachment(
+            sendAttachment:
+                ({
+                  prep,
+                  required originalFilePath,
+                  required onProgress,
+                  int? audioDurationMs,
+                  List<double>? audioWaveformNormalized,
+                  required bool audioAsVoiceMessage,
+                }) => model.sendTimelineAttachment(
                   roomId: widget.roomId,
                   originalFilePath: originalFilePath,
                   prep: prep,
@@ -1864,14 +2406,24 @@ class ConversationScreenWM
 
   Future<void> showRoomInfo() async {
     if (!context.mounted) return;
-    final result = await Navigator.of(context).push<RoomInfoNavResult?>(
-      MaterialPageRoute(
-        builder: (ctx) => RoomInfoScreen(
-          roomId: widget.roomId,
-          initialTitle: widget.roomName,
-        ),
-      ),
+    final page = RoomInfoScreen(
+      roomId: widget.roomId,
+      initialTitle: widget.roomName,
     );
+    final launcher = DesktopShellScope.maybeOf(context);
+    final RoomInfoNavResult? result;
+    if (launcher != null && isDesktopTargetPlatform()) {
+      result = await launcher.openShellFlow<RoomInfoNavResult?>(
+        anchorContext: context,
+        page: page,
+        windowTitle: 'Room info',
+        preferredWindowSize: const Size(580, 760),
+      );
+    } else {
+      result = await Navigator.of(
+        context,
+      ).push<RoomInfoNavResult?>(MaterialPageRoute(builder: (ctx) => page));
+    }
     if (!context.mounted) return;
     if (result?.leftRoom == true) {
       NavigatorService.pop(context);
@@ -1926,6 +2478,58 @@ class ConversationScreenWM
     return false;
   }
 
+  static bool _timelineMsNear(BigInt a, BigInt b, int maxDeltaMs) {
+    return (a.toInt() - b.toInt()).abs() <= maxDeltaMs;
+  }
+
+  /// Shorter snapshot whose tail no longer matches [previous] can drop the local echo *before*
+  /// the remote row is applied — the bubble flickers off then on. Skip those until the next diff.
+  ///
+  /// Mirrors the “delivered twin” idea in Rust [dedupe_stale_local_echoes].
+  static bool _timelineSnapshotDropsInFlightOwn(
+    List<Message> incoming,
+    List<Message> previous,
+  ) {
+    if (previous.isEmpty || incoming.isEmpty) return false;
+    if (incoming.length >= previous.length) return false;
+
+    bool hasIdentity(Message m, List<Message> list) {
+      for (final o in list) {
+        if (m.eventId.isNotEmpty && m.eventId == o.eventId) return true;
+        if (m.transactionId.isNotEmpty && m.transactionId == o.transactionId) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    bool hasDeliveredTwin(Message pending, List<Message> list) {
+      for (final o in list) {
+        if (!o.isOwn || o.sendState != EventSendStateKind.delivered) continue;
+        if (o.messageType != MessageType.message) continue;
+        if (o.content != pending.content) continue;
+        if (o.inReplyToEventId != pending.inReplyToEventId) continue;
+        if (o.roomMsgKind != pending.roomMsgKind) continue;
+        if (!_timelineMsNear(pending.timestamp, o.timestamp, 300000)) continue;
+        return true;
+      }
+      return false;
+    }
+
+    for (final m in previous) {
+      if (m.messageType != MessageType.message) continue;
+      if (!m.isOwn) continue;
+      if (m.sendState != EventSendStateKind.pending &&
+          m.sendState != EventSendStateKind.failed) {
+        continue;
+      }
+      if (hasIdentity(m, incoming)) continue;
+      if (hasDeliveredTwin(m, incoming)) continue;
+      return true;
+    }
+    return false;
+  }
+
   void _listenToChatUpdates() {
     LoggingService.info(
       'CONVERSATION_SCREEN',
@@ -1962,6 +2566,14 @@ class ConversationScreenWM
                 LoggingService.info(
                   'CONVERSATION_SCREEN',
                   'Ignoring regressive timeline snapshot (${list.length} < ${prev.messages.length}, same tail)',
+                );
+                return;
+              }
+              if (_timelineSnapshotDropsInFlightOwn(list, prev.messages)) {
+                LoggingService.info(
+                  'CONVERSATION_SCREEN',
+                  'Ignoring timeline snapshot that drops in-flight own message '
+                  '(${list.length} < ${prev.messages.length})',
                 );
                 return;
               }

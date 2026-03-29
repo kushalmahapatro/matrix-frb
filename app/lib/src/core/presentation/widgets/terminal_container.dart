@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
 import 'package:matrix/src/theme/matrix_theme.dart';
 
 class TerminalContainer extends StatelessWidget {
@@ -63,6 +65,8 @@ class TerminalScreen extends StatelessWidget {
   final String? title;
   final List<Widget>? actions;
   final bool showAppBar;
+  final bool automaticallyImplyLeading;
+  final Widget? leading;
 
   const TerminalScreen({
     super.key,
@@ -70,60 +74,99 @@ class TerminalScreen extends StatelessWidget {
     this.title,
     this.actions,
     this.showAppBar = true,
+    this.automaticallyImplyLeading = true,
+    this.leading,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final barTitle = Text(
-      title ?? '',
-      style: MatrixTheme.subtitleStyle.copyWith(
-        color: MatrixTheme.matrixLightGreen,
-        fontSize: 17,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 3,
-        shadows: [
-          Shadow(
-            color: MatrixTheme.matrixGreen.withValues(alpha: 0.55),
-            blurRadius: 12,
-          ),
-          Shadow(
-            color: MatrixTheme.matrixAccent.withValues(alpha: 0.35),
-            blurRadius: 18,
-          ),
-        ],
-      ),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-    );
+    final scheme = theme.colorScheme;
+    final desktop = !kIsWeb && isDesktopTargetPlatform();
+    final barTitle = desktop
+        ? Text(
+            title ?? '',
+            style: theme.appBarTheme.titleTextStyle?.copyWith(
+              color: scheme.onSurface.withValues(alpha: 0.92),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          )
+        : Text(
+            title ?? '',
+            style: MatrixTheme.subtitleStyle.copyWith(
+              color: MatrixTheme.matrixLightGreen,
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 3,
+              shadows: [
+                Shadow(
+                  color: MatrixTheme.matrixGreen.withValues(alpha: 0.55),
+                  blurRadius: 12,
+                ),
+                Shadow(
+                  color: MatrixTheme.matrixAccent.withValues(alpha: 0.35),
+                  blurRadius: 18,
+                ),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          );
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: showAppBar
           ? AppBar(
               title: barTitle,
               actions: actions,
+              leading: leading,
+              automaticallyImplyLeading: automaticallyImplyLeading,
               elevation: 0,
               scrolledUnderElevation: 0,
               backgroundColor: theme.scaffoldBackgroundColor,
-              foregroundColor: MatrixTheme.matrixGreen,
+              foregroundColor:
+                  desktop ? scheme.onSurface : MatrixTheme.matrixGreen,
               surfaceTintColor: Colors.transparent,
-              iconTheme: const IconThemeData(color: MatrixTheme.matrixGreen),
-              actionsIconTheme:
-                  const IconThemeData(color: MatrixTheme.matrixGreen),
+              iconTheme: IconThemeData(
+                color: desktop ? scheme.onSurface : MatrixTheme.matrixGreen,
+              ),
+              actionsIconTheme: IconThemeData(
+                color: desktop ? scheme.onSurface : MatrixTheme.matrixGreen,
+              ),
+              bottom: desktop
+                  ? PreferredSize(
+                      preferredSize: const Size.fromHeight(1),
+                      child: Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: scheme.outlineVariant.withValues(alpha: 0.45),
+                      ),
+                    )
+                  : null,
             )
           : null,
-      body: Container(
-        height: MediaQuery.of(context).size.height,
-        decoration: BoxDecoration(gradient: MatrixTheme.backgroundGradient),
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: child),
-            ],
-          ),
-        ),
-      ),
+      body: desktop
+          ? ColoredBox(
+              color: theme.scaffoldBackgroundColor,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(child: child),
+                ],
+              ),
+            )
+          : Container(
+              height: MediaQuery.of(context).size.height,
+              decoration: BoxDecoration(gradient: MatrixTheme.backgroundGradient),
+              child: SafeArea(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: child),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 }

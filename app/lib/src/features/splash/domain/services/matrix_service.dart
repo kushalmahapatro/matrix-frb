@@ -49,14 +49,14 @@ class MatrixService {
     String? mediaCachePath,
     bool showHomeServerForUsername = true,
   }) async {
-    // Initialize Rust logging
+    // Initialize Rust logging/.
     await LoggingService.init();
     final homeserverUrl = AppConfig.homeserverUrl;
 
     try {
       await platform.initPlatform(
         config: platform.TracingConfiguration(
-          logLevel: tracing.LogLevel.trace,
+          logLevel: tracing.LogLevel.error,
           traceLogPacks: platform.TraceLogPacks.values,
           extraTargets: [],
           writeToStdoutOrSystem: true,
@@ -102,7 +102,7 @@ class MatrixService {
       final result = await MatrixClient.configure(config: config);
       _matrixClient = result;
       try {
-        await Media.init(kDebugMode: kDebugMode);
+        await Media.init();
       } catch (e) {
         LoggingService.info(
           'InitializationService',

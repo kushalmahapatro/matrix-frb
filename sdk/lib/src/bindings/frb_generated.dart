@@ -76,7 +76,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => -99071645;
+  int get rustContentHash => -745625122;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -116,6 +116,11 @@ abstract class RustLibApi extends BaseApi {
     required bool thumbnail,
   });
 
+  Future<Uint8List> crateApiMatrixClientMatrixClientFetchUserAvatarThumbnail({
+    required MatrixClient that,
+    required String mxcUri,
+  });
+
   Future<List<RoomUpdate>> crateApiMatrixClientMatrixClientGetAllRooms({
     required MatrixClient that,
   });
@@ -133,6 +138,14 @@ abstract class RustLibApi extends BaseApi {
     required MatrixClient that,
     required String roomId,
     required int count,
+  });
+
+  Future<String?> crateApiMatrixClientMatrixClientGetProfileAvatarMxc({
+    required MatrixClient that,
+  });
+
+  Future<String?> crateApiMatrixClientMatrixClientGetProfileInitials({
+    required MatrixClient that,
   });
 
   Future<RoomDetails> crateApiMatrixClientMatrixClientGetRoomDetails({
@@ -235,6 +248,10 @@ abstract class RustLibApi extends BaseApi {
     required String appDisplayName,
   });
 
+  Future<void> crateApiMatrixClientMatrixClientRemoveProfileAvatar({
+    required MatrixClient that,
+  });
+
   Future<bool> crateApiMatrixClientMatrixClientRestartSyncService({
     required MatrixClient that,
   });
@@ -312,6 +329,11 @@ abstract class RustLibApi extends BaseApi {
     required String displayName,
   });
 
+  Future<void> crateApiMatrixClientMatrixClientSetProfileInitials({
+    required MatrixClient that,
+    String? initials,
+  });
+
   Future<void> crateApiMatrixClientMatrixClientSetRoomMemberPowerLevel({
     required MatrixClient that,
     required String roomId,
@@ -368,6 +390,12 @@ abstract class RustLibApi extends BaseApi {
     required MatrixClient that,
     required String pushKey,
     required String appId,
+  });
+
+  Future<void> crateApiMatrixClientMatrixClientUploadProfileAvatar({
+    required MatrixClient that,
+    required String mimeType,
+    required List<int> data,
   });
 
   Future<String> crateApiDocumentPreviewDocumentPreviewJson({
@@ -651,6 +679,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<Uint8List> crateApiMatrixClientMatrixClientFetchUserAvatarThumbnail({
+    required MatrixClient that,
+    required String mxcUri,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          var arg1 = cst_encode_String(mxcUri);
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_fetch_user_avatar_thumbnail(
+                port_,
+                arg0,
+                arg1,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiMatrixClientMatrixClientFetchUserAvatarThumbnailConstMeta,
+        argValues: [that, mxcUri],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientFetchUserAvatarThumbnailConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_fetch_user_avatar_thumbnail",
+        argNames: ["that", "mxcUri"],
+      );
+
+  @override
   Future<List<RoomUpdate>> crateApiMatrixClientMatrixClientGetAllRooms({
     required MatrixClient that,
   }) {
@@ -796,6 +863,77 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "MatrixClient_get_older_messages",
         argNames: ["that", "roomId", "count"],
+      );
+
+  @override
+  Future<String?> crateApiMatrixClientMatrixClientGetProfileAvatarMxc({
+    required MatrixClient that,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_get_profile_avatar_mxc(
+                port_,
+                arg0,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_opt_String,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiMatrixClientMatrixClientGetProfileAvatarMxcConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientGetProfileAvatarMxcConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_get_profile_avatar_mxc",
+        argNames: ["that"],
+      );
+
+  @override
+  Future<String?> crateApiMatrixClientMatrixClientGetProfileInitials({
+    required MatrixClient that,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_get_profile_initials(
+                port_,
+                arg0,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_opt_String,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiMatrixClientMatrixClientGetProfileInitialsConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientGetProfileInitialsConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_get_profile_initials",
+        argNames: ["that"],
       );
 
   @override
@@ -1490,6 +1628,42 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiMatrixClientMatrixClientRemoveProfileAvatar({
+    required MatrixClient that,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_remove_profile_avatar(
+                port_,
+                arg0,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiMatrixClientMatrixClientRemoveProfileAvatarConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientRemoveProfileAvatarConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_remove_profile_avatar",
+        argNames: ["that"],
+      );
+
+  @override
   Future<bool> crateApiMatrixClientMatrixClientRestartSyncService({
     required MatrixClient that,
   }) {
@@ -2028,6 +2202,44 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiMatrixClientMatrixClientSetProfileInitials({
+    required MatrixClient that,
+    String? initials,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          var arg1 = cst_encode_opt_String(initials);
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_set_profile_initials(
+                port_,
+                arg0,
+                arg1,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiMatrixClientMatrixClientSetProfileInitialsConstMeta,
+        argValues: [that, initials],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientSetProfileInitialsConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_set_profile_initials",
+        argNames: ["that", "initials"],
+      );
+
+  @override
   Future<void> crateApiMatrixClientMatrixClientSetRoomMemberPowerLevel({
     required MatrixClient that,
     required String roomId,
@@ -2493,6 +2705,48 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "MatrixClient_unregister_pusher",
         argNames: ["that", "pushKey", "appId"],
+      );
+
+  @override
+  Future<void> crateApiMatrixClientMatrixClientUploadProfileAvatar({
+    required MatrixClient that,
+    required String mimeType,
+    required List<int> data,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          var arg1 = cst_encode_String(mimeType);
+          var arg2 = cst_encode_list_prim_u_8_loose(data);
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_upload_profile_avatar(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiMatrixClientMatrixClientUploadProfileAvatarConstMeta,
+        argValues: [that, mimeType, data],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientUploadProfileAvatarConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_upload_profile_avatar",
+        argNames: ["that", "mimeType", "data"],
       );
 
   @override
@@ -3108,42 +3362,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Message dco_decode_message(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 33)
-      throw Exception('unexpected arr length: expect 33 but see ${arr.length}');
+    if (arr.length != 36)
+      throw Exception('unexpected arr length: expect 36 but see ${arr.length}');
     return Message(
       eventId: dco_decode_String(arr[0]),
       transactionId: dco_decode_String(arr[1]),
       sender: dco_decode_String(arr[2]),
-      content: dco_decode_String(arr[3]),
-      timestamp: dco_decode_u_64(arr[4]),
-      messageType: dco_decode_message_type(arr[5]),
-      roomMsgKind: dco_decode_room_message_kind(arr[6]),
-      sendState: dco_decode_event_send_state_kind(arr[7]),
-      sendError: dco_decode_String(arr[8]),
-      sendRecoverable: dco_decode_bool(arr[9]),
-      isOwn: dco_decode_bool(arr[10]),
-      mediaMimetype: dco_decode_String(arr[11]),
-      mediaSizeBytes: dco_decode_u_64(arr[12]),
-      mediaBlurhash: dco_decode_String(arr[13]),
-      mediaPreviewWidth: dco_decode_u_32(arr[14]),
-      mediaPreviewHeight: dco_decode_u_32(arr[15]),
-      audioDurationMs: dco_decode_u_64(arr[16]),
-      audioWaveform: dco_decode_list_prim_f_32_strict(arr[17]),
-      inReplyToEventId: dco_decode_String(arr[18]),
-      inReplyToSender: dco_decode_String(arr[19]),
-      inReplyToPreview: dco_decode_String(arr[20]),
-      inReplyToRoomMsgKind: dco_decode_room_message_kind(arr[21]),
-      inReplyToMediaMimetype: dco_decode_String(arr[22]),
-      inReplyToMediaSizeBytes: dco_decode_u_64(arr[23]),
-      inReplyToMediaBlurhash: dco_decode_String(arr[24]),
-      inReplyToMediaPreviewWidth: dco_decode_u_32(arr[25]),
-      inReplyToMediaPreviewHeight: dco_decode_u_32(arr[26]),
-      inReplyToParentRedacted: dco_decode_bool(arr[27]),
-      reactions: dco_decode_list_message_reaction_entry(arr[28]),
-      pollOptionsJson: dco_decode_String(arr[29]),
-      pollStateJson: dco_decode_String(arr[30]),
-      linkPreviewsJson: dco_decode_String(arr[31]),
-      isRedacted: dco_decode_bool(arr[32]),
+      senderUserId: dco_decode_String(arr[3]),
+      senderAvatarMxc: dco_decode_String(arr[4]),
+      content: dco_decode_String(arr[5]),
+      timestamp: dco_decode_u_64(arr[6]),
+      messageType: dco_decode_message_type(arr[7]),
+      roomMsgKind: dco_decode_room_message_kind(arr[8]),
+      sendState: dco_decode_event_send_state_kind(arr[9]),
+      sendError: dco_decode_String(arr[10]),
+      sendRecoverable: dco_decode_bool(arr[11]),
+      isOwn: dco_decode_bool(arr[12]),
+      mediaMimetype: dco_decode_String(arr[13]),
+      mediaSizeBytes: dco_decode_u_64(arr[14]),
+      mediaBlurhash: dco_decode_String(arr[15]),
+      mediaPreviewWidth: dco_decode_u_32(arr[16]),
+      mediaPreviewHeight: dco_decode_u_32(arr[17]),
+      audioDurationMs: dco_decode_u_64(arr[18]),
+      audioWaveform: dco_decode_list_prim_f_32_strict(arr[19]),
+      inReplyToEventId: dco_decode_String(arr[20]),
+      inReplyToSender: dco_decode_String(arr[21]),
+      inReplyToPreview: dco_decode_String(arr[22]),
+      inReplyToRoomMsgKind: dco_decode_room_message_kind(arr[23]),
+      inReplyToMediaMimetype: dco_decode_String(arr[24]),
+      inReplyToMediaSizeBytes: dco_decode_u_64(arr[25]),
+      inReplyToMediaBlurhash: dco_decode_String(arr[26]),
+      inReplyToMediaPreviewWidth: dco_decode_u_32(arr[27]),
+      inReplyToMediaPreviewHeight: dco_decode_u_32(arr[28]),
+      inReplyToParentRedacted: dco_decode_bool(arr[29]),
+      reactions: dco_decode_list_message_reaction_entry(arr[30]),
+      pollOptionsJson: dco_decode_String(arr[31]),
+      pollStateJson: dco_decode_String(arr[32]),
+      linkPreviewsJson: dco_decode_String(arr[33]),
+      isRedacted: dco_decode_bool(arr[34]),
+      readReceiptCount: dco_decode_u_32(arr[35]),
     );
   }
 
@@ -3329,16 +3586,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   RoomMemberRow dco_decode_room_member_row(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 7)
-      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    if (arr.length != 8)
+      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
     return RoomMemberRow(
       userId: dco_decode_String(arr[0]),
       userIdDisplay: dco_decode_String(arr[1]),
       displayName: dco_decode_String(arr[2]),
-      powerLevel: dco_decode_i_64(arr[3]),
-      role: dco_decode_room_member_role_dto(arr[4]),
-      isSelf: dco_decode_bool(arr[5]),
-      currentUserCanKick: dco_decode_bool(arr[6]),
+      avatarUrl: dco_decode_String(arr[3]),
+      powerLevel: dco_decode_i_64(arr[4]),
+      role: dco_decode_room_member_role_dto(arr[5]),
+      isSelf: dco_decode_bool(arr[6]),
+      currentUserCanKick: dco_decode_bool(arr[7]),
     );
   }
 
@@ -4024,6 +4282,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_eventId = sse_decode_String(deserializer);
     var var_transactionId = sse_decode_String(deserializer);
     var var_sender = sse_decode_String(deserializer);
+    var var_senderUserId = sse_decode_String(deserializer);
+    var var_senderAvatarMxc = sse_decode_String(deserializer);
     var var_content = sse_decode_String(deserializer);
     var var_timestamp = sse_decode_u_64(deserializer);
     var var_messageType = sse_decode_message_type(deserializer);
@@ -4054,10 +4314,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_pollStateJson = sse_decode_String(deserializer);
     var var_linkPreviewsJson = sse_decode_String(deserializer);
     var var_isRedacted = sse_decode_bool(deserializer);
+    var var_readReceiptCount = sse_decode_u_32(deserializer);
     return Message(
       eventId: var_eventId,
       transactionId: var_transactionId,
       sender: var_sender,
+      senderUserId: var_senderUserId,
+      senderAvatarMxc: var_senderAvatarMxc,
       content: var_content,
       timestamp: var_timestamp,
       messageType: var_messageType,
@@ -4088,6 +4351,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       pollStateJson: var_pollStateJson,
       linkPreviewsJson: var_linkPreviewsJson,
       isRedacted: var_isRedacted,
+      readReceiptCount: var_readReceiptCount,
     );
   }
 
@@ -4356,6 +4620,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_userId = sse_decode_String(deserializer);
     var var_userIdDisplay = sse_decode_String(deserializer);
     var var_displayName = sse_decode_String(deserializer);
+    var var_avatarUrl = sse_decode_String(deserializer);
     var var_powerLevel = sse_decode_i_64(deserializer);
     var var_role = sse_decode_room_member_role_dto(deserializer);
     var var_isSelf = sse_decode_bool(deserializer);
@@ -4364,6 +4629,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       userId: var_userId,
       userIdDisplay: var_userIdDisplay,
       displayName: var_displayName,
+      avatarUrl: var_avatarUrl,
       powerLevel: var_powerLevel,
       role: var_role,
       isSelf: var_isSelf,
@@ -5329,6 +5595,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.eventId, serializer);
     sse_encode_String(self.transactionId, serializer);
     sse_encode_String(self.sender, serializer);
+    sse_encode_String(self.senderUserId, serializer);
+    sse_encode_String(self.senderAvatarMxc, serializer);
     sse_encode_String(self.content, serializer);
     sse_encode_u_64(self.timestamp, serializer);
     sse_encode_message_type(self.messageType, serializer);
@@ -5359,6 +5627,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.pollStateJson, serializer);
     sse_encode_String(self.linkPreviewsJson, serializer);
     sse_encode_bool(self.isRedacted, serializer);
+    sse_encode_u_32(self.readReceiptCount, serializer);
   }
 
   @protected
@@ -5587,6 +5856,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.userId, serializer);
     sse_encode_String(self.userIdDisplay, serializer);
     sse_encode_String(self.displayName, serializer);
+    sse_encode_String(self.avatarUrl, serializer);
     sse_encode_i_64(self.powerLevel, serializer);
     sse_encode_room_member_role_dto(self.role, serializer);
     sse_encode_bool(self.isSelf, serializer);
@@ -5861,6 +6131,14 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
         thumbnail: thumbnail,
       );
 
+  /// Decoded bytes for a profile avatar `mxc://` URI (thumbnail when the server supports it).
+  Future<Uint8List> fetchUserAvatarThumbnail({required String mxcUri}) =>
+      RustLib.instance.api
+          .crateApiMatrixClientMatrixClientFetchUserAvatarThumbnail(
+            that: this,
+            mxcUri: mxcUri,
+          );
+
   /// Fetch all rooms the user is in. Uses the app stored in this client (from [MatrixClient::start_sync_service]).
   Future<List<RoomUpdate>> getAllRooms() => RustLib.instance.api
       .crateApiMatrixClientMatrixClientGetAllRooms(that: this);
@@ -5887,6 +6165,14 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
     roomId: roomId,
     count: count,
   );
+
+  /// Global account avatar MXC (`mxc://…`), from the server.
+  Future<String?> getProfileAvatarMxc() => RustLib.instance.api
+      .crateApiMatrixClientMatrixClientGetProfileAvatarMxc(that: this);
+
+  /// Short initials label stored in global account data (for avatar fallbacks).
+  Future<String?> getProfileInitials() => RustLib.instance.api
+      .crateApiMatrixClientMatrixClientGetProfileInitials(that: this);
 
   /// Room summary, joined members (empty for DMs), and moderation flags for the current user.
   Future<RoomDetails> getRoomDetails({required String roomId}) =>
@@ -6033,6 +6319,10 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
     appDisplayName: appDisplayName,
   );
 
+  /// Remove the account avatar.
+  Future<void> removeProfileAvatar() => RustLib.instance.api
+      .crateApiMatrixClientMatrixClientRemoveProfileAvatar(that: this);
+
   /// Restart the sync service after it has stopped (e.g. after long background). Safe to call repeatedly.
   Future<bool> restartSyncService() => RustLib.instance.api
       .crateApiMatrixClientMatrixClientRestartSyncService(that: this);
@@ -6174,6 +6464,13 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
         displayName: displayName,
       );
 
+  /// Set or clear [get_profile_initials] data (`None` clears stored initials).
+  Future<void> setProfileInitials({String? initials}) =>
+      RustLib.instance.api.crateApiMatrixClientMatrixClientSetProfileInitials(
+        that: this,
+        initials: initials,
+      );
+
   /// Change a member's power level (e.g. 50 = moderator, 100 = admin).
   Future<void> setRoomMemberPowerLevel({
     required String roomId,
@@ -6259,4 +6556,15 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
     pushKey: pushKey,
     appId: appId,
   );
+
+  /// Upload bytes as the account avatar (JPEG/PNG/WebP, etc.).
+  Future<void> uploadProfileAvatar({
+    required String mimeType,
+    required List<int> data,
+  }) =>
+      RustLib.instance.api.crateApiMatrixClientMatrixClientUploadProfileAvatar(
+        that: this,
+        mimeType: mimeType,
+        data: data,
+      );
 }

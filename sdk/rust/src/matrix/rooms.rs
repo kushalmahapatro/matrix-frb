@@ -22,7 +22,6 @@ use tokio::sync::Mutex as AsyncMutex;
 use crate::{
     frb_generated::StreamSink,
     matrix::{
-        client::format_user_id_for_display,
         sync_service::App,
         timelines::{
             self, EventSendStateKind, Message, MessageType, RoomMessageKind,
@@ -118,6 +117,8 @@ pub(crate) async fn get_room_update_data(room: &Room, own_user_id: Option<&str>)
         event_id: "".to_string(),
         transaction_id: "".to_string(),
         sender: "".to_string(),
+        sender_user_id: "".to_string(),
+        sender_avatar_mxc: "".to_string(),
         content: "".to_string(),
         timestamp: 0,
         message_type: MessageType::Message,
@@ -148,18 +149,21 @@ pub(crate) async fn get_room_update_data(room: &Room, own_user_id: Option<&str>)
         poll_state_json: String::new(),
         link_previews_json: "[]".to_string(),
         is_redacted: false,
+        read_receipt_count: 0,
     };
     match &last_event {
         LatestEventValue::Remote {
             timestamp,
             sender,
             content,
+            profile,
             ..
         }
         | LatestEventValue::Local {
             timestamp,
             sender,
             content,
+            profile,
             ..
         } => {
             let base_latest = room.deref().latest_event();
@@ -204,12 +208,16 @@ pub(crate) async fn get_room_update_data(room: &Room, own_user_id: Option<&str>)
                 .as_message()
                 .map(|m| crate::matrix::timelines::link_previews_json_for_sdk_message(m))
                 .unwrap_or_else(|| "[]".to_string());
-            let sender_str = sender.to_string();
-            let is_own = own_user_id.is_some_and(|o| o == sender_str.as_str());
+            let sender_user_id = sender.to_string();
+            let (sender, sender_avatar_mxc) =
+                timelines::sender_display_and_avatar_from_profile(&sender_user_id, profile);
+            let is_own = own_user_id.is_some_and(|o| o == sender_user_id.as_str());
             message = Message {
                 event_id: event_id_str,
                 transaction_id: "".to_string(),
-                sender: format_user_id_for_display(&sender_str),
+                sender,
+                sender_user_id,
+                sender_avatar_mxc,
                 content: message_content,
                 timestamp: u64::from(timestamp.0),
                 message_type: MessageType::Message,
@@ -240,6 +248,7 @@ pub(crate) async fn get_room_update_data(room: &Room, own_user_id: Option<&str>)
                 poll_state_json,
                 link_previews_json,
                 is_redacted: content.is_redacted(),
+                read_receipt_count: 0,
             };
         }
         LatestEventValue::None | LatestEventValue::RemoteInvite { .. } => {

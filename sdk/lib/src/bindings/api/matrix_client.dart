@@ -45,6 +45,9 @@ abstract class MatrixClient implements RustOpaqueInterface {
     required bool thumbnail,
   });
 
+  /// Decoded bytes for a profile avatar `mxc://` URI (thumbnail when the server supports it).
+  Future<Uint8List> fetchUserAvatarThumbnail({required String mxcUri});
+
   /// Fetch all rooms the user is in. Uses the app stored in this client (from [MatrixClient::start_sync_service]).
   Future<List<RoomUpdate>> getAllRooms();
 
@@ -61,6 +64,12 @@ abstract class MatrixClient implements RustOpaqueInterface {
     required String roomId,
     required int count,
   });
+
+  /// Global account avatar MXC (`mxc://…`), from the server.
+  Future<String?> getProfileAvatarMxc();
+
+  /// Short initials label stored in global account data (for avatar fallbacks).
+  Future<String?> getProfileInitials();
 
   /// Room summary, joined members (empty for DMs), and moderation flags for the current user.
   Future<RoomDetails> getRoomDetails({required String roomId});
@@ -138,6 +147,9 @@ abstract class MatrixClient implements RustOpaqueInterface {
     required String lang,
     required String appDisplayName,
   });
+
+  /// Remove the account avatar.
+  Future<void> removeProfileAvatar();
 
   /// Restart the sync service after it has stopped (e.g. after long background). Safe to call repeatedly.
   Future<bool> restartSyncService();
@@ -219,6 +231,9 @@ abstract class MatrixClient implements RustOpaqueInterface {
   /// Set the current user's display name (profile).
   Future<void> setDisplayName({required String displayName});
 
+  /// Set or clear [get_profile_initials] data (`None` clears stored initials).
+  Future<void> setProfileInitials({String? initials});
+
   /// Change a member's power level (e.g. 50 = moderator, 100 = admin).
   Future<void> setRoomMemberPowerLevel({
     required String roomId,
@@ -268,5 +283,11 @@ abstract class MatrixClient implements RustOpaqueInterface {
   Future<void> unregisterPusher({
     required String pushKey,
     required String appId,
+  });
+
+  /// Upload bytes as the account avatar (JPEG/PNG/WebP, etc.).
+  Future<void> uploadProfileAvatar({
+    required String mimeType,
+    required List<int> data,
   });
 }

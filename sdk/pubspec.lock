@@ -393,10 +393,39 @@ packages:
   media:
     dependency: "direct main"
     description:
-      path: "/Users/km/Projects/media-rs/media"
-      relative: false
-    source: path
-    version: "0.0.1+1"
+      path: "."
+      ref: "feat/fast-decoder"
+      resolved-ref: "358fa3a3f86f90bc3c1b9815e3c8b1feed3b16bb"
+      url: "https://github.com/kushalmahapatro/media-rs.git"
+    source: git
+    version: "0.1.0"
+  media_dart:
+    dependency: "direct overridden"
+    description:
+      path: media_dart
+      ref: "feat/fast-decoder"
+      resolved-ref: "358fa3a3f86f90bc3c1b9815e3c8b1feed3b16bb"
+      url: "https://github.com/kushalmahapatro/media-rs.git"
+    source: git
+    version: "0.1.0"
+  media_flutter:
+    dependency: "direct overridden"
+    description:
+      path: media_flutter
+      ref: "feat/fast-decoder"
+      resolved-ref: "358fa3a3f86f90bc3c1b9815e3c8b1feed3b16bb"
+      url: "https://github.com/kushalmahapatro/media-rs.git"
+    source: git
+    version: "0.1.0"
+  media_native_build:
+    dependency: transitive
+    description:
+      path: "tool/native_build"
+      ref: "358fa3a3f86f90bc3c1b9815e3c8b1feed3b16bb"
+      resolved-ref: "358fa3a3f86f90bc3c1b9815e3c8b1feed3b16bb"
+      url: "https://github.com/kushalmahapatro/media-rs.git"
+    source: git
+    version: "0.1.0"
   meta:
     dependency: transitive
     description:
@@ -413,14 +442,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.0"
-  native_assets_cli:
-    dependency: transitive
-    description:
-      name: native_assets_cli
-      sha256: "224d3d7eb3fd05ed631a2a19986a2189c009ccda7747f5192096998200d45bfe"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.18.0"
   native_toolchain_c:
     dependency: transitive
     description:

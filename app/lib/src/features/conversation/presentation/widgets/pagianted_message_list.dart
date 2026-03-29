@@ -7,9 +7,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_blurhash/flutter_blurhash.dart';
 import 'package:flutter_linkify/flutter_linkify.dart';
 import 'package:path/path.dart' as p;
+import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
+import 'package:matrix/src/core/layout/conversation_message_style_preference.dart';
+import 'package:provider/provider.dart';
 import 'package:matrix/src/core/open_in_app_url.dart';
 import 'package:matrix/src/features/conversation/presentation/widgets/audio_message_waveform.dart';
 import 'package:matrix/src/core/timeline_local_hidden_store.dart';
+import 'package:matrix/src/features/settings/domain/profile_prefs.dart';
 import 'package:matrix/src/features/conversation/domain/models/conversation_state.dart'
     hide MessageType;
 import 'package:matrix/src/features/conversation/presentation/widgets/link_preview_cards.dart';
@@ -36,18 +40,31 @@ const List<String> kTimelineQuickReactions = [
 const String _kTimelineDeletedBubbleSubtitle =
     'This message is no longer visible.';
 
+bool _conversationPlacementLeftRight(BuildContext context) {
+  try {
+    return conversationUsesLeftRightPlacement(
+      Provider.of<ConversationMessageStyleNotifier>(context, listen: true).value,
+    );
+  } catch (_) {
+    return true;
+  }
+}
+
 /// Local “delete for me” — message still exists for others; hidden on this device only.
 Widget _timelineRemovedOnDeviceBubbleBody(
   BuildContext context,
   Color accentColor,
-  bool isOutgoing,
-) {
+  bool isOutgoing, {
+  bool placementLeftRight = true,
+}) {
   final theme = Theme.of(context);
   final muted = theme.colorScheme.onSurfaceVariant;
   const titleSize = 12.5;
   const subSize = 11.5;
-  final align = isOutgoing ? CrossAxisAlignment.end : CrossAxisAlignment.start;
-  final textAlign = isOutgoing ? TextAlign.end : TextAlign.start;
+  final layoutOutgoing = placementLeftRight && isOutgoing;
+  final align =
+      layoutOutgoing ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+  final textAlign = layoutOutgoing ? TextAlign.end : TextAlign.start;
   final icon = Icon(
     Icons.visibility_off_outlined,
     size: 18,
@@ -84,7 +101,7 @@ Widget _timelineRemovedOnDeviceBubbleBody(
   );
   return Row(
     crossAxisAlignment: CrossAxisAlignment.start,
-    children: isOutgoing
+    children: layoutOutgoing
         ? [textBlock, const SizedBox(width: 8), icon]
         : [icon, const SizedBox(width: 8), textBlock],
   );
@@ -94,14 +111,17 @@ Widget _timelineRemovedOnDeviceBubbleBody(
 Widget _timelineDeletedBubbleBody(
   BuildContext context,
   Color accentColor,
-  bool isOutgoing,
-) {
+  bool isOutgoing, {
+  bool placementLeftRight = true,
+}) {
   final theme = Theme.of(context);
   final muted = theme.colorScheme.onSurfaceVariant;
   const titleSize = 12.5;
   const subSize = 11.5;
-  final align = isOutgoing ? CrossAxisAlignment.end : CrossAxisAlignment.start;
-  final textAlign = isOutgoing ? TextAlign.end : TextAlign.start;
+  final layoutOutgoing = placementLeftRight && isOutgoing;
+  final align =
+      layoutOutgoing ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+  final textAlign = layoutOutgoing ? TextAlign.end : TextAlign.start;
   final icon = Icon(
     Icons.chat_bubble_outline,
     size: 18,
@@ -138,7 +158,7 @@ Widget _timelineDeletedBubbleBody(
   );
   return Row(
     crossAxisAlignment: CrossAxisAlignment.start,
-    children: isOutgoing
+    children: layoutOutgoing
         ? [textBlock, const SizedBox(width: 8), icon]
         : [icon, const SizedBox(width: 8), textBlock],
   );
@@ -171,18 +191,96 @@ Widget _timelineDeletedReplyTargetRow(BuildContext context) {
 Future<void> openTimelineQuickReactionPicker(
   BuildContext context, {
   required Future<void> Function(String reactionKey) onToggle,
-}) {
-  return showModalBottomSheet<void>(
+}) async {
+  if (isDesktopTargetPlatform() && preferDialogOverModalSheet(context)) {
+    final mq = MediaQuery.sizeOf(context);
+    final picked = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        mq.width / 2 - 1,
+        mq.height / 2 - 1,
+        mq.width / 2 - 1,
+        mq.height / 2 - 1,
+      ),
+      constraints: const BoxConstraints(maxWidth: 340, maxHeight: 520),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: MatrixTheme.terminalBorder),
+      ),
+      color: MatrixTheme.terminalBackground,
+      items: [
+        ...[...kTimelineQuickReactions, ...kTimelinePresetReactionsMore].map(
+          (e) => PopupMenuItem<String>(
+            value: e,
+            height: 44,
+            child: Center(child: Text(e, style: const TextStyle(fontSize: 22))),
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<String>(
+          value: '__custom__',
+          child: Text(
+            'Custom reaction…',
+            style: TextStyle(fontFamily: MatrixTheme.fontFamily),
+          ),
+        ),
+      ],
+    );
+    if (!context.mounted) return;
+    if (picked == '__custom__') {
+      final custom = await showDialog<String>(
+        context: context,
+        builder: (ctx) {
+          final c = TextEditingController();
+          return AlertDialog(
+            backgroundColor: MatrixTheme.terminalBackground,
+            title: Text(
+              'Custom reaction',
+              style: TextStyle(fontFamily: MatrixTheme.fontFamily),
+            ),
+            content: TextField(
+              controller: c,
+              autofocus: true,
+              maxLength: 128,
+              decoration: const InputDecoration(
+                hintText: 'Emoji or short text',
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, c.text.trim()),
+                child: const Text('Add'),
+              ),
+            ],
+          );
+        },
+      );
+      if (custom != null && custom.isNotEmpty) {
+        await onToggle(custom);
+      }
+      return;
+    }
+    if (picked != null && picked.isNotEmpty) {
+      await onToggle(picked);
+    }
+    return;
+  }
+  await showAdaptivePanel<void>(
     context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    backgroundColor: MatrixTheme.terminalBackground,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
-      side: BorderSide(color: MatrixTheme.terminalBorder),
-    ),
-    builder: (ctx) => _QuickReactionBottomSheet(
-      onPick: (key) => onToggle(key),
+    scrollControlled: true,
+    builder: (ctx) => Material(
+      color: MatrixTheme.terminalBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(14)),
+        side: BorderSide(color: MatrixTheme.terminalBorder),
+      ),
+      child: _QuickReactionBottomSheet(
+        onPick: (key) => onToggle(key),
+      ),
     ),
   );
 }
@@ -265,7 +363,9 @@ class PaginatedMessageList extends StatefulWidget {
   const PaginatedMessageList({
     super.key,
     required this.roomId,
+    this.senderAvatarMxcByUserId,
     required this.loadMessageMedia,
+    required this.loadSenderAvatar,
     required this.initialMessages, // List<Message> ordered oldest → newest
     required this.loadOlder, // Future<LoadOlderResult> Function(Message oldest)
     this.onRetryFailedSend,
@@ -277,11 +377,19 @@ class PaginatedMessageList extends StatefulWidget {
     required this.onShowReactionReactors,
     this.onPollVote,
     this.onShowMessageActions,
+    this.onBecameAtBottom,
   });
 
   final String roomId;
+
+  /// Live member avatars from room state; when non-null, overrides stale [Message.senderAvatarMxc].
+  final ValueNotifier<Map<String, String>>? senderAvatarMxcByUserId;
+
   final Future<Uint8List?> Function(String eventId, {bool thumbnail})
   loadMessageMedia;
+
+  /// Decoded JPEG/PNG (etc.) for a profile `mxc://` URI; return null on failure.
+  final Future<Uint8List?> Function(String mxcUri) loadSenderAvatar;
 
   /// Opens full attachment in the in-app viewer (or external app for office files).
   final Future<void> Function(Message message)? onOpenAttachment;
@@ -290,6 +398,10 @@ class PaginatedMessageList extends StatefulWidget {
   final Future<void> Function(String transactionId)? onRetryFailedSend;
   final void Function(Message firstVisible, Message lastVisible)?
   onVisibleRange;
+
+  /// Fires when the user scrolls from higher up back to the latest messages (reverse list “bottom”).
+  /// Use to send read receipts without waiting for the next timeline sync.
+  final VoidCallback? onBecameAtBottom;
 
   /// When set to a non-empty event id (e.g. from room info), scrolls that bubble into view.
   final ValueNotifier<String?>? jumpToEventNotifier;
@@ -313,8 +425,8 @@ class PaginatedMessageList extends StatefulWidget {
   final Future<void> Function(String pollEventId, List<String> answerIds)?
   onPollVote;
 
-  /// ⋮ menu: reply, react, delete, …
-  final void Function(BuildContext context, Message message)?
+  /// ⋮ menu: reply, react, delete, … [anchorGlobal] is the ⋮ button for desktop [showMenu].
+  final void Function(BuildContext context, Message message, Offset anchorGlobal)?
   onShowMessageActions;
 
   @override
@@ -322,11 +434,21 @@ class PaginatedMessageList extends StatefulWidget {
 }
 
 class PaginatedMessageListState extends State<PaginatedMessageList> {
-  final _controller = ScrollController();
+  /// Avoid PageStorage restoring a stale offset when the timeline list rebuilds
+  /// after pagination (same [ScrollPosition] can otherwise snap wrong).
+  final _controller = ScrollController(keepScrollOffset: false);
+  final GlobalKey _historyScrollAnchorKey =
+      GlobalKey(debugLabel: 'timelineHistoryAnchor');
   bool _scrollListenerAttached = false;
   bool _isLoadingOlder = false;
   bool _hasMore = true;
+  /// When set, the matching row uses [_historyScrollAnchorKey] for [Scrollable.ensureVisible].
+  String? _pendingHistoryScrollStableKey;
+  /// Skips tail-driven [_scrollToBottom] right after a history page (avoids fighting restore).
+  bool _deferTailAutoscroll = false;
   int _unseenNewCount = 0;
+  /// Seeded true so we do not fire [onBecameAtBottom] on the initial layout-at-bottom frame.
+  bool _wasAtBottom = true;
   String _lastTailKey = '';
   String? _pendingJumpEventId;
   GlobalKey? _jumpKey;
@@ -337,7 +459,25 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
   String? _jumpHighlightId;
   Timer? _jumpHighlightTimer;
 
+  /// Avoid O(n) [List.reversed] / allocation on every rebuild when the source list is unchanged.
+  List<Message>? _newestFirstDisplayCache;
+  List<Message>? _newestFirstCacheSourceRef;
+  int _newestFirstCacheLength = -1;
+
   static const Duration _jumpHighlightDuration = Duration(seconds: 3);
+
+  List<Message> _newestFirstDisplay() {
+    final src = widget.initialMessages;
+    if (_newestFirstDisplayCache != null &&
+        identical(_newestFirstCacheSourceRef, src) &&
+        _newestFirstCacheLength == src.length) {
+      return _newestFirstDisplayCache!;
+    }
+    _newestFirstCacheSourceRef = src;
+    _newestFirstCacheLength = src.length;
+    _newestFirstDisplayCache = src.reversed.toList(growable: false);
+    return _newestFirstDisplayCache!;
+  }
 
   /// Scrolls to and briefly highlights [eventId], reusing the same path as
   /// [jumpToEventNotifier]. Clears then re-assigns the notifier so repeated
@@ -391,6 +531,8 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
     if (_scrollListenerAttached) {
       _controller.removeListener(_onScroll);
     }
+    _deferTailAutoscroll = false;
+    _pendingHistoryScrollStableKey = null;
     _controller.dispose();
     super.dispose();
   }
@@ -401,6 +543,36 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
     if (m.transactionId.isNotEmpty) return 't:${m.transactionId}';
     if (m.eventId.isNotEmpty) return 'e:${m.eventId}';
     return 'x:${m.timestamp}:${m.content.hashCode}';
+  }
+
+  /// Pins the row that was chronologically oldest before a prepend (same logical
+  /// event still exists after load). More reliable than extent math alone for
+  /// [CustomScrollView] + [SliverList.builder] + [reverse].
+  void _scheduleHistoryAnchorEnsureVisible({int maxAttempts = 10}) {
+    void attempt(int n) {
+      if (!mounted || _pendingHistoryScrollStableKey == null) return;
+      if (n >= maxAttempts) {
+        _pendingHistoryScrollStableKey = null;
+        return;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final ctx = _historyScrollAnchorKey.currentContext;
+        if (ctx != null) {
+          Scrollable.ensureVisible(
+            ctx,
+            duration: Duration.zero,
+            curve: Curves.linear,
+            alignment: 1,
+          );
+          _pendingHistoryScrollStableKey = null;
+          return;
+        }
+        attempt(n + 1);
+      });
+    }
+
+    attempt(0);
   }
 
   String _computeTailKey() {
@@ -634,6 +806,10 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
 
   static const double _loadOlderThresholdPx = 80;
 
+  /// Slightly looser than [_loadOlderThresholdPx] so we still restore scroll if
+  /// layout rounds [pixels] just below the load-more zone.
+  static const double _scrollPreserveLeadPx = 160;
+
   void _onScroll() {
     if (!_controller.hasClients) return;
     // Load older when scrolled near top (reverse:true so top = maxScrollExtent)
@@ -641,6 +817,12 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
     if (pos.pixels >= pos.maxScrollExtent - _loadOlderThresholdPx) {
       _maybeLoadOlder();
     }
+
+    final atBottom = _isAtBottom;
+    if (atBottom && !_wasAtBottom) {
+      widget.onBecameAtBottom?.call();
+    }
+    _wasAtBottom = atBottom;
 
     widget.onVisibleRange?.call(_firstVisible(), _lastVisible());
   }
@@ -671,7 +853,10 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
     }
 
     final newTail = _computeTailKey();
-    if (newTail.isNotEmpty && newTail != _lastTailKey && _isAtBottom) {
+    if (newTail.isNotEmpty &&
+        newTail != _lastTailKey &&
+        _isAtBottom &&
+        !_deferTailAutoscroll) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _scrollToBottom();
       });
@@ -693,63 +878,61 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
     final oldest = widget.initialMessages.first;
     if (oldest.messageType == MessageType.timelineStart) return;
 
-    setState(() => _isLoadingOlder = true);
+    // Parent may push a longer timeline while we await; block tail autoscroll
+    // until after layout so a transient `_isAtBottom` does not call [_scrollToBottom].
+    _deferTailAutoscroll = true;
 
-    final beforeMax = _controller.hasClients
-        ? _controller.position.maxScrollExtent
-        : 0.0;
-
-    final (older, hasMore) = await widget.loadOlder(oldest);
-
-    if (!mounted) return;
-
-    // [loadOlder] may replace [initialMessages] from the parent (room timeline stream)
-    // while we await. Apply the usual prepend offset fix immediately so we are not
-    // stuck with a stale offset until the first layout frame.
-    void nudgeScrollIfExtentChanged(double previousMax) {
-      if (!_controller.hasClients) return;
-      final pos = _controller.position;
-      final max = pos.maxScrollExtent;
-      final delta = max - previousMax;
-      if (delta.abs() <= 0.5) return;
-      pos.jumpTo((pos.pixels + delta).clamp(0.0, max));
+    final posBeforeLoad =
+        _controller.hasClients ? _controller.position : null;
+    _pendingHistoryScrollStableKey = null;
+    var preserveHistoryScroll = false;
+    if (posBeforeLoad != null) {
+      final max = posBeforeLoad.maxScrollExtent;
+      final px = posBeforeLoad.pixels;
+      // Require real scroll range and that we're not at the newest edge (px≈0),
+      // otherwise `px >= max - lead` is true for tiny lists and we'd yank the view.
+      if (max > 32 &&
+          px > 24 &&
+          px >= max - _scrollPreserveLeadPx) {
+        preserveHistoryScroll = true;
+        _pendingHistoryScrollStableKey =
+            _stableMessageKey(widget.initialMessages.first);
+      }
     }
 
-    nudgeScrollIfExtentChanged(beforeMax);
+    try {
+      setState(() => _isLoadingOlder = true);
 
-    if (older.isNotEmpty) {
-      setState(() {
-        widget.initialMessages.insertAll(0, older);
-        _isLoadingOlder = false;
-        _hasMore =
-            hasMore &&
-            widget.initialMessages.first.messageType !=
-                MessageType.timelineStart;
-      });
-    } else {
-      setState(() {
-        _isLoadingOlder = false;
-        _hasMore = hasMore;
-      });
-    }
+      final (older, hasMore) = await widget.loadOlder(oldest);
 
-    // Loading footer removal + lazy [SliverList] extent can change across frames.
-    final preFrameMax = _controller.hasClients
-        ? _controller.position.maxScrollExtent
-        : 0.0;
-    void runLayoutCorrectionPasses(int remaining, double lastMax) {
-      if (remaining <= 0) return;
+      if (!mounted) return;
+
+      if (older.isNotEmpty) {
+        setState(() {
+          widget.initialMessages.insertAll(0, older);
+          _isLoadingOlder = false;
+          _hasMore =
+              hasMore &&
+              widget.initialMessages.first.messageType !=
+                  MessageType.timelineStart;
+        });
+      } else {
+        setState(() {
+          _isLoadingOlder = false;
+          _hasMore = hasMore;
+        });
+      }
+
+      if (preserveHistoryScroll) {
+        _scheduleHistoryAnchorEnsureVisible();
+      }
+    } finally {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_controller.hasClients) return;
-        nudgeScrollIfExtentChanged(lastMax);
-        runLayoutCorrectionPasses(
-          remaining - 1,
-          _controller.position.maxScrollExtent,
-        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _deferTailAutoscroll = false;
+        });
       });
     }
-
-    runLayoutCorrectionPasses(3, preFrameMax);
   }
 
   // Call this when a brand-new message arrives (push from server)
@@ -796,9 +979,8 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
       );
     }
 
-    final display = widget.initialMessages.reversed.toList(
-      growable: false,
-    ); // newest → oldest for UI
+    final display = _newestFirstDisplay();
+    final messagePlacementLR = _conversationPlacementLeftRight(context);
 
     return Stack(
       children: [
@@ -844,28 +1026,47 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
                       pendingId != null &&
                       pendingId.isNotEmpty &&
                       _messageMatchesJumpTarget(message, pendingId);
+                  final stable = _stableMessageKey(message);
+                  final historyAnchor = _pendingHistoryScrollStableKey != null &&
+                      stable == _pendingHistoryScrollStableKey;
+                  final subtreeKey = useJumpKey
+                      ? jumpKey
+                      : historyAnchor
+                          ? _historyScrollAnchorKey
+                          : ValueKey(stable);
                   return KeyedSubtree(
-                    key: useJumpKey
-                        ? jumpKey
-                        : ValueKey(_stableMessageKey(message)),
-                    child: _buildMessageBubble(
-                      message,
-                      index: index,
-                      prev: index + 1 < display.length
-                          ? display[index + 1]
-                          : null,
-                      next: index > 0 ? display[index - 1] : null,
-                      roomId: widget.roomId,
-                      loadMessageMedia: widget.loadMessageMedia,
-                      onOpenAttachment: widget.onOpenAttachment,
-                      jumpToEventNotifier: widget.jumpToEventNotifier,
-                      isGroupRoom: widget.isGroupRoom,
-                      onToggleReaction: widget.onToggleReaction,
-                      onShowReactionReactors: widget.onShowReactionReactors,
-                      onPollVote: widget.onPollVote,
-                      jumpHighlighted:
-                          _jumpHighlightId != null &&
-                          _messageMatchesJumpTarget(message, _jumpHighlightId!),
+                    key: subtreeKey,
+                    child: ListenableBuilder(
+                      listenable: ProfilePrefs.instance,
+                      builder: (context, _) {
+                        return _buildMessageBubble(
+                          message,
+                          index: index,
+                          roomId: widget.roomId,
+                          messagePlacementLeftRight: messagePlacementLR,
+                          senderAvatarMxcByUserId:
+                              widget.senderAvatarMxcByUserId,
+                          loadMessageMedia: widget.loadMessageMedia,
+                          loadSenderAvatar: widget.loadSenderAvatar,
+                          ownProfileInitials:
+                              ProfilePrefs.instance.initialsOverride,
+                          ownAvatarMxcFallback:
+                              ProfilePrefs.instance.ownAvatarMxc,
+                          onOpenAttachment: widget.onOpenAttachment,
+                          jumpToEventNotifier: widget.jumpToEventNotifier,
+                          isGroupRoom: widget.isGroupRoom,
+                          onToggleReaction: widget.onToggleReaction,
+                          onShowReactionReactors:
+                              widget.onShowReactionReactors,
+                          onPollVote: widget.onPollVote,
+                          jumpHighlighted:
+                              _jumpHighlightId != null &&
+                              _messageMatchesJumpTarget(
+                                message,
+                                _jumpHighlightId!,
+                              ),
+                        );
+                      },
                     ),
                   );
                 },
@@ -931,11 +1132,14 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
   Widget _buildMessageBubble(
     Message m, {
     int? index,
-    Message? prev,
-    Message? next,
     required String roomId,
+    required bool messagePlacementLeftRight,
+    ValueNotifier<Map<String, String>>? senderAvatarMxcByUserId,
     required Future<Uint8List?> Function(String eventId, {bool thumbnail})
     loadMessageMedia,
+    required Future<Uint8List?> Function(String mxcUri) loadSenderAvatar,
+    String? ownProfileInitials,
+    String? ownAvatarMxcFallback,
     Future<void> Function(Message message)? onOpenAttachment,
     ValueNotifier<String?>? jumpToEventNotifier,
     required bool isGroupRoom,
@@ -951,24 +1155,33 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
     onPollVote,
     bool jumpHighlighted = false,
   }) {
-    final bubble = MessageBubble(
-      message: m,
-      previousMessage: prev,
-      nextMessage: next,
-      roomId: roomId,
-      isOutgoing: m.isOwn,
-      loadMessageMedia: loadMessageMedia,
-      onRetryFailedSend: widget.onRetryFailedSend,
-      onOpenAttachment: onOpenAttachment,
-      jumpToEventNotifier: jumpToEventNotifier,
-      isGroupRoom: isGroupRoom,
-      onToggleReaction: onToggleReaction,
-      onShowReactionReactors: onShowReactionReactors,
-      onPollVote: onPollVote,
-      onOpenMessageActions: widget.onShowMessageActions != null
-          ? (ctx) => widget.onShowMessageActions!(ctx, m)
-          : null,
-    );
+    Widget bubbleForMap(Map<String, String>? avatarMap) => MessageBubble(
+          message: m,
+          roomId: roomId,
+          isOutgoing: m.isOwn,
+          messagePlacementLeftRight: messagePlacementLeftRight,
+          loadMessageMedia: loadMessageMedia,
+          loadSenderAvatar: loadSenderAvatar,
+          ownProfileInitials: ownProfileInitials,
+          ownAvatarMxcFallback: ownAvatarMxcFallback,
+          senderAvatarMxcByUserId: avatarMap,
+          onRetryFailedSend: widget.onRetryFailedSend,
+          onOpenAttachment: onOpenAttachment,
+          jumpToEventNotifier: jumpToEventNotifier,
+          isGroupRoom: isGroupRoom,
+          onToggleReaction: onToggleReaction,
+          onShowReactionReactors: onShowReactionReactors,
+          onPollVote: onPollVote,
+          onOpenMessageActions: widget.onShowMessageActions != null
+              ? (ctx, anchor) => widget.onShowMessageActions!(ctx, m, anchor)
+              : null,
+        );
+    final Widget bubble = senderAvatarMxcByUserId != null
+        ? ValueListenableBuilder<Map<String, String>>(
+            valueListenable: senderAvatarMxcByUserId,
+            builder: (context, map, _) => bubbleForMap(map),
+          )
+        : bubbleForMap(null);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1002,38 +1215,292 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
   }
 }
 
-/// Visually “above” in chat = older row in [display] ([reverse] list).
-/// Groups when same sender and both fall in the same local calendar minute.
-bool _timelineGroupWithPrevious(Message message, Message? older) {
-  if (older == null) return false;
-  if (older.messageType != MessageType.message) return false;
-  if (message.messageType != MessageType.message) return false;
-  if (older.sender != message.sender) return false;
-  try {
-    final newer = DateTime.fromMillisecondsSinceEpoch(
-      message.timestamp.toInt(),
-    );
-    final prev = DateTime.fromMillisecondsSinceEpoch(
-      older.timestamp.toInt(),
-    );
-    if (newer.year != prev.year ||
-        newer.month != prev.month ||
-        newer.day != prev.day ||
-        newer.hour != prev.hour ||
-        newer.minute != prev.minute) {
-      return false;
-    }
-  } catch (_) {
-    return false;
+const double _kMessageAvatarSize = 30;
+
+/// Initials for timeline avatar fallback (display name or Matrix user id localpart).
+/// [ownInitialsOverride] applies to your own messages from profile account data.
+String _timelineMessageInitials(
+  Message message, {
+  String? ownInitialsOverride,
+}) {
+  if (message.isOwn &&
+      ownInitialsOverride != null &&
+      ownInitialsOverride.trim().isNotEmpty) {
+    final t = ownInitialsOverride.trim().toUpperCase();
+    return t.length <= 2 ? t : t.substring(0, 2);
   }
+  final raw = message.sender.trim();
+  if (raw.isEmpty) {
+    final uid = message.senderUserId.trim();
+    if (uid.length > 1 && uid.startsWith('@')) {
+      final colon = uid.indexOf(':', 1);
+      final end = colon > 0 ? colon : uid.length;
+      final lp = uid.substring(1, end);
+      if (lp.isEmpty) return '?';
+      return lp.length >= 2
+          ? lp.substring(0, 2).toUpperCase()
+          : lp[0].toUpperCase();
+    }
+    return '?';
+  }
+  final parts = raw.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+  if (parts.length >= 2 &&
+      parts[0].isNotEmpty &&
+      parts[1].isNotEmpty) {
+    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+  }
+  if (raw.length >= 2) return raw.substring(0, 2).toUpperCase();
+  return raw[0].toUpperCase();
+}
+
+/// Timeline often omits [Message.senderAvatarMxc] for the local user until `m.room.member` syncs.
+/// Prefer [senderAvatarMxcByUserId] when set so avatar changes apply to existing bubbles.
+String _effectiveTimelineAvatarMxc(
+  Message message,
+  String? ownAvatarMxcFallback, {
+  Map<String, String>? senderAvatarMxcByUserId,
+}) {
+  final uid = message.senderUserId.trim();
+  if (uid.isNotEmpty && senderAvatarMxcByUserId != null) {
+    final live = senderAvatarMxcByUserId[uid]?.trim() ?? '';
+    if (live.isNotEmpty) return live;
+  }
+  final t = message.senderAvatarMxc.trim();
+  if (t.isNotEmpty) return t;
+  if (message.isOwn) {
+    final o = ownAvatarMxcFallback?.trim() ?? '';
+    if (o.isNotEmpty) return o;
+  }
+  return '';
+}
+
+class _MessageSenderAvatar extends StatefulWidget {
+  const _MessageSenderAvatar({
+    required this.mxcUri,
+    required this.initials,
+    required this.isOutgoing,
+    required this.loadBytes,
+  });
+
+  final String mxcUri;
+  final String initials;
+  final bool isOutgoing;
+  final Future<Uint8List?> Function(String mxc) loadBytes;
+
+  @override
+  State<_MessageSenderAvatar> createState() => _MessageSenderAvatarState();
+}
+
+class _MessageSenderAvatarState extends State<_MessageSenderAvatar> {
+  static final Map<String, Uint8List> _bytesCache = {};
+  Future<Uint8List?>? _loadFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncFuture();
+  }
+
+  @override
+  void didUpdateWidget(covariant _MessageSenderAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.mxcUri != widget.mxcUri ||
+        oldWidget.loadBytes != widget.loadBytes) {
+      _syncFuture();
+      setState(() {});
+    }
+  }
+
+  void _syncFuture() {
+    final m = widget.mxcUri.trim();
+    if (m.isEmpty) {
+      _loadFuture = null;
+      return;
+    }
+    final hit = _bytesCache[m];
+    if (hit != null) {
+      _loadFuture = Future<Uint8List?>.value(hit);
+      return;
+    }
+    _loadFuture = widget.loadBytes(m).then((b) {
+      if (b != null && b.isNotEmpty) {
+        _bytesCache[m] = b;
+      }
+      return b;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final border = Border.all(
+      color: MatrixTheme.terminalBorder.withValues(alpha: 0.9),
+      width: 1,
+    );
+    final bg = widget.isOutgoing
+        ? theme.colorScheme.primary.withValues(alpha: 0.2)
+        : MatrixTheme.matrixDarkGreen.withValues(alpha: 0.55);
+    final fg = widget.isOutgoing
+        ? theme.colorScheme.primary
+        : MatrixTheme.matrixLightGreen;
+    final initials = widget.initials.isNotEmpty ? widget.initials : '?';
+
+    Widget placeholder() {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(6),
+          border: border,
+        ),
+        child: Center(
+          child: Text(
+            initials,
+            style: MatrixTheme.messageTimeStyle.copyWith(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: fg,
+              height: 1,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final uri = widget.mxcUri.trim();
+    if (uri.isEmpty || _loadFuture == null) {
+      return SizedBox(
+        width: _kMessageAvatarSize,
+        height: _kMessageAvatarSize,
+        child: placeholder(),
+      );
+    }
+
+    return SizedBox(
+      width: _kMessageAvatarSize,
+      height: _kMessageAvatarSize,
+      child: FutureBuilder<Uint8List?>(
+        future: _loadFuture,
+        builder: (context, snap) {
+          if (snap.hasError) {
+            return placeholder();
+          }
+          final data = snap.data;
+          if (data != null && data.isNotEmpty) {
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: DecoratedBox(
+                decoration: BoxDecoration(border: border),
+                child: Image.memory(
+                  data,
+                  fit: BoxFit.cover,
+                  width: _kMessageAvatarSize,
+                  height: _kMessageAvatarSize,
+                  gaplessPlayback: true,
+                  errorBuilder: (_, __, ___) => placeholder(),
+                ),
+              ),
+            );
+          }
+          if (snap.connectionState == ConnectionState.waiting) {
+            return DecoratedBox(
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.circular(6),
+                border: border,
+              ),
+              child: Center(
+                child: SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: fg.withValues(alpha: 0.85),
+                  ),
+                ),
+              ),
+            );
+          }
+          return placeholder();
+        },
+      ),
+    );
+  }
+}
+
+/// Outgoing bubbles only: local echo / server ack + aggregated `m.read` from [Message.readReceiptCount].
+bool _showOutgoingReceiptStrip(Message message, {required bool hiddenLocal}) {
+  if (!message.isOwn) return false;
+  if (message.messageType != MessageType.message) return false;
+  if (message.isRedacted || hiddenLocal) return false;
+  if (message.sendState == EventSendStateKind.failed) return false;
   return true;
 }
 
-/// Footer with name/time on the **newest** message in a same-sender / same-minute run
-/// ([nextBelow] is the adjacent newer row in the reversed `display` list, or null at bottom).
-bool _timelineShowMetaFooter(Message message, Message? nextBelow) {
-  if (nextBelow == null) return true;
-  return !_timelineGroupWithPrevious(nextBelow, message);
+class _OutgoingReceiptStrip extends StatelessWidget {
+  const _OutgoingReceiptStrip({required this.message});
+
+  final Message message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final pending = message.sendState == EventSendStateKind.pending;
+    if (pending) {
+      return Icon(
+        Icons.schedule_rounded,
+        size: 15,
+        color: theme.colorScheme.tertiary.withValues(alpha: 0.9),
+      );
+    }
+
+    final readCount = message.readReceiptCount;
+    final readColor = theme.colorScheme.primary;
+    final sentColor = theme.colorScheme.onSurface.withValues(alpha: 0.45);
+    final icon = readCount > 0
+        ? Icon(
+            Icons.done_all_rounded,
+            size: 16,
+            color: readColor,
+          )
+        : Icon(
+            Icons.done_rounded,
+            size: 16,
+            color: sentColor,
+          );
+
+    if (readCount > 1) {
+      return Tooltip(
+        message: 'Read by $readCount members',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            icon,
+            const SizedBox(width: 3),
+            Text(
+              '$readCount',
+              style: MatrixTheme.messageTimeStyle.copyWith(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: readColor.withValues(alpha: 0.95),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (readCount == 1) {
+      return Tooltip(
+        message: 'Read',
+        child: icon,
+      );
+    }
+
+    return Tooltip(
+      message: 'Sent',
+      child: icon,
+    );
+  }
 }
 
 bool _shouldShowInlineReplyMediaThumb(Message message) {
@@ -1089,7 +1556,6 @@ class _InlineReplyQuote extends StatelessWidget {
     required this.headerColor,
     required this.borderColor,
     required this.loadMessageMedia,
-    required this.isOutgoing,
     this.jumpToEventNotifier,
   });
 
@@ -1098,7 +1564,6 @@ class _InlineReplyQuote extends StatelessWidget {
   final Color borderColor;
   final Future<Uint8List?> Function(String eventId, {bool thumbnail})
   loadMessageMedia;
-  final bool isOutgoing;
   final ValueNotifier<String?>? jumpToEventNotifier;
 
   @override
@@ -1111,38 +1576,26 @@ class _InlineReplyQuote extends StatelessWidget {
     final showMedia = _shouldShowInlineReplyMediaThumb(message);
     final meta = _inlineReplyTargetMetaLine(message);
     final parentDeleted = message.inReplyToParentRedacted;
-    final colAlign =
-        isOutgoing ? CrossAxisAlignment.end : CrossAxisAlignment.start;
-    final textAlign = isOutgoing ? TextAlign.end : TextAlign.start;
 
+    // Same visual layout for incoming and outgoing (no RTL-style mirroring).
     final inner = Container(
       width: double.infinity,
-      padding: EdgeInsetsDirectional.fromSTEB(
-        isOutgoing ? 8 : 10,
-        8,
-        isOutgoing ? 10 : 8,
-        8,
-      ),
+      padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        border: BorderDirectional(
-          start: isOutgoing
-              ? BorderSide.none
-              : BorderSide(color: borderColor, width: 3),
-          end: isOutgoing
-              ? BorderSide(color: borderColor, width: 3)
-              : BorderSide.none,
+        border: Border(
+          left: BorderSide(color: borderColor, width: 3),
         ),
         color: theme.colorScheme.surface.withValues(alpha: 0.22),
       ),
       child: Column(
-        crossAxisAlignment: colAlign,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
             width: double.infinity,
             child: Text(
               '> RE: $senderLabel',
-              textAlign: textAlign,
+              textAlign: TextAlign.start,
               style: theme.textTheme.labelMedium?.copyWith(
                 color: headerColor,
                 fontWeight: FontWeight.bold,
@@ -1162,7 +1615,7 @@ class _InlineReplyQuote extends StatelessWidget {
                 message.inReplyToPreview,
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
-                textAlign: textAlign,
+                textAlign: TextAlign.start,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.78),
                   height: 1.3,
@@ -1174,89 +1627,46 @@ class _InlineReplyQuote extends StatelessWidget {
             const SizedBox(height: 6),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: isOutgoing
-                  ? [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              _timelineMediaKindTag(message.inReplyToRoomMsgKind),
-                              textAlign: TextAlign.end,
-                              style: _timelineMono(
-                                theme,
-                                size: 11,
-                                weight: FontWeight.bold,
-                                color: headerColor.withValues(alpha: 0.88),
-                              ),
-                            ),
-                            if (meta != null) ...[
-                              const SizedBox(height: 3),
-                              Text(
-                                meta,
-                                maxLines: 3,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.end,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface.withValues(
-                                    alpha: 0.72,
-                                  ),
-                                  height: 1.25,
-                                ),
-                              ),
-                            ],
-                          ],
+              children: [
+                _InlineReplyTargetThumb(
+                  key: ValueKey('ir-${message.inReplyToEventId}'),
+                  eventId: message.inReplyToEventId,
+                  kind: message.inReplyToRoomMsgKind,
+                  blurhash: message.inReplyToMediaBlurhash,
+                  loadMessageMedia: loadMessageMedia,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _timelineMediaKindTag(message.inReplyToRoomMsgKind),
+                        style: _timelineMono(
+                          theme,
+                          size: 11,
+                          weight: FontWeight.bold,
+                          color: headerColor.withValues(alpha: 0.88),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      _InlineReplyTargetThumb(
-                        key: ValueKey('ir-${message.inReplyToEventId}'),
-                        eventId: message.inReplyToEventId,
-                        kind: message.inReplyToRoomMsgKind,
-                        blurhash: message.inReplyToMediaBlurhash,
-                        loadMessageMedia: loadMessageMedia,
-                      ),
-                    ]
-                  : [
-                      _InlineReplyTargetThumb(
-                        key: ValueKey('ir-${message.inReplyToEventId}'),
-                        eventId: message.inReplyToEventId,
-                        kind: message.inReplyToRoomMsgKind,
-                        blurhash: message.inReplyToMediaBlurhash,
-                        loadMessageMedia: loadMessageMedia,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _timelineMediaKindTag(message.inReplyToRoomMsgKind),
-                              style: _timelineMono(
-                                theme,
-                                size: 11,
-                                weight: FontWeight.bold,
-                                color: headerColor.withValues(alpha: 0.88),
-                              ),
+                      if (meta != null) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          meta,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.72,
                             ),
-                            if (meta != null) ...[
-                              const SizedBox(height: 3),
-                              Text(
-                                meta,
-                                maxLines: 3,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface.withValues(
-                                    alpha: 0.72,
-                                  ),
-                                  height: 1.25,
-                                ),
-                              ),
-                            ],
-                          ],
+                            height: 1.25,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
+                  ),
+                ),
+              ],
             ),
           ],
         ],
@@ -1533,6 +1943,7 @@ class _PollMessageBody extends StatefulWidget {
     required this.message,
     required this.accent,
     required this.isOutgoing,
+    this.placementLeftRight = true,
     this.onVote,
   });
 
@@ -1541,6 +1952,8 @@ class _PollMessageBody extends StatefulWidget {
   final Message message;
   final Color accent;
   final bool isOutgoing;
+  /// When false, poll chrome aligns like a thread (all from the start).
+  final bool placementLeftRight;
   final Future<void> Function(List<String> answerIds)? onVote;
 
   @override
@@ -1640,6 +2053,9 @@ class _PollMessageBodyState extends State<_PollMessageBody> {
     final canVote =
         widget.onVote != null && widget.message.eventId.isNotEmpty && !ended;
 
+    final layoutOutgoing =
+        widget.placementLeftRight && widget.isOutgoing;
+
     final qColor = widget.isOutgoing
         ? (theme.textTheme.bodyMedium?.color ?? scheme.onSurface)
         : _PollMessageBody._incomingPollText;
@@ -1657,13 +2073,13 @@ class _PollMessageBodyState extends State<_PollMessageBody> {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
         child: Column(
-          crossAxisAlignment: widget.isOutgoing
+          crossAxisAlignment: layoutOutgoing
               ? CrossAxisAlignment.end
               : CrossAxisAlignment.start,
           children: [
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
-              children: widget.isOutgoing
+              children: layoutOutgoing
                   ? [
                       Wrap(
                         spacing: 5,
@@ -1729,7 +2145,7 @@ class _PollMessageBodyState extends State<_PollMessageBody> {
               child: Text(
                 _kindSubtitle(kind),
                 textAlign:
-                    widget.isOutgoing ? TextAlign.end : TextAlign.start,
+                    layoutOutgoing ? TextAlign.end : TextAlign.start,
                 style: TextStyle(
                   color: MatrixTheme.matrixDarkGreen.withValues(alpha: 0.92),
                   height: 1.35,
@@ -1750,7 +2166,7 @@ class _PollMessageBodyState extends State<_PollMessageBody> {
               child: Text(
                 widget.message.content,
                 textAlign:
-                    widget.isOutgoing ? TextAlign.end : TextAlign.start,
+                    layoutOutgoing ? TextAlign.end : TextAlign.start,
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: qColor,
                   fontWeight: FontWeight.w700,
@@ -1762,7 +2178,7 @@ class _PollMessageBodyState extends State<_PollMessageBody> {
             if (parsed != null) ...[
               const SizedBox(height: 10),
               Row(
-                children: widget.isOutgoing
+                children: layoutOutgoing
                     ? [
                         Expanded(
                           child: Text(
@@ -1808,7 +2224,7 @@ class _PollMessageBodyState extends State<_PollMessageBody> {
               Padding(
                 padding: const EdgeInsets.only(top: 10),
                 child: Row(
-                  children: widget.isOutgoing
+                  children: layoutOutgoing
                       ? [
                           Expanded(
                             child: Text(
@@ -1864,7 +2280,7 @@ class _PollMessageBodyState extends State<_PollMessageBody> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
-                    children: widget.isOutgoing
+                    children: layoutOutgoing
                         ? [
                             Expanded(
                               child: Text(
@@ -2084,11 +2500,15 @@ class MessageBubble extends StatelessWidget {
   const MessageBubble({
     super.key,
     required this.message,
-    this.previousMessage,
-    this.nextMessage,
     required this.roomId,
     required this.isOutgoing,
+    /// Classic chat (opposite sides) vs thread-style (all from the start).
+    required this.messagePlacementLeftRight,
     required this.loadMessageMedia,
+    required this.loadSenderAvatar,
+    this.ownProfileInitials,
+    this.ownAvatarMxcFallback,
+    this.senderAvatarMxcByUserId,
     this.onRetryFailedSend,
     this.onOpenAttachment,
     this.jumpToEventNotifier,
@@ -2104,15 +2524,20 @@ class MessageBubble extends StatelessWidget {
 
   final Message message;
 
-  /// Older neighbor in the reversed timeline list (visually above this bubble).
-  final Message? previousMessage;
-
-  /// Newer neighbor (visually below); used to place name/time on the last message in a group.
-  final Message? nextMessage;
   final String roomId;
   final bool isOutgoing;
+  final bool messagePlacementLeftRight;
   final Future<Uint8List?> Function(String eventId, {bool thumbnail})
   loadMessageMedia;
+  final Future<Uint8List?> Function(String mxcUri) loadSenderAvatar;
+  /// Logged-in user's initials from profile account data (timeline avatar fallback).
+  final String? ownProfileInitials;
+  /// Account avatar MXC when timeline has not filled [Message.senderAvatarMxc] yet.
+  final String? ownAvatarMxcFallback;
+
+  /// Live avatars from room membership; overrides per-event [Message.senderAvatarMxc] when present.
+  final Map<String, String>? senderAvatarMxcByUserId;
+
   final Future<void> Function(String transactionId)? onRetryFailedSend;
   final Future<void> Function(Message message)? onOpenAttachment;
   final ValueNotifier<String?>? jumpToEventNotifier;
@@ -2129,8 +2554,9 @@ class MessageBubble extends StatelessWidget {
   final Future<void> Function(String pollEventId, List<String> answerIds)?
   onPollVote;
 
-  /// ⋮ opens a sheet with reply / react / delete (parent supplies room actions).
-  final void Function(BuildContext context)? onOpenMessageActions;
+  /// ⋮ opens reply / react / delete (sheet on mobile, [showMenu] on desktop).
+  final void Function(BuildContext context, Offset anchorGlobal)?
+  onOpenMessageActions;
 
   bool get _canReactToMessage =>
       message.messageType == MessageType.message &&
@@ -2161,6 +2587,7 @@ class MessageBubble extends StatelessWidget {
     if (!_canReactToMessage || message.reactions.isEmpty) {
       return const SizedBox.shrink();
     }
+    final stripAsOutgoing = messagePlacementLeftRight && isOutgoing;
     final tagColor = accentColor.withValues(alpha: 0.5);
     final countStyle = MatrixTheme.messageTimeStyle.copyWith(
       fontSize: 9,
@@ -2186,13 +2613,13 @@ class MessageBubble extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!isOutgoing) ...[rxLabel, const SizedBox(width: 6)],
+          if (!stripAsOutgoing) ...[rxLabel, const SizedBox(width: 6)],
           Expanded(
             child: Wrap(
               spacing: 4,
               runSpacing: 4,
               alignment:
-                  isOutgoing ? WrapAlignment.end : WrapAlignment.start,
+                  stripAsOutgoing ? WrapAlignment.end : WrapAlignment.start,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: message.reactions.map((e) {
                 final own = e.containsOwn;
@@ -2256,7 +2683,7 @@ class MessageBubble extends StatelessWidget {
               }).toList(),
             ),
           ),
-          if (isOutgoing) ...[const SizedBox(width: 6), rxLabel],
+          if (stripAsOutgoing) ...[const SizedBox(width: 6), rxLabel],
         ],
       ),
     );
@@ -2264,6 +2691,8 @@ class MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lr = messagePlacementLeftRight;
+    final layoutOutgoing = lr && isOutgoing;
     final theme = Theme.of(context);
     final sendAccentColor = switch (message.sendState) {
       EventSendStateKind.failed => theme.colorScheme.error,
@@ -2278,9 +2707,16 @@ class MessageBubble extends StatelessWidget {
         message.messageType == MessageType.message &&
         !message.isRedacted &&
         !hiddenLocal;
-    final grouped = previousMessage != null &&
-        _timelineGroupWithPrevious(message, previousMessage);
-    final showMetaFooter = _timelineShowMetaFooter(message, nextMessage);
+    final isTimelineMsg = message.messageType == MessageType.message;
+    final showAvatarFace =
+        isTimelineMsg && !message.isRedacted && !hiddenLocal;
+    final showInlineHeader = showAvatarFace;
+    final showClassicMetaFooter = !showInlineHeader;
+    final showReceiptInClassicFooter = showClassicMetaFooter &&
+        _showOutgoingReceiptStrip(message, hiddenLocal: hiddenLocal);
+    final showOutgoingReceiptInline = showInlineHeader &&
+        isOutgoing &&
+        _showOutgoingReceiptStrip(message, hiddenLocal: hiddenLocal);
     final bubbleMaxWidth = MediaQuery.sizeOf(context).width * 0.88;
     final incomingBg = Color.alphaBlend(
       _receivedAccent.withValues(alpha: 0.11),
@@ -2325,19 +2761,21 @@ class MessageBubble extends StatelessWidget {
     );
     final showOverlayActions = pending || showMenu;
     final bubbleCrossAxis =
-        isOutgoing ? CrossAxisAlignment.end : CrossAxisAlignment.start;
-    final bubbleTextAlign = isOutgoing ? TextAlign.end : TextAlign.start;
-    final metaTextAlign = isOutgoing ? TextAlign.end : TextAlign.start;
+        layoutOutgoing ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+    final bubbleTextAlign = layoutOutgoing ? TextAlign.end : TextAlign.start;
+    final metaTextAlign = layoutOutgoing ? TextAlign.end : TextAlign.start;
 
-    return Align(
-      alignment: isOutgoing
-          ? AlignmentDirectional.centerEnd
-          : AlignmentDirectional.centerStart,
-      child: Container(
+    final avatarMxc = _effectiveTimelineAvatarMxc(
+      message,
+      ownAvatarMxcFallback,
+      senderAvatarMxcByUserId: senderAvatarMxcByUserId,
+    );
+
+    final bubbleCard = Container(
         margin: EdgeInsetsDirectional.only(
-          bottom: grouped ? 4 : 10,
-          start: isOutgoing ? 36 : 6,
-          end: isOutgoing ? 6 : 36,
+          bottom: 10,
+          start: lr ? (isOutgoing ? 36 : 6) : 6,
+          end: lr ? (isOutgoing ? 6 : 36) : 44,
         ),
         constraints: BoxConstraints(maxWidth: bubbleMaxWidth),
         child: Column(
@@ -2359,22 +2797,30 @@ class MessageBubble extends StatelessWidget {
                   Container(
                     width: double.infinity,
                     padding: EdgeInsetsDirectional.only(
-                      start: isOutgoing
-                          ? (showOverlayActions ? 40 : 12)
+                      start: lr
+                          ? (isOutgoing
+                              ? (showOverlayActions ? 40 : 12)
+                              : 12)
                           : 12,
                       top: 10,
-                      end: isOutgoing
-                          ? 12
+                      end: lr
+                          ? (isOutgoing
+                              ? 12
+                              : (showOverlayActions ? 40 : 12))
                           : (showOverlayActions ? 40 : 12),
                       bottom: 10,
                     ),
                     decoration: BoxDecoration(
                       border: BorderDirectional(
-                        start: isOutgoing
-                            ? BorderSide.none
+                        start: lr
+                            ? (isOutgoing
+                                ? BorderSide.none
+                                : BorderSide(color: barColor, width: 3))
                             : BorderSide(color: barColor, width: 3),
-                        end: isOutgoing
-                            ? BorderSide(color: barColor, width: 3)
+                        end: lr
+                            ? (isOutgoing
+                                ? BorderSide(color: barColor, width: 3)
+                                : BorderSide.none)
                             : BorderSide.none,
                       ),
                       color: isOutgoing ? outgoingBg : incomingBg,
@@ -2382,23 +2828,111 @@ class MessageBubble extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: bubbleCrossAxis,
                       children: [
+                      if (showInlineHeader)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              if (!layoutOutgoing) ...[
+                                _MessageSenderAvatar(
+                                  mxcUri: avatarMxc,
+                                  initials: _timelineMessageInitials(
+                                    message,
+                                    ownInitialsOverride: ownProfileInitials,
+                                  ),
+                                  isOutgoing: isOutgoing,
+                                  loadBytes: loadSenderAvatar,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        message.displayName,
+                                        style: metaNameStyle,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.start,
+                                      ),
+                                      Text(
+                                        message.formattedDate,
+                                        style: metaTimeStyle,
+                                        textAlign: TextAlign.start,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ] else ...[
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        message.displayName,
+                                        style: metaNameStyle,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.end,
+                                      ),
+                                      Align(
+                                        alignment:
+                                            AlignmentDirectional.centerEnd,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              message.formattedDate,
+                                              style: metaTimeStyle,
+                                              textAlign: TextAlign.end,
+                                            ),
+                                            if (showOutgoingReceiptInline) ...[
+                                              const SizedBox(width: 5),
+                                              _OutgoingReceiptStrip(
+                                                message: message,
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                _MessageSenderAvatar(
+                                  mxcUri: avatarMxc,
+                                  initials: _timelineMessageInitials(
+                                    message,
+                                    ownInitialsOverride: ownProfileInitials,
+                                  ),
+                                  isOutgoing: isOutgoing,
+                                  loadBytes: loadSenderAvatar,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
                       if (message.isRedacted)
                         _timelineDeletedBubbleBody(
                           context,
                           barColor,
                           isOutgoing,
+                          placementLeftRight: lr,
                         )
                       else if (hiddenLocal)
                         _timelineRemovedOnDeviceBubbleBody(
                           context,
                           barColor,
                           isOutgoing,
+                          placementLeftRight: lr,
                         )
                       else ...[
                         if (message.inReplyToEventId.isNotEmpty)
                           _InlineReplyQuote(
                             message: message,
-                            isOutgoing: isOutgoing,
                             headerColor: barColor,
                             borderColor: barColor.withValues(alpha: 0.75),
                             loadMessageMedia: loadMessageMedia,
@@ -2412,6 +2946,7 @@ class MessageBubble extends StatelessWidget {
                             message: message,
                             accent: barColor,
                             isOutgoing: isOutgoing,
+                            placementLeftRight: lr,
                             onVote:
                                 onPollVote != null && message.eventId.isNotEmpty
                                 ? (ids) => onPollVote!(message.eventId, ids)
@@ -2471,7 +3006,7 @@ class MessageBubble extends StatelessWidget {
                           message.sendError.isNotEmpty) ...[
                         const SizedBox(height: 8),
                         Align(
-                          alignment: isOutgoing
+                          alignment: layoutOutgoing
                               ? AlignmentDirectional.centerEnd
                               : AlignmentDirectional.centerStart,
                           child: Text(
@@ -2489,7 +3024,7 @@ class MessageBubble extends StatelessWidget {
                           onRetryFailedSend != null) ...[
                         const SizedBox(height: 8),
                         Align(
-                          alignment: isOutgoing
+                          alignment: layoutOutgoing
                               ? AlignmentDirectional.centerEnd
                               : AlignmentDirectional.centerStart,
                           child: TextButton.icon(
@@ -2500,29 +3035,42 @@ class MessageBubble extends StatelessWidget {
                           ),
                         ),
                       ],
-                      if (showMetaFooter)
+                      if (showClassicMetaFooter)
                         Padding(
                           padding: const EdgeInsets.only(top: 8),
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: Text.rich(
-                              TextSpan(
-                                children: [
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Text.rich(
                                   TextSpan(
-                                    text: message.displayName,
-                                    style: metaNameStyle,
+                                    children: [
+                                      TextSpan(
+                                        text: message.displayName,
+                                        style: metaNameStyle,
+                                      ),
+                                      TextSpan(text: ' · ', style: metaSepStyle),
+                                      TextSpan(
+                                        text: message.formattedDate,
+                                        style: metaTimeStyle,
+                                      ),
+                                    ],
                                   ),
-                                  TextSpan(text: ' · ', style: metaSepStyle),
-                                  TextSpan(
-                                    text: message.formattedDate,
-                                    style: metaTimeStyle,
-                                  ),
-                                ],
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: metaTextAlign,
+                                ),
                               ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: metaTextAlign,
-                            ),
+                              if (showReceiptInClassicFooter)
+                                Padding(
+                                  padding: const EdgeInsetsDirectional.only(
+                                    start: 6,
+                                  ),
+                                  child: _OutgoingReceiptStrip(
+                                    message: message,
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                     ],
@@ -2531,30 +3079,43 @@ class MessageBubble extends StatelessWidget {
                 if (showOverlayActions)
                   PositionedDirectional(
                     top: 0,
-                    start: isOutgoing ? 0 : null,
-                    end: isOutgoing ? null : 0,
+                    start: lr && isOutgoing ? 0 : null,
+                    end: lr && isOutgoing ? null : 0,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
-                      children: isOutgoing
+                      children: lr && isOutgoing
                           ? [
                               if (showMenu)
-                                IconButton(
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(
-                                    minWidth: 32,
-                                    minHeight: 32,
-                                  ),
-                                  iconSize: 20,
-                                  tooltip: 'Message actions',
-                                  onPressed: () {
-                                    HapticFeedback.lightImpact();
-                                    onOpenMessageActions!(context);
+                                Builder(
+                                  builder: (buttonContext) {
+                                    return IconButton(
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(
+                                        minWidth: 32,
+                                        minHeight: 32,
+                                      ),
+                                      iconSize: 20,
+                                      tooltip: 'Message actions',
+                                      onPressed: () {
+                                        HapticFeedback.lightImpact();
+                                        final box = buttonContext
+                                            .findRenderObject() as RenderBox?;
+                                        final o = box?.localToGlobal(
+                                              Offset.zero,
+                                            ) ??
+                                            Offset.zero;
+                                        onOpenMessageActions!(
+                                          buttonContext,
+                                          o,
+                                        );
+                                      },
+                                      icon: Icon(
+                                        Icons.more_horiz,
+                                        color: theme.colorScheme.onSurfaceVariant
+                                            .withValues(alpha: 0.85),
+                                      ),
+                                    );
                                   },
-                                  icon: Icon(
-                                    Icons.more_horiz,
-                                    color: theme.colorScheme.onSurfaceVariant
-                                        .withValues(alpha: 0.85),
-                                  ),
                                 ),
                               if (pending)
                                 Padding(
@@ -2591,23 +3152,36 @@ class MessageBubble extends StatelessWidget {
                                   ),
                                 ),
                               if (showMenu)
-                                IconButton(
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(
-                                    minWidth: 32,
-                                    minHeight: 32,
-                                  ),
-                                  iconSize: 20,
-                                  tooltip: 'Message actions',
-                                  onPressed: () {
-                                    HapticFeedback.lightImpact();
-                                    onOpenMessageActions!(context);
+                                Builder(
+                                  builder: (buttonContext) {
+                                    return IconButton(
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(
+                                        minWidth: 32,
+                                        minHeight: 32,
+                                      ),
+                                      iconSize: 20,
+                                      tooltip: 'Message actions',
+                                      onPressed: () {
+                                        HapticFeedback.lightImpact();
+                                        final box = buttonContext
+                                            .findRenderObject() as RenderBox?;
+                                        final o = box?.localToGlobal(
+                                              Offset.zero,
+                                            ) ??
+                                            Offset.zero;
+                                        onOpenMessageActions!(
+                                          buttonContext,
+                                          o,
+                                        );
+                                      },
+                                      icon: Icon(
+                                        Icons.more_horiz,
+                                        color: theme.colorScheme.onSurfaceVariant
+                                            .withValues(alpha: 0.85),
+                                      ),
+                                    );
                                   },
-                                  icon: Icon(
-                                    Icons.more_horiz,
-                                    color: theme.colorScheme.onSurfaceVariant
-                                        .withValues(alpha: 0.85),
-                                  ),
                                 ),
                             ],
                     ),
@@ -2617,7 +3191,13 @@ class MessageBubble extends StatelessWidget {
           ),
         ],
         ),
-      ),
+      );
+
+    return Align(
+      alignment: layoutOutgoing
+          ? AlignmentDirectional.centerEnd
+          : AlignmentDirectional.centerStart,
+      child: bubbleCard,
     );
   }
 }

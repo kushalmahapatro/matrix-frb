@@ -1,0 +1,18 @@
+# Flutter desktop runners pull in platform SDKs (GTK on Linux, Win32/Flutter engine on Windows).
+# When editing on macOS, clangd cannot resolve those headers and floods the Problems panel.
+# These rules silence diagnostics for runner sources only (not your Rust/Dart code).
+---
+If:
+  PathMatch: .*/linux/runner/.*\.(c|cc|h)$
+Diagnostics:
+  Suppress: "*"
+Index:
+  Background: Skip
+
+---
+If:
+  PathMatch: .*/windows/runner/.*\.(c|cc|cpp|h)$
+Diagnostics:
+  Suppress: "*"
+Index:
+  Background: Skip

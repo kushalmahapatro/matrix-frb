@@ -5,7 +5,11 @@
     <application
         android:label="matrix"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher">
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_matrix" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

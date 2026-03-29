@@ -49,6 +49,8 @@ pub struct RoomMemberRow {
     /// `user_id` formatted for labels; `user_id` stays canonical for kick / power APIs.
     pub user_id_display: String,
     pub display_name: String,
+    /// Member avatar MXC URI when known (`mxc://…`); empty if unset.
+    pub avatar_url: String,
     /// Power level as integer (101 = creator / infinite).
     pub power_level: i64,
     pub role: RoomMemberRoleDto,
@@ -148,7 +150,7 @@ fn current_user_can_kick_target(
     own_i >= kick_threshold && own_i > tgt_i
 }
 
-/// Load room metadata and joined members (members list is empty for DMs).
+/// Load room metadata and joined members (including DMs, for avatars / counts).
 pub async fn fetch_room_details(client: &Client, room_id: String) -> Result<RoomDetails, String> {
     let rid = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
     let room = client.get_room(&rid).ok_or_else(|| "Room not found".to_string())?;
@@ -190,68 +192,62 @@ pub async fn fetch_room_details(client: &Client, room_id: String) -> Result<Room
         RoomMemberRole::Moderator | RoomMemberRole::Administrator | RoomMemberRole::Creator
     );
 
-    let mut members = Vec::new();
+    let joined = room
+        .members(RoomMemberships::JOIN)
+        .await
+        .map_err(|e| e.to_string())?;
+    let member_count = joined.len() as u32;
 
-    let member_count: u32 = if !is_direct {
-        let joined = room
-            .members(RoomMemberships::JOIN)
-            .await
-            .map_err(|e| e.to_string())?;
-        let member_count = joined.len() as u32;
+    let mut rows: Vec<(RoomMemberRow, String)> = Vec::new();
+    for m in joined {
+        let uid = m.user_id().to_string();
+        let is_self = m.is_account_user();
+        let display_name_raw = m
+            .display_name()
+            .map(|s| s.to_owned())
+            .unwrap_or_else(|| uid.clone());
+        let role = RoomMemberRoleDto::from(m.suggested_role_for_power_level());
+        let pl = m.power_level();
+        let power_level = user_power_to_i64(pl);
+        let can_kick = current_user_can_kick_target(own_power, pl, kick_threshold, is_self);
+        let uid_display = format_user_id_for_display(&uid);
+        let avatar_url = m
+            .avatar_url()
+            .map(|u| u.to_string())
+            .unwrap_or_default();
+        rows.push((
+            RoomMemberRow {
+                user_id: uid,
+                user_id_display: uid_display,
+                display_name: display_name_raw.clone(),
+                avatar_url,
+                power_level,
+                role,
+                is_self,
+                current_user_can_kick: can_kick,
+            },
+            display_name_raw,
+        ));
+    }
 
-        let mut rows: Vec<(RoomMemberRow, String)> = Vec::new();
-        for m in joined {
-            let uid = m.user_id().to_string();
-            let is_self = m.is_account_user();
-            let display_name_raw = m
-                .display_name()
-                .map(|s| s.to_owned())
-                .unwrap_or_else(|| uid.clone());
-            let role = RoomMemberRoleDto::from(m.suggested_role_for_power_level());
-            let pl = m.power_level();
-            let power_level = user_power_to_i64(pl);
-            let can_kick = current_user_can_kick_target(own_power, pl, kick_threshold, is_self);
-            let uid_display = format_user_id_for_display(&uid);
-            rows.push((
-                RoomMemberRow {
-                    user_id: uid,
-                    user_id_display: uid_display,
-                    display_name: display_name_raw.clone(),
-                    power_level,
-                    role,
-                    is_self,
-                    current_user_can_kick: can_kick,
-                },
-                display_name_raw,
-            ));
-        }
-
-        rows.sort_by(|(a, ar), (b, br)| {
-            let rank = |r: &RoomMemberRow| match r.role {
-                RoomMemberRoleDto::Creator => 0,
-                RoomMemberRoleDto::Administrator => 1,
-                RoomMemberRoleDto::Moderator => 2,
-                RoomMemberRoleDto::User => 3,
-            };
-            rank(a)
-                .cmp(&rank(b))
-                .then_with(|| ar.to_lowercase().cmp(&br.to_lowercase()))
-        });
-        members = rows
-            .into_iter()
-            .map(|(mut row, raw)| {
-                row.display_name = format_user_id_for_display(&raw);
-                row
-            })
-            .collect();
-        member_count
-    } else {
-        // DM: still report member count when joined list is available.
-        room.members(RoomMemberships::JOIN)
-            .await
-            .map(|v| v.len() as u32)
-            .unwrap_or(0)
-    };
+    rows.sort_by(|(a, ar), (b, br)| {
+        let rank = |r: &RoomMemberRow| match r.role {
+            RoomMemberRoleDto::Creator => 0,
+            RoomMemberRoleDto::Administrator => 1,
+            RoomMemberRoleDto::Moderator => 2,
+            RoomMemberRoleDto::User => 3,
+        };
+        rank(a)
+            .cmp(&rank(b))
+            .then_with(|| ar.to_lowercase().cmp(&br.to_lowercase()))
+    });
+    let members: Vec<RoomMemberRow> = rows
+        .into_iter()
+        .map(|(mut row, raw)| {
+            row.display_name = format_user_id_for_display(&raw);
+            row
+        })
+        .collect();
 
     Ok(RoomDetails {
         room_id: room_id.clone(),

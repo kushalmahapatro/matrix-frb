@@ -19,118 +19,58 @@ class LoginScreen extends ElementaryWidget<LoginScreenWM> implements AuthRoute {
   Widget build(LoginScreenWM wm) {
     return TerminalScreen(
       showAppBar: false,
-      child: Builder(
-        builder: (context) {
+      child: LayoutBuilder(
+        builder: (context, constraints) {
           final theme = Theme.of(context);
-          return Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: wm.formKey,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.max,
-                  children: [
-                    const SizedBox(height: 60),
-                    Text(
-                      'MATRIX',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineLarge?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 8,
+          final wide = constraints.maxWidth >= 840;
+          final form = Form(
+            key: wm.formKey,
+            child: _authFormCard(context, wm),
+          );
+          if (wide) {
+            return Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 1040,
+                  minHeight: constraints.maxHeight > 400
+                      ? constraints.maxHeight
+                      : 400,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        flex: 5,
+                        child: _loginBranding(context, theme, alignStart: true),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'ENTER THE MATRIX',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                    const SizedBox(height: 60),
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: theme.colorScheme.primary,
-                          width: 1,
+                      const SizedBox(width: 48),
+                      Expanded(
+                        flex: 6,
+                        child: SingleChildScrollView(
+                          child: form,
                         ),
-                        borderRadius: BorderRadius.circular(4),
-                        color: theme.colorScheme.surfaceContainerHighest,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const SizedBox(height: 20),
-                          ValueListenableBuilder(
-                            valueListenable: wm.formData,
-                            builder: (context, formData, child) {
-                              if (!formData.isRegistration) {
-                                return const SizedBox.shrink();
-                              }
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  TerminalTextField(
-                                    controller: wm.displayNameController,
-                                    label: 'DISPLAY NAME',
-                                    hint: 'How others will see you',
-                                    icon: Icons.badge,
-                                    validator: wm.validateDisplayName,
-                                  ),
-                                  const SizedBox(height: 20),
-                                ],
-                              );
-                            },
-                          ),
-
-                          TerminalTextField(
-                            controller: wm.usernameController,
-                            label: 'USERNAME',
-                            hint: 'Enter your Matrix username',
-                            icon: Icons.person,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Username is required';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 20),
-
-                          TerminalTextField(
-                            controller: wm.passwordController,
-                            label: 'PASSWORD',
-                            hint: 'Enter your password',
-                            icon: Icons.lock,
-                            isPassword: true,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Password is required';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 30),
-                          _statusWidget(context, wm),
-                          ValueListenableBuilder(
-                            valueListenable: wm.formData,
-                            builder: (context, formData, child) {
-                              return AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 300),
-                                child: !formData.isRegistration
-                                    ? _loginButton(context, wm)
-                                    : _registerButton(context, wm),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          _toggleAuthMode(wm),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 100),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+          return Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 40),
+                    _loginBranding(context, theme, alignStart: false),
+                    const SizedBox(height: 40),
+                    form,
+                    const SizedBox(height: 48),
                     Text(
                       'CHOOSE YOUR REALITY',
                       textAlign: TextAlign.center,
@@ -142,6 +82,134 @@ class LoginScreen extends ElementaryWidget<LoginScreenWM> implements AuthRoute {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _loginBranding(
+    BuildContext context,
+    ThemeData theme, {
+    required bool alignStart,
+  }) {
+    final align = alignStart ? TextAlign.start : TextAlign.center;
+    final cross = alignStart
+        ? CrossAxisAlignment.start
+        : CrossAxisAlignment.center;
+    return Column(
+      crossAxisAlignment: cross,
+      children: [
+        Text(
+          'MATRIX',
+          textAlign: align,
+          style: theme.textTheme.headlineLarge?.copyWith(
+            color: theme.colorScheme.primary,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 8,
+            fontSize: alignStart ? 42 : null,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'ENTER THE MATRIX',
+          textAlign: align,
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: theme.colorScheme.primary,
+          ),
+        ),
+        if (alignStart) ...[
+          const SizedBox(height: 24),
+          Text(
+            'Sign in to sync encrypted rooms, files, and voice — '
+            'same account on mobile and desktop.',
+            textAlign: TextAlign.start,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _authFormCard(BuildContext context, LoginScreenWM wm) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: theme.colorScheme.primary,
+          width: 1,
+        ),
+        borderRadius: BorderRadius.circular(4),
+        color: theme.colorScheme.surfaceContainerHighest,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 8),
+          ValueListenableBuilder(
+            valueListenable: wm.formData,
+            builder: (context, formData, child) {
+              if (!formData.isRegistration) {
+                return const SizedBox.shrink();
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TerminalTextField(
+                    controller: wm.displayNameController,
+                    label: 'DISPLAY NAME',
+                    hint: 'How others will see you',
+                    icon: Icons.badge,
+                    validator: wm.validateDisplayName,
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              );
+            },
+          ),
+          TerminalTextField(
+            controller: wm.usernameController,
+            label: 'USERNAME',
+            hint: 'Enter your Matrix username',
+            icon: Icons.person,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Username is required';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 20),
+          TerminalTextField(
+            controller: wm.passwordController,
+            label: 'PASSWORD',
+            hint: 'Enter your password',
+            icon: Icons.lock,
+            isPassword: true,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Password is required';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 30),
+          _statusWidget(context, wm),
+          ValueListenableBuilder(
+            valueListenable: wm.formData,
+            builder: (context, formData, child) {
+              return AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: !formData.isRegistration
+                    ? _loginButton(context, wm)
+                    : _registerButton(context, wm),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          _toggleAuthMode(wm),
+        ],
       ),
     );
   }

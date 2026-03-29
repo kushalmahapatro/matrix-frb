@@ -18,7 +18,7 @@ use matrix_sdk::media::{
 use matrix_sdk::ruma::{
     events::room::message::{FileMessageEventContent, MessageType, VideoMessageEventContent},
     events::room::MediaSource,
-    uint, OwnedEventId,
+    uint, OwnedEventId, OwnedMxcUri,
 };
 use matrix_sdk::Client;
 use matrix_sdk_ui::timeline::{Message as SdkUiMessage, TimelineItemKind};
@@ -186,6 +186,34 @@ pub async fn fetch_media_for_timeline_event(
     }
 
     Err("Message not found on this timeline (wait for sync or scroll)".to_string())
+}
+
+/// Small raster for a user avatar (`mxc://` on the media repository). Thumbnail first, then full file.
+pub async fn fetch_avatar_mxc_thumbnail(client: &Client, mxc_uri: &str) -> Result<Vec<u8>, String> {
+    let uri: OwnedMxcUri = mxc_uri
+        .try_into()
+        .map_err(|_| format!("Invalid MXC URI: {mxc_uri}"))?;
+    // Slightly larger than on-screen bubble (~30px) so thumbnails stay sharp on high DPR.
+    let thumb_settings = MediaThumbnailSettings::new(uint!(128), uint!(128));
+    let thumb_req = MediaRequestParameters {
+        source: MediaSource::Plain(uri.clone()),
+        format: MediaFormat::Thumbnail(thumb_settings),
+    };
+    match client.media().get_media_content(&thumb_req, true).await {
+        Ok(bytes) if !bytes.is_empty() => Ok(bytes),
+        Ok(_) => Err("Empty avatar thumbnail".to_string()),
+        Err(e_thumb) => {
+            let file_req = MediaRequestParameters {
+                source: MediaSource::Plain(uri),
+                format: MediaFormat::File,
+            };
+            client
+                .media()
+                .get_media_content(&file_req, true)
+                .await
+                .map_err(|e_file| format!("Avatar: thumbnail ({e_thumb}); file ({e_file})"))
+        }
+    }
 }
 
 async fn fetch_media_for_sdk_message(

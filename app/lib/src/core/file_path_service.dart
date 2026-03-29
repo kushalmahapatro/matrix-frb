@@ -65,6 +65,9 @@ class FilePathService {
 
   /// Decrypted timeline media cache root for Rust [ClientConfig.mediaCachePath]
   /// (`thumbnails/`, `media/full/`, …). Not stored as SQLite blobs.
+  ///
+  /// Dart-only profile avatars are stored under `images/downloads/avatars/` inside this root
+  /// ([MatrixAvatarDiskCache]).
   Future<String> getMatrixMediaCachePath() async {
     if (kIsWeb || kIsWasm) {
       throw Exception('Matrix media cache path is not supported on web and wasm');
@@ -104,8 +107,8 @@ class FilePathService {
     return dir;
   }
 
-  /// Copies Pdfium + ffmpeg from `matrix_sdk` Flutter assets (filled by `hook/build.dart`)
-  /// into application support so Rust can dlopen / exec them.
+  /// Copies Pdfium from `matrix_sdk` Flutter assets (filled by `hook/build.dart`)
+  /// into application support so Rust can dlopen it.
   ///
   /// On Android, Pdfium is usually loaded from [NativeMediaPlatformPaths]; this is a fallback.
   /// FFmpeg is not materialized on iOS (no reliable subprocess binary in-tree).

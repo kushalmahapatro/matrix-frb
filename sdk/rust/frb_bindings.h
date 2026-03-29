@@ -88,6 +88,8 @@ typedef struct wire_cst_message {
   struct wire_cst_list_prim_u_8_strict *event_id;
   struct wire_cst_list_prim_u_8_strict *transaction_id;
   struct wire_cst_list_prim_u_8_strict *sender;
+  struct wire_cst_list_prim_u_8_strict *sender_user_id;
+  struct wire_cst_list_prim_u_8_strict *sender_avatar_mxc;
   struct wire_cst_list_prim_u_8_strict *content;
   uint64_t timestamp;
   int32_t message_type;
@@ -118,6 +120,7 @@ typedef struct wire_cst_message {
   struct wire_cst_list_prim_u_8_strict *poll_state_json;
   struct wire_cst_list_prim_u_8_strict *link_previews_json;
   bool is_redacted;
+  uint32_t read_receipt_count;
 } wire_cst_message;
 
 typedef struct wire_cst_room_update {
@@ -174,6 +177,7 @@ typedef struct wire_cst_room_member_row {
   struct wire_cst_list_prim_u_8_strict *user_id;
   struct wire_cst_list_prim_u_8_strict *user_id_display;
   struct wire_cst_list_prim_u_8_strict *display_name;
+  struct wire_cst_list_prim_u_8_strict *avatar_url;
   int64_t power_level;
   int32_t role;
   bool is_self;
@@ -297,6 +301,10 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_fetch_room_
                                                                                               struct wire_cst_list_prim_u_8_strict *event_id,
                                                                                               bool thumbnail);
 
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_fetch_user_avatar_thumbnail(int64_t port_,
+                                                                                                 uintptr_t that,
+                                                                                                 struct wire_cst_list_prim_u_8_strict *mxc_uri);
+
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_all_rooms(int64_t port_,
                                                                                    uintptr_t that);
 
@@ -311,6 +319,12 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_older_m
                                                                                         uintptr_t that,
                                                                                         struct wire_cst_list_prim_u_8_strict *room_id,
                                                                                         uint16_t count);
+
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_profile_avatar_mxc(int64_t port_,
+                                                                                            uintptr_t that);
+
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_profile_initials(int64_t port_,
+                                                                                          uintptr_t that);
 
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_room_details(int64_t port_,
                                                                                       uintptr_t that,
@@ -394,6 +408,9 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_register_pu
                                                                                      struct wire_cst_list_prim_u_8_strict *lang,
                                                                                      struct wire_cst_list_prim_u_8_strict *app_display_name);
 
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_remove_profile_avatar(int64_t port_,
+                                                                                           uintptr_t that);
+
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_restart_sync_service(int64_t port_,
                                                                                           uintptr_t that);
 
@@ -460,6 +477,10 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_display
                                                                                       uintptr_t that,
                                                                                       struct wire_cst_list_prim_u_8_strict *display_name);
 
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_profile_initials(int64_t port_,
+                                                                                          uintptr_t that,
+                                                                                          struct wire_cst_list_prim_u_8_strict *initials);
+
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_room_member_power_level(int64_t port_,
                                                                                                  uintptr_t that,
                                                                                                  struct wire_cst_list_prim_u_8_strict *room_id,
@@ -509,6 +530,11 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_unregister_
                                                                                        uintptr_t that,
                                                                                        struct wire_cst_list_prim_u_8_strict *push_key,
                                                                                        struct wire_cst_list_prim_u_8_strict *app_id);
+
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_upload_profile_avatar(int64_t port_,
+                                                                                           uintptr_t that,
+                                                                                           struct wire_cst_list_prim_u_8_strict *mime_type,
+                                                                                           struct wire_cst_list_prim_u_8_loose *data);
 
 void frbgen_matrix_sdk_wire__crate__api__document_preview__document_preview_json(int64_t port_,
                                                                                  struct wire_cst_list_prim_u_8_strict *extension,
@@ -634,10 +660,13 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_create_direct_room);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_create_group_room);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_fetch_room_message_media);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_fetch_user_avatar_thumbnail);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_all_rooms);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_display_name);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_existing_dm_room_id);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_older_messages);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_profile_avatar_mxc);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_profile_initials);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_room_details);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_timeline_items_by_room_id);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_is_client_authenticated);
@@ -655,6 +684,7 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_redact_timeline_event);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_register);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_register_pusher);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_remove_profile_avatar);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_restart_sync_service);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_retry_failed_send);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_room_list_subscribe_to_rooms);
@@ -666,6 +696,7 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_timeline_file);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_timeline_file_with_progress);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_display_name);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_profile_initials);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_room_member_power_level);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_start_sync_service);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_sync_state);
@@ -677,6 +708,7 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_take_last_sent_room_update);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_toggle_timeline_reaction);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_unregister_pusher);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_upload_profile_avatar);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__logger__platform__FieldsFormatterForFiles_default);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__logger__platform__init_platform);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__logger__platform__reload_tracing_file_writer);

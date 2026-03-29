@@ -1,5 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
+import 'package:matrix/src/core/layout/conversation_message_style_preference.dart';
+import 'package:matrix/src/core/layout/messaging_layout_preference.dart';
 import 'package:matrix/src/core/navigation/navigator_service.dart';
+import 'package:provider/provider.dart';
 import 'package:matrix/src/core/presentation/widgets/terminal_container.dart';
 import 'package:matrix/src/features/settings/presentation/screens/profile_screen.dart';
 
@@ -47,6 +53,127 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
+              Consumer<MessagingLayoutPreferenceNotifier>(
+                builder: (context, layoutNotifier, _) {
+                  return TerminalContainer(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'ROOM LIST & WORKSPACE',
+                          style: theme.textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Whether the room list sits beside the open chat or you navigate between full screens.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        RadioListTile<MessagingLayoutPreference>(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Automatic'),
+                          subtitle: const Text(
+                            'Desktop and wide portrait phone: room list beside the chat. '
+                            'Narrow width, landscape phone, and tablet: stacked navigation.',
+                          ),
+                          value: MessagingLayoutPreference.auto,
+                          groupValue: layoutNotifier.value,
+                          onChanged: (v) {
+                            if (v != null) unawaited(layoutNotifier.set(v));
+                          },
+                        ),
+                        RadioListTile<MessagingLayoutPreference>(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('List + chat (columns)'),
+                          subtitle: const Text(
+                            'Keep the list and the selected room visible together when there is enough width.',
+                          ),
+                          value: MessagingLayoutPreference.split,
+                          groupValue: layoutNotifier.value,
+                          onChanged: (v) {
+                            if (v != null) unawaited(layoutNotifier.set(v));
+                          },
+                        ),
+                        RadioListTile<MessagingLayoutPreference>(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Stacked navigation'),
+                          subtitle: const Text(
+                            'One full screen at a time — list, then room, then back.',
+                          ),
+                          value: MessagingLayoutPreference.threaded,
+                          groupValue: layoutNotifier.value,
+                          onChanged: (v) {
+                            if (v != null) unawaited(layoutNotifier.set(v));
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              Consumer<ConversationMessageStyleNotifier>(
+                builder: (context, messageStyleNotifier, _) {
+                  return TerminalContainer(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'MESSAGES IN CHAT',
+                          style: theme.textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'How incoming and outgoing bubbles are placed in the timeline.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        RadioListTile<ConversationMessageStyle>(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Automatic'),
+                          subtitle: const Text(
+                            'Same as classic chat: yours on one side, others on the other.',
+                          ),
+                          value: ConversationMessageStyle.auto,
+                          groupValue: messageStyleNotifier.value,
+                          onChanged: (v) {
+                            if (v != null) unawaited(messageStyleNotifier.set(v));
+                          },
+                        ),
+                        RadioListTile<ConversationMessageStyle>(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Threaded'),
+                          subtitle: const Text(
+                            'All messages align from the start; colors, names, and state still show who sent what.',
+                          ),
+                          value: ConversationMessageStyle.threaded,
+                          groupValue: messageStyleNotifier.value,
+                          onChanged: (v) {
+                            if (v != null) unawaited(messageStyleNotifier.set(v));
+                          },
+                        ),
+                        RadioListTile<ConversationMessageStyle>(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Left & right (classic chat)'),
+                          subtitle: const Text(
+                            'Outgoing and incoming on opposite sides.',
+                          ),
+                          value: ConversationMessageStyle.leftRight,
+                          groupValue: messageStyleNotifier.value,
+                          onChanged: (v) {
+                            if (v != null) unawaited(messageStyleNotifier.set(v));
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
               TerminalContainer(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,6 +198,45 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
+              if (isDesktopTargetPlatform()) ...[
+                TerminalContainer(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('KEYBOARD', style: theme.textTheme.titleLarge),
+                      const SizedBox(height: 12),
+                      _shortcutRow(
+                        theme,
+                        'New chat / create room',
+                        '⌘ N  /  Ctrl+N',
+                      ),
+                      _shortcutRow(
+                        theme,
+                        'Open settings',
+                        '⌘ ,  /  Ctrl+,',
+                      ),
+                      _shortcutRow(
+                        theme,
+                        'Close conversation or clear selection',
+                        'Esc',
+                      ),
+                      _shortcutRow(
+                        theme,
+                        'Send message (composer focused)',
+                        'Enter  (Shift+Enter for newline)',
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Messaging shortcuts apply on macOS, Windows, and Linux.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               TerminalContainer(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -97,6 +263,35 @@ class SettingsScreen extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _shortcutRow(ThemeData theme, String action, String keys) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 3,
+            child: Text(
+              action,
+              style: theme.textTheme.bodyMedium,
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              keys,
+              textAlign: TextAlign.end,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontFamily: 'JetBrainsMono',
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

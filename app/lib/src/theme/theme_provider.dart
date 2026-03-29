@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:matrix/src/theme/matrix_theme.dart';
 
@@ -14,7 +16,10 @@ class ThemeProvider extends ChangeNotifier {
   bool get isDarkMode => _isDarkMode;
 
   // Get the current theme data
-  ThemeData get theme => MatrixTheme.getTheme(_isDarkMode);
+  ThemeData get theme => MatrixTheme.getTheme(
+        _isDarkMode,
+        useDesktopChrome: !kIsWeb && isDesktopTargetPlatform(),
+      );
 
   // Get background gradient
   LinearGradient get backgroundGradient =>

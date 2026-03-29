@@ -181,6 +181,9 @@ class RoomMemberRow {
   final String userIdDisplay;
   final String displayName;
 
+  /// Member avatar MXC URI when known (`mxc://…`); empty if unset.
+  final String avatarUrl;
+
   /// Power level as integer (101 = creator / infinite).
   final PlatformInt64 powerLevel;
   final RoomMemberRoleDto role;
@@ -193,6 +196,7 @@ class RoomMemberRow {
     required this.userId,
     required this.userIdDisplay,
     required this.displayName,
+    required this.avatarUrl,
     required this.powerLevel,
     required this.role,
     required this.isSelf,
@@ -204,6 +208,7 @@ class RoomMemberRow {
       userId.hashCode ^
       userIdDisplay.hashCode ^
       displayName.hashCode ^
+      avatarUrl.hashCode ^
       powerLevel.hashCode ^
       role.hashCode ^
       isSelf.hashCode ^
@@ -217,6 +222,7 @@ class RoomMemberRow {
           userId == other.userId &&
           userIdDisplay == other.userIdDisplay &&
           displayName == other.displayName &&
+          avatarUrl == other.avatarUrl &&
           powerLevel == other.powerLevel &&
           role == other.role &&
           isSelf == other.isSelf &&

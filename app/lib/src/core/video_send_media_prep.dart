@@ -55,18 +55,20 @@ class VideoHdSdEstimates {
   final int? sd480Bytes;
 }
 
-int? _clampEstimatedBytesToSource(BigInt estimated, int sourceLen) {
-  if (estimated <= BigInt.zero) return null;
-  final cap = BigInt.from(sourceLen);
-  final clipped = estimated > cap ? cap : estimated;
-  try {
-    return clipped.toInt();
-  } catch (_) {
-    return sourceLen;
-  }
+int? _clampEstimatedBytesToSource(int estimated, int sourceLen) {
+  if (estimated <= 0) return null;
+  return estimated > sourceLen ? sourceLen : estimated;
 }
 
-/// Runs the `media` package [estimateCompression] for **720p** and **480p** in parallel.
+int? _probeDurationMs(VideoProbe probe) {
+  final d = probe.durationMs;
+  if (d == null) return null;
+  final ms = d.toInt();
+  return ms > 0 ? ms : null;
+}
+
+/// Uses `media` [estimateCompressedSize] with [VideoPreset.p720] and [VideoPreset.p480]
+/// (Telegram-style bitrate caps; close to prior 720p/480p targets).
 /// Below [kVideoTranscodeMinBytes], both estimates are the source file size (no transcode).
 Future<VideoHdSdEstimates> estimateVideoHdSdOutputBytesParallel(
   String sourcePath,
@@ -83,65 +85,30 @@ Future<VideoHdSdEstimates> estimateVideoHdSdOutputBytesParallel(
     );
   }
 
-  final dir = await getTemporaryDirectory();
-  final stamp = DateTime.now().microsecondsSinceEpoch;
-  final tmp720 = p.join(dir.path, 'matrix_est_hd_${stamp}_720.mp4');
-  final tmp480 = p.join(dir.path, 'matrix_est_sd_${stamp}_480.mp4');
-
-  Future<int?> oneEstimate({
-    required String tempOut,
-    required int width,
-    required int height,
-    required int targetBitrateKbps,
-  }) async {
-    try {
-      final est = await estimateCompression(
-        path: sourcePath,
-        tempOutputPath: tempOut,
-        params: CompressParams(
-          targetBitrateKbps: targetBitrateKbps,
-          preset: 'fast',
-          crf: 26,
-          width: width,
-          height: height,
-        ),
-      );
-      return _clampEstimatedBytesToSource(est.estimatedSizeBytes, sourceLen);
-    } catch (e, st) {
-      developer.log(
-        'estimateCompression $width×$height',
-        error: e,
-        stackTrace: st,
-        name: 'matrix.timeline_send',
-      );
-      return null;
-    } finally {
-      try {
-        final f = File(tempOut);
-        if (f.existsSync()) f.deleteSync();
-      } catch (_) {}
-    }
+  try {
+    await Media.init();
+    final probe = await Media.probe(sourcePath);
+    final hdEst = estimateCompressedSize(
+      probe: probe,
+      preset: VideoPreset.p720,
+    );
+    final sdEst = estimateCompressedSize(
+      probe: probe,
+      preset: VideoPreset.p480,
+    );
+    return VideoHdSdEstimates(
+      hd720Bytes: _clampEstimatedBytesToSource(hdEst.estimatedBytes, sourceLen),
+      sd480Bytes: _clampEstimatedBytesToSource(sdEst.estimatedBytes, sourceLen),
+    );
+  } catch (e, st) {
+    developer.log(
+      'estimateCompressedSize (media)',
+      error: e,
+      stackTrace: st,
+      name: 'matrix.timeline_send',
+    );
+    return const VideoHdSdEstimates();
   }
-
-  final results = await Future.wait([
-    oneEstimate(
-      tempOut: tmp720,
-      width: 1280,
-      height: 720,
-      targetBitrateKbps: kVideoTranscodeTargetBitrateKbps,
-    ),
-    oneEstimate(
-      tempOut: tmp480,
-      width: 854,
-      height: 480,
-      targetBitrateKbps: kVideoTranscodeSdBitrateKbps,
-    ),
-  ]);
-
-  return VideoHdSdEstimates(
-    hd720Bytes: results[0],
-    sd480Bytes: results[1],
-  );
 }
 
 /// Result of [`prepareVideoForTimelineSend`]; delete [filesToCleanup] after the Matrix send finishes.
@@ -458,13 +425,13 @@ Future<ImageThumbnailPrep?> prepareRasterImageThumbnailForTimelineSend(
   final thumbOut = p.join(dir.path, 'matrix_img_thumb_${stamp}_$base.jpg');
 
   try {
-    final writtenPath = await generateImageThumbnail(
+    await Media.init();
+    final writtenPath = await Media.thumbnailSaveToPath(
       path: sourcePath,
       outputPath: thumbOut,
-      params: const ImageThumbnailParams(
-        sizeType: ThumbnailSizeType.medium(),
-        format: OutputFormat.jpeg,
-      ),
+      timeSec: 0,
+      maxEdge: 720,
+      format: ThumbnailFormat.jpeg,
     );
     final tf = File(writtenPath);
     if (await tf.exists() && await tf.length() > 0) {
@@ -475,12 +442,10 @@ Future<ImageThumbnailPrep?> prepareRasterImageThumbnailForTimelineSend(
   return null;
 }
 
-/// Uses the `media` package (FRB): **compress large videos first**, then JPEG thumbnail from the
-/// file we upload ([pathToSend]).
+/// Uses `media` [Media.transcodeVideoStream] then [Media.thumbnailSaveToPath] on the file we upload.
 ///
-/// **Important:** [generateVideoThumbnail] returns the real output path; the Rust side writes
-/// `thumbnail_<basename>_<timeMs>.jpeg` under the parent of [outputPath], not necessarily [outputPath] itself.
-/// Single JPEG frame for send UI preview. Caller should delete the file when done.
+/// Single JPEG frame for send UI preview via [Media.thumbnailSaveToPath].
+/// Caller should delete the file when done.
 Future<String?> generateVideoPreviewThumbnailForUi(String sourcePath) async {
   final src = File(sourcePath);
   if (!await src.exists()) return null;
@@ -489,14 +454,13 @@ Future<String?> generateVideoPreviewThumbnailForUi(String sourcePath) async {
   final stamp = DateTime.now().microsecondsSinceEpoch;
   final thumbOut = p.join(dir.path, 'matrix_preview_thumb_${stamp}_$base.jpg');
   try {
-    final writtenPath = await generateVideoThumbnail(
+    await Media.init();
+    final writtenPath = await Media.thumbnailSaveToPath(
       path: sourcePath,
       outputPath: thumbOut,
-      params: VideoThumbnailParams(
-        timeMs: BigInt.from(1000),
-        format: OutputFormat.jpeg,
-      ),
-      emptyImageFallback: true,
+      timeSec: 1.0,
+      maxEdge: 720,
+      format: ThumbnailFormat.jpeg,
     );
     final tf = File(writtenPath);
     if (await tf.exists() && await tf.length() > 0) {
@@ -531,21 +495,18 @@ Future<VideoSendMediaPrep?> prepareVideoForTimelineSend(
   if (len >= kVideoTranscodeMinBytes) {
     onStage?.call(MediaOutboundPrepStage.compressingVideo);
     try {
+      await Media.init();
       final outBase = p.join(dir.path, 'matrix_media_vid_${stamp}_$base');
       final outMp4 = outBase.toLowerCase().endsWith('.mp4')
           ? outBase
           : '$outBase.mp4';
-      await compressVideo(
-        path: sourcePath,
+      await for (final _ in Media.transcodeVideoStream(
+        inputPath: sourcePath,
         outputPath: outMp4,
-        params: CompressParams(
-          targetBitrateKbps: quality.targetBitrateKbps,
-          preset: 'fast',
-          crf: 26,
-          width: quality.targetWidth,
-          height: quality.targetHeight,
-        ),
-      );
+        videoBitrateKbps: quality.targetBitrateKbps,
+        maxWidth: quality.targetWidth,
+        audioBitrateKbps: 128,
+      )) {}
       final out = File(outMp4);
       if (await out.exists()) {
         final outLen = await out.length();
@@ -563,42 +524,42 @@ Future<VideoSendMediaPrep?> prepareVideoForTimelineSend(
 
   onStage?.call(MediaOutboundPrepStage.generatingThumbnail);
 
-  final timeCandidates = <BigInt>[
-    BigInt.from(1000),
-    BigInt.from(0),
-    BigInt.from(500),
-    BigInt.from(250),
-    BigInt.from(2000),
-    BigInt.from(100),
-    BigInt.from(3000),
+  final timeCandidatesSec = <double>[
+    1.0,
+    0.0,
+    0.5,
+    0.25,
+    2.0,
+    0.1,
+    3.0,
   ];
   try {
-    final info = await getVideoInfo(path: pathToSend);
-    final d = info.durationMs;
-    if (d > BigInt.zero) {
-      final mid = d ~/ BigInt.from(2);
-      if (mid > BigInt.zero) {
-        timeCandidates.insert(0, mid);
+    await Media.init();
+    final info = await Media.probe(pathToSend);
+    final durMs = _probeDurationMs(info);
+    if (durMs != null) {
+      final midSec = durMs / 2000.0;
+      if (midSec > 0) {
+        timeCandidatesSec.insert(0, midSec);
       }
     }
   } catch (_) {}
 
   String? thumbPath;
   final seenTimes = <String>{};
-  for (final timeMs in timeCandidates) {
-    final key = timeMs.toString();
+  for (final timeSec in timeCandidatesSec) {
+    final key = timeSec.toString();
     if (!seenTimes.add(key)) continue;
     final thumbOut =
-        p.join(dir.path, 'matrix_media_thumb_${stamp}_${timeMs}_$base.jpg');
+        p.join(dir.path, 'matrix_media_thumb_${stamp}_${key}_$base.jpg');
     try {
-      final writtenPath = await generateVideoThumbnail(
+      await Media.init();
+      final writtenPath = await Media.thumbnailSaveToPath(
         path: pathToSend,
         outputPath: thumbOut,
-        params: VideoThumbnailParams(
-          timeMs: timeMs,
-          format: OutputFormat.jpeg,
-        ),
-        emptyImageFallback: false,
+        timeSec: timeSec,
+        maxEdge: 720,
+        format: ThumbnailFormat.jpeg,
       );
       final tf = File(writtenPath);
       if (await tf.exists() && await tf.length() > 0) {
@@ -608,7 +569,7 @@ Future<VideoSendMediaPrep?> prepareVideoForTimelineSend(
       }
     } catch (e, st) {
       developer.log(
-        'Video thumbnail (media package) t=$timeMs',
+        'Video thumbnail (media package) t=$timeSec s',
         error: e,
         stackTrace: st,
         name: 'matrix.timeline_send',
@@ -620,14 +581,13 @@ Future<VideoSendMediaPrep?> prepareVideoForTimelineSend(
     final thumbOut =
         p.join(dir.path, 'matrix_media_thumb_${stamp}_fallback_$base.jpg');
     try {
-      final writtenPath = await generateVideoThumbnail(
+      await Media.init();
+      final writtenPath = await Media.thumbnailSaveToPath(
         path: pathToSend,
         outputPath: thumbOut,
-        params: VideoThumbnailParams(
-          timeMs: BigInt.from(1000),
-          format: OutputFormat.jpeg,
-        ),
-        emptyImageFallback: true,
+        timeSec: 1.0,
+        maxEdge: 512,
+        format: ThumbnailFormat.jpeg,
       );
       final tf = File(writtenPath);
       if (await tf.exists() && await tf.length() > 0) {
@@ -636,7 +596,7 @@ Future<VideoSendMediaPrep?> prepareVideoForTimelineSend(
       }
     } catch (e, st) {
       developer.log(
-        'Video thumbnail fallback (emptyImageFallback)',
+        'Video thumbnail fallback',
         error: e,
         stackTrace: st,
         name: 'matrix.timeline_send',

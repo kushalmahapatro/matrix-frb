@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:matrix/src/core/desktop/desktop_esc_scope.dart';
+import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
 import 'package:flutter_linkify/flutter_linkify.dart';
 import 'package:matrix/src/core/open_in_app_url.dart';
 import 'package:matrix/src/core/timeline_local_hidden_store.dart';
@@ -15,10 +18,7 @@ import 'package:result_dart/result_dart.dart';
 
 /// Pop result from [RoomInfoScreen]: leaving the room, or focusing a timeline event.
 class RoomInfoNavResult {
-  const RoomInfoNavResult({
-    this.leftRoom = false,
-    this.focusEventId,
-  });
+  const RoomInfoNavResult({this.leftRoom = false, this.focusEventId});
 
   final bool leftRoom;
   final String? focusEventId;
@@ -31,31 +31,30 @@ abstract final class _RoomInfoStyles {
   static const EdgeInsets listPadding = EdgeInsets.all(16);
   static const EdgeInsets blockPadding = EdgeInsets.all(16);
 
-  static TextStyle prompt(ThemeData t) =>
-      t.textTheme.labelMedium!.copyWith(
-        color: t.colorScheme.primary,
-        fontWeight: FontWeight.bold,
-        letterSpacing: 0.35,
-      );
+  static TextStyle prompt(ThemeData t) => t.textTheme.labelMedium!.copyWith(
+    color: t.colorScheme.primary,
+    fontWeight: FontWeight.bold,
+    letterSpacing: 0.35,
+  );
 
   static TextStyle sectionHeader(ThemeData t) => t.textTheme.titleLarge!;
 
   static TextStyle bodyMuted(ThemeData t) => t.textTheme.bodyMedium!.copyWith(
-        color: t.colorScheme.onSurface.withValues(alpha: 0.88),
-        height: 1.45,
-      );
+    color: t.colorScheme.onSurface.withValues(alpha: 0.88),
+    height: 1.45,
+  );
 
   static TextStyle captionMuted(ThemeData t) => t.textTheme.bodySmall!.copyWith(
-        color: t.colorScheme.onSurface.withValues(alpha: 0.72),
-        height: 1.35,
-        fontFeatures: const [FontFeature.tabularFigures()],
-      );
+    color: t.colorScheme.onSurface.withValues(alpha: 0.72),
+    height: 1.35,
+    fontFeatures: const [FontFeature.tabularFigures()],
+  );
 
   static Widget sectionDivider(ThemeData t) => Divider(
-        height: 1,
-        thickness: 1,
-        color: t.colorScheme.outline.withValues(alpha: 0.35),
-      );
+    height: 1,
+    thickness: 1,
+    color: t.colorScheme.outline.withValues(alpha: 0.35),
+  );
 }
 
 IconData _roomFileIcon(RoomMessageKind k) {
@@ -78,11 +77,7 @@ IconData _roomFileIcon(RoomMessageKind k) {
 
 /// Full-screen room details: manifest + members; media and actions in bottom sheets.
 class RoomInfoScreen extends StatefulWidget {
-  const RoomInfoScreen({
-    super.key,
-    required this.roomId,
-    this.initialTitle,
-  });
+  const RoomInfoScreen({super.key, required this.roomId, this.initialTitle});
 
   final String roomId;
   final String? initialTitle;
@@ -143,47 +138,85 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
         final scheme = t.colorScheme;
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
-          child: TerminalContainer(
-            showBorder: true,
-            showGlow: false,
-            borderColor: destructive ? scheme.error : scheme.primary,
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  title.toUpperCase(),
-                  style: _RoomInfoStyles.sectionHeader(t),
-                ),
-                const SizedBox(height: 12),
-                Text(body, style: _RoomInfoStyles.bodyMuted(t)),
-                const SizedBox(height: 22),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TerminalButton(
-                        text: cancelLabel,
-                        onPressed: () => Navigator.pop(ctx, false),
-                        isPrimary: false,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 22,
+            vertical: 24,
+          ),
+          child: DesktopEscScope(
+            child: TerminalContainer(
+              showBorder: true,
+              showGlow: false,
+              borderColor: destructive ? scheme.error : scheme.primary,
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    title.toUpperCase(),
+                    style: _RoomInfoStyles.sectionHeader(t),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(body, style: _RoomInfoStyles.bodyMuted(t)),
+                  const SizedBox(height: 22),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TerminalButton(
+                          text: cancelLabel,
+                          onPressed: () => Navigator.pop(ctx, false),
+                          isPrimary: false,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TerminalButton(
-                        text: confirmLabel,
-                        onPressed: () => Navigator.pop(ctx, true),
-                        isPrimary: true,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TerminalButton(
+                          text: confirmLabel,
+                          onPressed: () => Navigator.pop(ctx, true),
+                          isPrimary: true,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         );
       },
+    );
+  }
+
+  Future<void> _presentRoomInfoAuxiliary(
+    Widget Function(BuildContext sheetContext) builder, {
+    bool scrollControlled = true,
+  }) async {
+    if (!mounted) return;
+    if (isDesktopTargetPlatform() && preferDialogOverModalSheet(context)) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogCtx) {
+          final h = MediaQuery.sizeOf(dialogCtx).height * 0.88;
+          return Dialog(
+            clipBehavior: Clip.antiAlias,
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 16,
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: 640, maxHeight: h),
+              child: DesktopEscScope(child: builder(dialogCtx)),
+            ),
+          );
+        },
+      );
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: scrollControlled,
+      backgroundColor: Colors.transparent,
+      builder: builder,
     );
   }
 
@@ -201,9 +234,9 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
     );
     r.fold(
       (_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${m.displayName} was removed')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('${m.displayName} was removed')));
         _loadDetails();
       },
       (f) {
@@ -225,9 +258,9 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
     );
     r.fold(
       (_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$label — ${m.displayName}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$label — ${m.displayName}')));
         _loadDetails();
       },
       (f) {
@@ -293,10 +326,10 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final title =
-        (_details?.displayName ?? widget.initialTitle ?? 'ROOM').toUpperCase();
+    final title = (_details?.displayName ?? widget.initialTitle ?? 'ROOM')
+        .toUpperCase();
 
-    return TerminalScreen(
+    final screen = TerminalScreen(
       title: title,
       actions: [
         IconButton(
@@ -328,6 +361,10 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
             )
           : _buildInfoTab(theme),
     );
+    if (isDesktopTargetPlatform()) {
+      return DesktopEscScope(child: screen);
+    }
+    return screen;
   }
 
   Widget _buildInfoTab(ThemeData theme) {
@@ -338,10 +375,7 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
       children: [
         Text('ROOM', style: _RoomInfoStyles.sectionHeader(theme)),
         const SizedBox(height: 8),
-        Text(
-          '> ROOM DETAILS',
-          style: _RoomInfoStyles.prompt(theme),
-        ),
+        Text('> ROOM DETAILS', style: _RoomInfoStyles.prompt(theme)),
         const SizedBox(height: 6),
         SelectableText(
           d.roomId,
@@ -358,9 +392,7 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
         DecoratedBox(
           decoration: BoxDecoration(
             color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
-            border: Border(
-              left: BorderSide(color: scheme.primary, width: 3),
-            ),
+            border: Border(left: BorderSide(color: scheme.primary, width: 3)),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Padding(
@@ -503,58 +535,47 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
   }
 
   void _showMediaBottomSheet(ThemeData theme) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        return _RoomInfoMediaBottomSheet(
+    unawaited(
+      _presentRoomInfoAuxiliary(
+        (sheetContext) => _RoomInfoMediaBottomSheet(
           roomId: widget.roomId,
           service: _service,
           theme: theme,
           rootContext: context,
-        );
-      },
+        ),
+      ),
     );
   }
 
   void _showLinksBottomSheet(ThemeData theme) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        return _RoomInfoLinksBottomSheet(
+    unawaited(
+      _presentRoomInfoAuxiliary(
+        (sheetContext) => _RoomInfoLinksBottomSheet(
           roomId: widget.roomId,
           service: _service,
           theme: theme,
           rootContext: context,
-        );
-      },
+        ),
+      ),
     );
   }
 
   void _showPollsBottomSheet(ThemeData theme) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        return _RoomInfoPollsBottomSheet(
+    unawaited(
+      _presentRoomInfoAuxiliary(
+        (sheetContext) => _RoomInfoPollsBottomSheet(
           roomId: widget.roomId,
           service: _service,
           theme: theme,
           rootContext: context,
-        );
-      },
+        ),
+      ),
     );
   }
 
   void _showActionsBottomSheet() {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
+    unawaited(
+      _presentRoomInfoAuxiliary((sheetContext) {
         final theme = Theme.of(sheetContext);
         final scheme = theme.colorScheme;
         final r = MediaQuery.of(sheetContext).padding;
@@ -564,9 +585,7 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
             decoration: BoxDecoration(
               color: scheme.surface,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: scheme.primary.withValues(alpha: 0.55),
-              ),
+              border: Border.all(color: scheme.primary.withValues(alpha: 0.55)),
             ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
@@ -603,9 +622,9 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
                       child: Text(
                         'Leave disconnects you on the homeserver.\n'
                         'Remove from list also forgets the room locally.',
-                        style: _RoomInfoStyles.captionMuted(theme).copyWith(
-                          fontSize: 12,
-                        ),
+                        style: _RoomInfoStyles.captionMuted(
+                          theme,
+                        ).copyWith(fontSize: 12),
                       ),
                     ),
                   ),
@@ -622,10 +641,8 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
                   const SizedBox(height: 12),
                   TerminalButton(
                     text: 'LEAVE & REMOVE FROM LIST',
-                    onPressed: () => _confirmLeave(
-                      forget: true,
-                      sheetContext: sheetContext,
-                    ),
+                    onPressed: () =>
+                        _confirmLeave(forget: true, sheetContext: sheetContext),
                     icon: Icons.delete_forever_outlined,
                     isPrimary: false,
                   ),
@@ -634,14 +651,13 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
             ),
           ),
         );
-      },
+      }),
     );
   }
 
   Widget _memberTile(ThemeData theme, RoomDetails d, RoomMemberRow m) {
     final admin = d.currentUserIsAdmin;
-    final showMenu =
-        !m.isSelf && (admin || m.currentUserCanKick);
+    final showMenu = !m.isSelf && (admin || m.currentUserCanKick);
     final scheme = theme.colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -701,9 +717,9 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
                 const SizedBox(height: 4),
                 Text(
                   m.userIdDisplay,
-                  style: _RoomInfoStyles.captionMuted(theme).copyWith(
-                    fontSize: 11,
-                  ),
+                  style: _RoomInfoStyles.captionMuted(
+                    theme,
+                  ).copyWith(fontSize: 11),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -929,9 +945,7 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
     Navigator.of(root).pop();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!root.mounted) return;
-      Navigator.of(root).pop(
-        RoomInfoNavResult(focusEventId: f.eventId),
-      );
+      Navigator.of(root).pop(RoomInfoNavResult(focusEventId: f.eventId));
     });
   }
 
@@ -992,11 +1006,7 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    icon,
-                    size: 20,
-                    color: selected ? scheme.primary : dim,
-                  ),
+                  Icon(icon, size: 20, color: selected ? scheme.primary : dim),
                   const SizedBox(height: 5),
                   FittedBox(
                     fit: BoxFit.scaleDown,
@@ -1005,8 +1015,9 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
                       style: t.textTheme.bodySmall?.copyWith(
                         fontSize: 10,
                         letterSpacing: 0.8,
-                        fontWeight:
-                            selected ? FontWeight.w800 : FontWeight.w500,
+                        fontWeight: selected
+                            ? FontWeight.w800
+                            : FontWeight.w500,
                         color: selected ? scheme.primary : dim,
                       ),
                       maxLines: 1,
@@ -1073,10 +1084,7 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
     final scheme = theme.colorScheme;
     if (_filesLoading) {
       return Center(
-        child: CircularProgressIndicator(
-          color: scheme.primary,
-          strokeWidth: 2,
-        ),
+        child: CircularProgressIndicator(color: scheme.primary, strokeWidth: 2),
       );
     }
     if (_filesError != null) {
@@ -1167,8 +1175,9 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
                                 '${f.isOutgoing ? "Sent" : "Received"} · '
                                 '${_fileListTimeLabel(t)} · '
                                 '${_fileSizeLabel(f)}',
-                                style: _RoomInfoStyles.captionMuted(theme)
-                                    .copyWith(fontSize: 10),
+                                style: _RoomInfoStyles.captionMuted(
+                                  theme,
+                                ).copyWith(fontSize: 10),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1232,9 +1241,7 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
           decoration: BoxDecoration(
             color: scheme.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            border: Border.all(
-              color: scheme.primary.withValues(alpha: 0.55),
-            ),
+            border: Border.all(color: scheme.primary.withValues(alpha: 0.55)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1279,9 +1286,7 @@ class _RoomInfoMediaBottomSheetState extends State<_RoomInfoMediaBottomSheet> {
                 ),
                 child: _buildFileFilterBar(),
               ),
-              Expanded(
-                child: _buildFilesList(),
-              ),
+              Expanded(child: _buildFilesList()),
             ],
           ),
         ),
@@ -1392,9 +1397,7 @@ class _RoomInfoLinksBottomSheetState extends State<_RoomInfoLinksBottomSheet> {
     Navigator.of(root).pop();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!root.mounted) return;
-      Navigator.of(root).pop(
-        RoomInfoNavResult(focusEventId: item.eventId),
-      );
+      Navigator.of(root).pop(RoomInfoNavResult(focusEventId: item.eventId));
     });
   }
 
@@ -1442,11 +1445,7 @@ class _RoomInfoLinksBottomSheetState extends State<_RoomInfoLinksBottomSheet> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    icon,
-                    size: 20,
-                    color: selected ? scheme.primary : dim,
-                  ),
+                  Icon(icon, size: 20, color: selected ? scheme.primary : dim),
                   const SizedBox(height: 5),
                   FittedBox(
                     fit: BoxFit.scaleDown,
@@ -1455,8 +1454,9 @@ class _RoomInfoLinksBottomSheetState extends State<_RoomInfoLinksBottomSheet> {
                       style: t.textTheme.bodySmall?.copyWith(
                         fontSize: 10,
                         letterSpacing: 0.8,
-                        fontWeight:
-                            selected ? FontWeight.w800 : FontWeight.w500,
+                        fontWeight: selected
+                            ? FontWeight.w800
+                            : FontWeight.w500,
                         color: selected ? scheme.primary : dim,
                       ),
                       maxLines: 1,
@@ -1530,11 +1530,7 @@ class _RoomInfoLinksBottomSheetState extends State<_RoomInfoLinksBottomSheet> {
         border: Border.all(color: scheme.primary.withValues(alpha: 0.35)),
         color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
       ),
-      child: Icon(
-        Icons.link_rounded,
-        size: 22,
-        color: scheme.primary,
-      ),
+      child: Icon(Icons.link_rounded, size: 22, color: scheme.primary),
     );
   }
 
@@ -1543,10 +1539,7 @@ class _RoomInfoLinksBottomSheetState extends State<_RoomInfoLinksBottomSheet> {
     final scheme = theme.colorScheme;
     if (_loading) {
       return Center(
-        child: CircularProgressIndicator(
-          color: scheme.primary,
-          strokeWidth: 2,
-        ),
+        child: CircularProgressIndicator(color: scheme.primary, strokeWidth: 2),
       );
     }
     if (_error != null) {
@@ -1607,11 +1600,7 @@ class _RoomInfoLinksBottomSheetState extends State<_RoomInfoLinksBottomSheet> {
                           children: [
                             Row(
                               children: [
-                                Icon(
-                                  Icons.link,
-                                  size: 15,
-                                  color: accent,
-                                ),
+                                Icon(Icons.link, size: 15, color: accent),
                                 const SizedBox(width: 6),
                                 if (item.isLinkMessage)
                                   Padding(
@@ -1629,12 +1618,14 @@ class _RoomInfoLinksBottomSheetState extends State<_RoomInfoLinksBottomSheet> {
                                       ),
                                       child: Text(
                                         'PREVIEW',
-                                        style: _RoomInfoStyles.captionMuted(theme)
-                                            .copyWith(
-                                          fontSize: 8,
-                                          color: accent,
-                                          letterSpacing: 0.6,
-                                        ),
+                                        style:
+                                            _RoomInfoStyles.captionMuted(
+                                              theme,
+                                            ).copyWith(
+                                              fontSize: 8,
+                                              color: accent,
+                                              letterSpacing: 0.6,
+                                            ),
                                       ),
                                     ),
                                   ),
@@ -1647,11 +1638,12 @@ class _RoomInfoLinksBottomSheetState extends State<_RoomInfoLinksBottomSheet> {
                                       fontWeight: FontWeight.w600,
                                       height: 1.2,
                                     ),
-                                    linkStyle: theme.textTheme.bodyMedium?.copyWith(
-                                      color: accent,
-                                      decoration: TextDecoration.underline,
-                                      decorationColor: accent,
-                                    ),
+                                    linkStyle: theme.textTheme.bodyMedium
+                                        ?.copyWith(
+                                          color: accent,
+                                          decoration: TextDecoration.underline,
+                                          decorationColor: accent,
+                                        ),
                                     onOpen: (link) =>
                                         openMatrixUrl(context, link.url),
                                   ),
@@ -1662,8 +1654,9 @@ class _RoomInfoLinksBottomSheetState extends State<_RoomInfoLinksBottomSheet> {
                             Text(
                               '${item.isOutgoing ? "Sent" : "Received"} · '
                               '${_listTimeLabel(t)}',
-                              style: _RoomInfoStyles.captionMuted(theme)
-                                  .copyWith(fontSize: 10),
+                              style: _RoomInfoStyles.captionMuted(
+                                theme,
+                              ).copyWith(fontSize: 10),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -1717,9 +1710,7 @@ class _RoomInfoLinksBottomSheetState extends State<_RoomInfoLinksBottomSheet> {
           decoration: BoxDecoration(
             color: scheme.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            border: Border.all(
-              color: scheme.primary.withValues(alpha: 0.55),
-            ),
+            border: Border.all(color: scheme.primary.withValues(alpha: 0.55)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1825,7 +1816,7 @@ class _RoomFileThumbnail extends StatefulWidget {
   final RoomFileItem item;
   final ThemeData theme;
   final Future<Uint8List?> Function(String eventId, {bool thumbnail})
-      loadThumbnail;
+  loadThumbnail;
   final String extLower;
 
   @override
@@ -1858,15 +1849,13 @@ class _RoomFileThumbnailState extends State<_RoomFileThumbnail> {
       if (mounted) setState(() => _loading = false);
       return;
     }
-    final useThumb = kind == RoomMessageKind.image ||
+    final useThumb =
+        kind == RoomMessageKind.image ||
         kind == RoomMessageKind.video ||
         kind == RoomMessageKind.file;
     try {
       var b = await widget.loadThumbnail(id, thumbnail: useThumb);
-      if (b != null &&
-          b.isNotEmpty &&
-          useThumb &&
-          !_isRoomInfoRasterBytes(b)) {
+      if (b != null && b.isNotEmpty && useThumb && !_isRoomInfoRasterBytes(b)) {
         b = null;
       }
       if (!mounted) return;
@@ -1893,22 +1882,14 @@ class _RoomFileThumbnailState extends State<_RoomFileThumbnail> {
       return _thumbShell(
         size,
         scheme,
-        Icon(
-          _roomFileIcon(widget.item.kind),
-          size: iconSize,
-          color: dim,
-        ),
+        Icon(_roomFileIcon(widget.item.kind), size: iconSize, color: dim),
       );
     }
     if (widget.item.kind == RoomMessageKind.audio) {
       return _thumbShell(
         size,
         scheme,
-        Icon(
-          Icons.audiotrack,
-          size: iconSize,
-          color: scheme.primary,
-        ),
+        Icon(Icons.audiotrack, size: iconSize, color: scheme.primary),
       );
     }
     if (_loading) {
@@ -1951,11 +1932,7 @@ class _RoomFileThumbnailState extends State<_RoomFileThumbnail> {
     return _thumbShell(
       size,
       scheme,
-      Icon(
-        _roomFileIcon(widget.item.kind),
-        size: iconSize,
-        color: dim,
-      ),
+      Icon(_roomFileIcon(widget.item.kind), size: iconSize, color: dim),
     );
   }
 
@@ -2078,9 +2055,7 @@ class _RoomInfoPollsBottomSheetState extends State<_RoomInfoPollsBottomSheet> {
     Navigator.of(root).pop();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!root.mounted) return;
-      Navigator.of(root).pop(
-        RoomInfoNavResult(focusEventId: item.eventId),
-      );
+      Navigator.of(root).pop(RoomInfoNavResult(focusEventId: item.eventId));
     });
   }
 
@@ -2128,11 +2103,7 @@ class _RoomInfoPollsBottomSheetState extends State<_RoomInfoPollsBottomSheet> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    icon,
-                    size: 20,
-                    color: selected ? scheme.primary : dim,
-                  ),
+                  Icon(icon, size: 20, color: selected ? scheme.primary : dim),
                   const SizedBox(height: 5),
                   FittedBox(
                     fit: BoxFit.scaleDown,
@@ -2141,8 +2112,9 @@ class _RoomInfoPollsBottomSheetState extends State<_RoomInfoPollsBottomSheet> {
                       style: t.textTheme.bodySmall?.copyWith(
                         fontSize: 10,
                         letterSpacing: 0.8,
-                        fontWeight:
-                            selected ? FontWeight.w800 : FontWeight.w500,
+                        fontWeight: selected
+                            ? FontWeight.w800
+                            : FontWeight.w500,
                         color: selected ? scheme.primary : dim,
                       ),
                       maxLines: 1,
@@ -2214,11 +2186,7 @@ class _RoomInfoPollsBottomSheetState extends State<_RoomInfoPollsBottomSheet> {
         border: Border.all(color: scheme.primary.withValues(alpha: 0.35)),
         color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
       ),
-      child: Icon(
-        Icons.poll_rounded,
-        size: 22,
-        color: scheme.primary,
-      ),
+      child: Icon(Icons.poll_rounded, size: 22, color: scheme.primary),
     );
   }
 
@@ -2227,10 +2195,7 @@ class _RoomInfoPollsBottomSheetState extends State<_RoomInfoPollsBottomSheet> {
     final scheme = theme.colorScheme;
     if (_loading) {
       return Center(
-        child: CircularProgressIndicator(
-          color: scheme.primary,
-          strokeWidth: 2,
-        ),
+        child: CircularProgressIndicator(color: scheme.primary, strokeWidth: 2),
       );
     }
     if (_error != null) {
@@ -2314,16 +2279,18 @@ class _RoomInfoPollsBottomSheetState extends State<_RoomInfoPollsBottomSheet> {
                                       'POLL',
                                       style: _RoomInfoStyles.captionMuted(theme)
                                           .copyWith(
-                                        fontSize: 8,
-                                        color: accent,
-                                        letterSpacing: 0.6,
-                                      ),
+                                            fontSize: 8,
+                                            color: accent,
+                                            letterSpacing: 0.6,
+                                          ),
                                     ),
                                   ),
                                 ),
                                 Expanded(
                                   child: Text(
-                                    p.question.isNotEmpty ? p.question : '⟨poll⟩',
+                                    p.question.isNotEmpty
+                                        ? p.question
+                                        : '⟨poll⟩',
                                     style: theme.textTheme.bodyMedium?.copyWith(
                                       fontWeight: FontWeight.w600,
                                       height: 1.2,
@@ -2338,8 +2305,9 @@ class _RoomInfoPollsBottomSheetState extends State<_RoomInfoPollsBottomSheet> {
                             Text(
                               '${p.isOutgoing ? "Sent" : "Received"} · '
                               '${_listTimeLabel(t)}',
-                              style: _RoomInfoStyles.captionMuted(theme)
-                                  .copyWith(fontSize: 10),
+                              style: _RoomInfoStyles.captionMuted(
+                                theme,
+                              ).copyWith(fontSize: 10),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -2386,9 +2354,7 @@ class _RoomInfoPollsBottomSheetState extends State<_RoomInfoPollsBottomSheet> {
           decoration: BoxDecoration(
             color: scheme.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            border: Border.all(
-              color: scheme.primary.withValues(alpha: 0.55),
-            ),
+            border: Border.all(color: scheme.primary.withValues(alpha: 0.55)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

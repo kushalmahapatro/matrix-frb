@@ -1028,6 +1028,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_String(raw.eventId),
       cst_encode_String(raw.transactionId),
       cst_encode_String(raw.sender),
+      cst_encode_String(raw.senderUserId),
+      cst_encode_String(raw.senderAvatarMxc),
       cst_encode_String(raw.content),
       cst_encode_u_64(raw.timestamp),
       cst_encode_message_type(raw.messageType),
@@ -1058,6 +1060,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_String(raw.pollStateJson),
       cst_encode_String(raw.linkPreviewsJson),
       cst_encode_bool(raw.isRedacted),
+      cst_encode_u_32(raw.readReceiptCount),
     ].jsify()!;
   }
 
@@ -1208,6 +1211,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_String(raw.userId),
       cst_encode_String(raw.userIdDisplay),
       cst_encode_String(raw.displayName),
+      cst_encode_String(raw.avatarUrl),
       cst_encode_i_64(raw.powerLevel),
       cst_encode_room_member_role_dto(raw.role),
       cst_encode_bool(raw.isSelf),
@@ -1906,6 +1910,18 @@ class RustLibWire implements BaseWire {
         thumbnail,
       );
 
+  void
+  wire__crate__api__matrix_client__MatrixClient_fetch_user_avatar_thumbnail(
+    NativePortType port_,
+    int that,
+    String mxc_uri,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_fetch_user_avatar_thumbnail(
+        port_,
+        that,
+        mxc_uri,
+      );
+
   void wire__crate__api__matrix_client__MatrixClient_get_all_rooms(
     NativePortType port_,
     int that,
@@ -1945,6 +1961,24 @@ class RustLibWire implements BaseWire {
         that,
         room_id,
         count,
+      );
+
+  void wire__crate__api__matrix_client__MatrixClient_get_profile_avatar_mxc(
+    NativePortType port_,
+    int that,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_get_profile_avatar_mxc(
+        port_,
+        that,
+      );
+
+  void wire__crate__api__matrix_client__MatrixClient_get_profile_initials(
+    NativePortType port_,
+    int that,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_get_profile_initials(
+        port_,
+        that,
       );
 
   void wire__crate__api__matrix_client__MatrixClient_get_room_details(
@@ -2154,6 +2188,15 @@ class RustLibWire implements BaseWire {
     app_display_name,
   );
 
+  void wire__crate__api__matrix_client__MatrixClient_remove_profile_avatar(
+    NativePortType port_,
+    int that,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_remove_profile_avatar(
+        port_,
+        that,
+      );
+
   void wire__crate__api__matrix_client__MatrixClient_restart_sync_service(
     NativePortType port_,
     int that,
@@ -2317,6 +2360,17 @@ class RustLibWire implements BaseWire {
         display_name,
       );
 
+  void wire__crate__api__matrix_client__MatrixClient_set_profile_initials(
+    NativePortType port_,
+    int that,
+    String? initials,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_set_profile_initials(
+        port_,
+        that,
+        initials,
+      );
+
   void
   wire__crate__api__matrix_client__MatrixClient_set_room_member_power_level(
     NativePortType port_,
@@ -2452,6 +2506,19 @@ class RustLibWire implements BaseWire {
         that,
         push_key,
         app_id,
+      );
+
+  void wire__crate__api__matrix_client__MatrixClient_upload_profile_avatar(
+    NativePortType port_,
+    int that,
+    String mime_type,
+    JSAny data,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_upload_profile_avatar(
+        port_,
+        that,
+        mime_type,
+        data,
       );
 
   void wire__crate__api__document_preview__document_preview_json(
@@ -2607,6 +2674,13 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     bool thumbnail,
   );
 
+  external void
+  wire__crate__api__matrix_client__MatrixClient_fetch_user_avatar_thumbnail(
+    NativePortType port_,
+    int that,
+    String mxc_uri,
+  );
+
   external void wire__crate__api__matrix_client__MatrixClient_get_all_rooms(
     NativePortType port_,
     int that,
@@ -2630,6 +2704,18 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     int that,
     String room_id,
     int count,
+  );
+
+  external void
+  wire__crate__api__matrix_client__MatrixClient_get_profile_avatar_mxc(
+    NativePortType port_,
+    int that,
+  );
+
+  external void
+  wire__crate__api__matrix_client__MatrixClient_get_profile_initials(
+    NativePortType port_,
+    int that,
   );
 
   external void wire__crate__api__matrix_client__MatrixClient_get_room_details(
@@ -2755,6 +2841,12 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
   );
 
   external void
+  wire__crate__api__matrix_client__MatrixClient_remove_profile_avatar(
+    NativePortType port_,
+    int that,
+  );
+
+  external void
   wire__crate__api__matrix_client__MatrixClient_restart_sync_service(
     NativePortType port_,
     int that,
@@ -2848,6 +2940,13 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
   );
 
   external void
+  wire__crate__api__matrix_client__MatrixClient_set_profile_initials(
+    NativePortType port_,
+    int that,
+    String? initials,
+  );
+
+  external void
   wire__crate__api__matrix_client__MatrixClient_set_room_member_power_level(
     NativePortType port_,
     int that,
@@ -2927,6 +3026,14 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     int that,
     String push_key,
     String app_id,
+  );
+
+  external void
+  wire__crate__api__matrix_client__MatrixClient_upload_profile_avatar(
+    NativePortType port_,
+    int that,
+    String mime_type,
+    JSAny data,
   );
 
   external void wire__crate__api__document_preview__document_preview_json(

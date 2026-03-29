@@ -9,6 +9,7 @@ pub mod file_upload_cache_redaction;
 pub mod link_preview;
 pub mod media_mxc_validate;
 pub mod native_media_env;
+pub mod profile_account;
 pub mod room_info;
 pub mod rooms;
 pub mod send_timeline_file;

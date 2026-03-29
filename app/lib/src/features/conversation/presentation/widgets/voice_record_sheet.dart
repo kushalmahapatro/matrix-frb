@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -141,7 +143,16 @@ class _VoiceRecordSheetState extends State<VoiceRecordSheet> {
           .onAmplitudeChanged(const Duration(milliseconds: 90))
           .listen((amp) {
         if (!mounted) return;
-        final n = _normalizeDb(amp.current);
+        var n = _normalizeDb(amp.current);
+        // Desktop amplitude streams are often flat; add motion so the UI matches expectations.
+        if (!kIsWeb &&
+            (Platform.isLinux ||
+                Platform.isMacOS ||
+                Platform.isWindows)) {
+          final t = DateTime.now().millisecondsSinceEpoch / 185.0;
+          final shimmer = 0.14 * math.sin(t);
+          n = (n + shimmer).clamp(0.08, 1.0);
+        }
         setState(() {
           _fullSamples.add(n);
           _displaySamples.add(n);

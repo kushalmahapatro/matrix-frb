@@ -22,7 +22,15 @@ class Message {
 
   /// Matrix transaction id for local echoes (empty for remote-only items).
   final String transactionId;
+
+  /// Best-effort display name: room member / profile display name, else formatted user id.
   final String sender;
+
+  /// Raw Matrix user id of the sender (`@local:server`); empty for virtual rows.
+  final String senderUserId;
+
+  /// Profile avatar MXC when known (`mxc://…`); empty if unset or not loaded yet.
+  final String senderAvatarMxc;
   final String content;
   final BigInt timestamp;
   final MessageType messageType;
@@ -100,10 +108,15 @@ class Message {
   /// `true` after an `m.room.redaction` removed content for everyone in the room.
   final bool isRedacted;
 
+  /// Other room members with a read receipt on this event (`m.read` / main-thread compatible). Always 0 for virtual rows and local echoes.
+  final int readReceiptCount;
+
   const Message({
     required this.eventId,
     required this.transactionId,
     required this.sender,
+    required this.senderUserId,
+    required this.senderAvatarMxc,
     required this.content,
     required this.timestamp,
     required this.messageType,
@@ -134,6 +147,7 @@ class Message {
     required this.pollStateJson,
     required this.linkPreviewsJson,
     required this.isRedacted,
+    required this.readReceiptCount,
   });
 
   @override
@@ -141,6 +155,8 @@ class Message {
       eventId.hashCode ^
       transactionId.hashCode ^
       sender.hashCode ^
+      senderUserId.hashCode ^
+      senderAvatarMxc.hashCode ^
       content.hashCode ^
       timestamp.hashCode ^
       messageType.hashCode ^
@@ -170,7 +186,8 @@ class Message {
       pollOptionsJson.hashCode ^
       pollStateJson.hashCode ^
       linkPreviewsJson.hashCode ^
-      isRedacted.hashCode;
+      isRedacted.hashCode ^
+      readReceiptCount.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -180,6 +197,8 @@ class Message {
           eventId == other.eventId &&
           transactionId == other.transactionId &&
           sender == other.sender &&
+          senderUserId == other.senderUserId &&
+          senderAvatarMxc == other.senderAvatarMxc &&
           content == other.content &&
           timestamp == other.timestamp &&
           messageType == other.messageType &&
@@ -209,7 +228,8 @@ class Message {
           pollOptionsJson == other.pollOptionsJson &&
           pollStateJson == other.pollStateJson &&
           linkPreviewsJson == other.linkPreviewsJson &&
-          isRedacted == other.isRedacted;
+          isRedacted == other.isRedacted &&
+          readReceiptCount == other.readReceiptCount;
 }
 
 /// One reaction key on a timeline message (aggregated senders from matrix-sdk-ui).

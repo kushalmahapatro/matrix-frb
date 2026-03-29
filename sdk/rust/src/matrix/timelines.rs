@@ -11,7 +11,8 @@ use matrix_sdk::ruma::{OwnedEventId, OwnedRoomId};
 use matrix_sdk::Client;
 use matrix_sdk_ui::timeline::{
     EmbeddedEvent, EventSendState, EventTimelineItem, Message as SdkUiRoomMessage, PollState,
-    RoomExt, TimelineDetails, TimelineFocus, TimelineItem, TimelineItemKind,
+    Profile, RoomExt, TimelineDetails, TimelineFocus, TimelineItem, TimelineItemKind,
+    TimelineReadReceiptTracking,
 };
 use matrix_sdk_ui::Timeline as SdkTimeline;
 use serde::{Deserialize, Serialize};
@@ -245,7 +246,12 @@ pub struct Message {
     pub event_id: String,
     /// Matrix transaction id for local echoes (empty for remote-only items).
     pub transaction_id: String,
+    /// Best-effort display name: room member / profile display name, else formatted user id.
     pub sender: String,
+    /// Raw Matrix user id of the sender (`@local:server`); empty for virtual rows.
+    pub sender_user_id: String,
+    /// Profile avatar MXC when known (`mxc://…`); empty if unset or not loaded yet.
+    pub sender_avatar_mxc: String,
     pub content: String,
     pub timestamp: u64,
     pub message_type: MessageType,
@@ -299,6 +305,8 @@ pub struct Message {
     pub link_previews_json: String,
     /// `true` after an `m.room.redaction` removed content for everyone in the room.
     pub is_redacted: bool,
+    /// Other room members with a read receipt on this event (`m.read` / main-thread compatible). Always 0 for virtual rows and local echoes.
+    pub read_receipt_count: u32,
 }
 
 /// Sentinel for missing index/length in MessageUpdate (codegen uses usize, not Option<usize>).
@@ -815,6 +823,40 @@ fn event_in_reply_snapshot(ev: &EventTimelineItem) -> InReplySnapshot {
     }
 }
 
+/// Display label and avatar MXC from the timeline sender profile when ready.
+pub(crate) fn sender_display_and_avatar_from_profile(
+    sender_user_id: &str,
+    profile: &TimelineDetails<Profile>,
+) -> (String, String) {
+    let fallback = format_user_id_for_display(sender_user_id);
+    match profile {
+        TimelineDetails::Ready(p) => {
+            let label = p
+                .display_name
+                .as_ref()
+                .map(|n| n.trim())
+                .filter(|n| !n.is_empty())
+                .map(|n| n.to_string())
+                .unwrap_or_else(|| fallback.clone());
+            let avatar = p
+                .avatar_url
+                .as_ref()
+                .map(|u| u.to_string())
+                .unwrap_or_default();
+            (label, avatar)
+        }
+        _ => (fallback, String::new()),
+    }
+}
+
+/// Count of read receipts on this timeline item from members other than the logged-in user.
+fn other_read_receipt_count(ev: &EventTimelineItem, own_user_id: Option<&str>) -> u32 {
+    ev.read_receipts()
+        .keys()
+        .filter(|uid| own_user_id.map(|o| o != uid.as_str()).unwrap_or(true))
+        .count() as u32
+}
+
 fn send_state_fields(ev: &EventTimelineItem) -> (EventSendStateKind, String, bool) {
     match ev.send_state() {
         None => (EventSendStateKind::Delivered, String::new(), false),
@@ -844,8 +886,10 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
                 .transaction_id()
                 .map(|t| t.to_string())
                 .unwrap_or_default();
-            let sender_raw = ev.sender().to_string();
-            let is_own = own_user_id.is_some_and(|o| o == sender_raw.as_str());
+            let sender_user_id = ev.sender().to_string();
+            let (sender, sender_avatar_mxc) =
+                sender_display_and_avatar_from_profile(&sender_user_id, ev.sender_profile());
+            let is_own = own_user_id.is_some_and(|o| o == sender_user_id.as_str());
             let content = event_message_body(ev);
             let timestamp = u64::from(ev.timestamp().0);
             let (media_mimetype, media_size_bytes) = event_media_attachment_info(ev);
@@ -876,10 +920,13 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
                     (String::new(), String::new())
                 };
             let link_previews_json = event_link_previews_json(ev);
+            let read_receipt_count = other_read_receipt_count(ev, own_user_id);
             Message {
                 event_id,
                 transaction_id,
-                sender: format_user_id_for_display(&sender_raw),
+                sender,
+                sender_user_id,
+                sender_avatar_mxc,
                 content,
                 timestamp,
                 message_type: MessageType::Message,
@@ -910,6 +957,7 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
                 poll_state_json,
                 link_previews_json,
                 is_redacted,
+                read_receipt_count,
             }
         }
         TimelineItemKind::Virtual(virtual_timeline_item) => {
@@ -920,6 +968,8 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
                     event_id: "".to_string(),
                     transaction_id: "".to_string(),
                     sender: "".to_string(),
+                    sender_user_id: "".to_string(),
+                    sender_avatar_mxc: "".to_string(),
                     content: format!("Date: {}", u64::from(milli_seconds_since_unix_epoch.0)),
                     timestamp: u64::from(milli_seconds_since_unix_epoch.0),
                     message_type: MessageType::DateDivider,
@@ -950,11 +1000,14 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
                     poll_state_json: String::new(),
                     link_previews_json: "[]".to_string(),
                     is_redacted: false,
+                    read_receipt_count: 0,
                 },
                 matrix_sdk_ui::timeline::VirtualTimelineItem::ReadMarker => Message {
                     event_id: "".to_string(),
                     transaction_id: "".to_string(),
                     sender: "".to_string(),
+                    sender_user_id: "".to_string(),
+                    sender_avatar_mxc: "".to_string(),
                     content: "".to_string(),
                     timestamp: 0,
                     message_type: MessageType::ReadMarker,
@@ -985,11 +1038,14 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
                     poll_state_json: String::new(),
                     link_previews_json: "[]".to_string(),
                     is_redacted: false,
+                    read_receipt_count: 0,
                 },
                 matrix_sdk_ui::timeline::VirtualTimelineItem::TimelineStart => Message {
                     event_id: "".to_string(),
                     transaction_id: "".to_string(),
                     sender: "".to_string(),
+                    sender_user_id: "".to_string(),
+                    sender_avatar_mxc: "".to_string(),
                     content: "".to_string(),
                     timestamp: 0,
                     message_type: MessageType::TimelineStart,
@@ -1020,6 +1076,7 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
                     poll_state_json: String::new(),
                     link_previews_json: "[]".to_string(),
                     is_redacted: false,
+                    read_receipt_count: 0,
                 },
             }
         }
@@ -1159,6 +1216,7 @@ pub(crate) async fn subscribe_to_timeline_list_loop(
     } else {
         let timeline = match room
             .timeline_builder()
+            .track_read_marker_and_receipts(TimelineReadReceiptTracking::MessageLikeEvents)
             .with_focus(TimelineFocus::Live {
                 hide_threaded_events: true,
             })
@@ -1235,14 +1293,98 @@ pub(crate) async fn subscribe_to_timeline_list_loop(
     }
 }
 
+/// True when this row is suitable for the chat list subtitle (real message / poll / media / redacted).
+///
+/// Timeline [`get_message_from_timeline_item`] tags every `TimelineItemKind::Event` as
+/// [`MessageType::Message`], including `m.room.member` and other state events. Those have
+/// [`RoomMessageKind::Other`] and empty body — skip them so the listing shows the previous chat line.
+pub(crate) fn is_usable_room_list_preview_message(m: &Message) -> bool {
+    if !matches!(m.message_type, MessageType::Message) {
+        return false;
+    }
+    if m.is_redacted {
+        return true;
+    }
+    if m.room_msg_kind != RoomMessageKind::Other {
+        return true;
+    }
+    !m.poll_options_json.is_empty()
+        || !m.content.trim().is_empty()
+        || !m.media_mimetype.is_empty()
+}
+
 /// Last timeline row that is an actual chat message (skips date dividers, read markers, etc.).
 /// Use for room-list preview so the subtitle is not a virtual row like `Date: …`.
 pub(crate) fn last_message_row_for_room_preview(list: &[Message]) -> Option<Message> {
     list
         .iter()
         .rev()
-        .find(|m| matches!(m.message_type, MessageType::Message))
+        .find(|m| is_usable_room_list_preview_message(m))
         .cloned()
+}
+
+#[cfg(test)]
+mod room_preview_tests {
+    use super::*;
+
+    fn sample(kind: RoomMessageKind, content: &str) -> Message {
+        Message {
+            event_id: "e1".to_string(),
+            transaction_id: String::new(),
+            sender: String::new(),
+            sender_user_id: String::new(),
+            sender_avatar_mxc: String::new(),
+            content: content.to_string(),
+            timestamp: 1,
+            message_type: MessageType::Message,
+            room_msg_kind: kind,
+            send_state: EventSendStateKind::Delivered,
+            send_error: String::new(),
+            send_recoverable: false,
+            is_own: false,
+            media_mimetype: String::new(),
+            media_size_bytes: 0,
+            media_blurhash: String::new(),
+            media_preview_width: 0,
+            media_preview_height: 0,
+            audio_duration_ms: 0,
+            audio_waveform: vec![],
+            in_reply_to_event_id: String::new(),
+            in_reply_to_sender: String::new(),
+            in_reply_to_preview: String::new(),
+            in_reply_to_room_msg_kind: RoomMessageKind::Other,
+            in_reply_to_media_mimetype: String::new(),
+            in_reply_to_media_size_bytes: 0,
+            in_reply_to_media_blurhash: String::new(),
+            in_reply_to_media_preview_width: 0,
+            in_reply_to_media_preview_height: 0,
+            in_reply_to_parent_redacted: false,
+            reactions: vec![],
+            poll_options_json: String::new(),
+            poll_state_json: String::new(),
+            link_previews_json: "[]".to_string(),
+            is_redacted: false,
+            read_receipt_count: 0,
+        }
+    }
+
+    #[test]
+    fn preview_skips_empty_other_kind_tail() {
+        let list = vec![
+            sample(RoomMessageKind::Text, "hi"),
+            sample(RoomMessageKind::Other, ""),
+        ];
+        let last = last_message_row_for_room_preview(&list);
+        assert_eq!(last.map(|m| m.content), Some("hi".to_string()));
+    }
+
+    #[test]
+    fn preview_keeps_redacted_other() {
+        let mut m = sample(RoomMessageKind::Other, "");
+        m.is_redacted = true;
+        let list = vec![m];
+        assert!(last_message_row_for_room_preview(&list).is_some());
+    }
 }
 
 fn messages_same_identity(a: &Message, b: &Message) -> bool {
@@ -1504,6 +1646,7 @@ pub async fn subscribe_to_timeline_updates(
     } else {
         let timeline = room
             .timeline_builder()
+            .track_read_marker_and_receipts(TimelineReadReceiptTracking::MessageLikeEvents)
             .with_focus(TimelineFocus::Live {
                 hide_threaded_events: true,
             })

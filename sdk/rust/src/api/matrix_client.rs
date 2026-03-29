@@ -33,6 +33,7 @@ use crate::{
         sync_notifications::SyncNotificationSummary,
         sync_service::{self, App},
         timeline_media,
+        profile_account,
         timelines::{self, Message},
         room_info::{
             self, RoomDetails, RoomFileFilter, RoomFileItem, RoomLinkItem, RoomPollItem,
@@ -192,6 +193,51 @@ impl MatrixClient {
             .set_display_name(name.as_deref())
             .await
             .map_err(|e| e.to_string())
+    }
+
+    /// Global account avatar MXC (`mxc://…`), from the server.
+    pub async fn get_profile_avatar_mxc(&self) -> Result<Option<String>, String> {
+        Ok(self
+            .client
+            .account()
+            .get_avatar_url()
+            .await
+            .map_err(|e| e.to_string())?
+            .map(|u| u.to_string()))
+    }
+
+    /// Upload bytes as the account avatar (JPEG/PNG/WebP, etc.).
+    pub async fn upload_profile_avatar(
+        &self,
+        mime_type: String,
+        data: Vec<u8>,
+    ) -> Result<(), String> {
+        let mime: mime::Mime = mime_type.parse().map_err(|e| format!("Invalid mimetype: {e}"))?;
+        self.client
+            .account()
+            .upload_avatar(&mime, data)
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    /// Remove the account avatar.
+    pub async fn remove_profile_avatar(&self) -> Result<(), String> {
+        self.client
+            .account()
+            .set_avatar_url(None)
+            .await
+            .map_err(|e| e.to_string())
+    }
+
+    /// Short initials label stored in global account data (for avatar fallbacks).
+    pub async fn get_profile_initials(&self) -> Result<Option<String>, String> {
+        profile_account::get_profile_initials(&self.client).await
+    }
+
+    /// Set or clear [get_profile_initials] data (`None` clears stored initials).
+    pub async fn set_profile_initials(&self, initials: Option<String>) -> Result<(), String> {
+        profile_account::set_profile_initials(&self.client, initials).await
     }
 
     pub async fn register_pusher(
@@ -865,6 +911,11 @@ impl MatrixClient {
             thumbnail,
         )
         .await
+    }
+
+    /// Decoded bytes for a profile avatar `mxc://` URI (thumbnail when the server supports it).
+    pub async fn fetch_user_avatar_thumbnail(&self, mxc_uri: String) -> Result<Vec<u8>, String> {
+        timeline_media::fetch_avatar_mxc_thumbnail(&self.client, mxc_uri.trim()).await
     }
 
     /// Takes the room update stored by the last successful [MatrixClient::send_message].

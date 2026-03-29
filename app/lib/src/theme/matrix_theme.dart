@@ -285,7 +285,10 @@ class MatrixTheme {
   static get colors => getTheme(_isDarkMode).colorScheme;
 
   // App theme - all colors from theme for dark/light adaptation
-  static ThemeData getTheme(bool isDarkMode) {
+  static ThemeData getTheme(
+    bool isDarkMode, {
+    bool useDesktopChrome = false,
+  }) {
     final bg = getBackgroundColor(isDarkMode);
     final text = getTextColor(isDarkMode);
     final container = getContainerColor(isDarkMode);
@@ -296,9 +299,11 @@ class MatrixTheme {
             surface: terminalBlack,
             onSurface: matrixGreen,
             surfaceContainerHighest: terminalBackground,
+            surfaceContainerLow: const Color(0xFF0A160F),
             error: errorRed,
             onError: terminalBlack,
             outline: matrixGreen,
+            outlineVariant: const Color(0xFF1F3D2A),
           )
         : ColorScheme.light(
             primary: darkGreen,
@@ -309,9 +314,10 @@ class MatrixTheme {
             error: errorRed,
             onError: backgroundWhite,
             outline: darkGreen,
+            outlineVariant: darkGreen.withValues(alpha: 0.18),
           );
 
-    return ThemeData(
+    final base = ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: bg,
@@ -407,6 +413,58 @@ class MatrixTheme {
       snackBarTheme: SnackBarThemeData(
         backgroundColor: text,
         contentTextStyle: bodyStyle.copyWith(color: bg),
+      ),
+    );
+
+    if (!useDesktopChrome) return base;
+
+    final scheme = base.colorScheme;
+    return base.copyWith(
+      visualDensity: VisualDensity.compact,
+      scrollbarTheme: ScrollbarThemeData(
+        thumbVisibility: WidgetStateProperty.all(true),
+        thickness: WidgetStateProperty.all(7),
+        radius: const Radius.circular(4),
+        crossAxisMargin: 2,
+        mainAxisMargin: 4,
+        thumbColor: WidgetStateProperty.all(
+          scheme.outline.withValues(alpha: 0.35),
+        ),
+      ),
+      listTileTheme: ListTileThemeData(
+        dense: true,
+        visualDensity: VisualDensity.compact,
+        minVerticalPadding: 2,
+        horizontalTitleGap: 10,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          minimumSize: const Size(36, 36),
+          padding: const EdgeInsets.all(6),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (_) => base.textTheme.bodyMedium,
+        ),
+      ),
+      appBarTheme: base.appBarTheme.copyWith(
+        toolbarHeight: 40,
+        centerTitle: false,
+        titleSpacing: 16,
+        titleTextStyle: base.appBarTheme.titleTextStyle?.copyWith(
+          letterSpacing: 0.35,
+          fontWeight: FontWeight.w600,
+          fontSize: 15,
+        ),
+      ),
+      dividerTheme: DividerThemeData(
+        color: scheme.outlineVariant.withValues(alpha: 0.55),
+        thickness: 1,
+        space: 1,
       ),
     );
   }

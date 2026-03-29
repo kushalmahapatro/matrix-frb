@@ -1260,6 +1260,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     wireObj.event_id = cst_encode_String(apiObj.eventId);
     wireObj.transaction_id = cst_encode_String(apiObj.transactionId);
     wireObj.sender = cst_encode_String(apiObj.sender);
+    wireObj.sender_user_id = cst_encode_String(apiObj.senderUserId);
+    wireObj.sender_avatar_mxc = cst_encode_String(apiObj.senderAvatarMxc);
     wireObj.content = cst_encode_String(apiObj.content);
     wireObj.timestamp = cst_encode_u_64(apiObj.timestamp);
     wireObj.message_type = cst_encode_message_type(apiObj.messageType);
@@ -1308,6 +1310,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     wireObj.poll_state_json = cst_encode_String(apiObj.pollStateJson);
     wireObj.link_previews_json = cst_encode_String(apiObj.linkPreviewsJson);
     wireObj.is_redacted = cst_encode_bool(apiObj.isRedacted);
+    wireObj.read_receipt_count = cst_encode_u_32(apiObj.readReceiptCount);
   }
 
   @protected
@@ -1391,6 +1394,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     wireObj.user_id = cst_encode_String(apiObj.userId);
     wireObj.user_id_display = cst_encode_String(apiObj.userIdDisplay);
     wireObj.display_name = cst_encode_String(apiObj.displayName);
+    wireObj.avatar_url = cst_encode_String(apiObj.avatarUrl);
     wireObj.power_level = cst_encode_i_64(apiObj.powerLevel);
     wireObj.role = cst_encode_room_member_role_dto(apiObj.role);
     wireObj.is_self = cst_encode_bool(apiObj.isSelf);
@@ -2229,6 +2233,37 @@ class RustLibWire implements BaseWire {
             )
           >();
 
+  void
+  wire__crate__api__matrix_client__MatrixClient_fetch_user_avatar_thumbnail(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> mxc_uri,
+  ) {
+    return _wire__crate__api__matrix_client__MatrixClient_fetch_user_avatar_thumbnail(
+      port_,
+      that,
+      mxc_uri,
+    );
+  }
+
+  late final _wire__crate__api__matrix_client__MatrixClient_fetch_user_avatar_thumbnailPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+          )
+        >
+      >(
+        'frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_fetch_user_avatar_thumbnail',
+      );
+  late final _wire__crate__api__matrix_client__MatrixClient_fetch_user_avatar_thumbnail =
+      _wire__crate__api__matrix_client__MatrixClient_fetch_user_avatar_thumbnailPtr
+          .asFunction<
+            void Function(int, int, ffi.Pointer<wire_cst_list_prim_u_8_strict>)
+          >();
+
   void wire__crate__api__matrix_client__MatrixClient_get_all_rooms(
     int port_,
     int that,
@@ -2332,6 +2367,42 @@ class RustLibWire implements BaseWire {
               int,
             )
           >();
+
+  void wire__crate__api__matrix_client__MatrixClient_get_profile_avatar_mxc(
+    int port_,
+    int that,
+  ) {
+    return _wire__crate__api__matrix_client__MatrixClient_get_profile_avatar_mxc(
+      port_,
+      that,
+    );
+  }
+
+  late final _wire__crate__api__matrix_client__MatrixClient_get_profile_avatar_mxcPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64, ffi.UintPtr)>>(
+        'frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_profile_avatar_mxc',
+      );
+  late final _wire__crate__api__matrix_client__MatrixClient_get_profile_avatar_mxc =
+      _wire__crate__api__matrix_client__MatrixClient_get_profile_avatar_mxcPtr
+          .asFunction<void Function(int, int)>();
+
+  void wire__crate__api__matrix_client__MatrixClient_get_profile_initials(
+    int port_,
+    int that,
+  ) {
+    return _wire__crate__api__matrix_client__MatrixClient_get_profile_initials(
+      port_,
+      that,
+    );
+  }
+
+  late final _wire__crate__api__matrix_client__MatrixClient_get_profile_initialsPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64, ffi.UintPtr)>>(
+        'frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_profile_initials',
+      );
+  late final _wire__crate__api__matrix_client__MatrixClient_get_profile_initials =
+      _wire__crate__api__matrix_client__MatrixClient_get_profile_initialsPtr
+          .asFunction<void Function(int, int)>();
 
   void wire__crate__api__matrix_client__MatrixClient_get_room_details(
     int port_,
@@ -2905,6 +2976,24 @@ class RustLibWire implements BaseWire {
             )
           >();
 
+  void wire__crate__api__matrix_client__MatrixClient_remove_profile_avatar(
+    int port_,
+    int that,
+  ) {
+    return _wire__crate__api__matrix_client__MatrixClient_remove_profile_avatar(
+      port_,
+      that,
+    );
+  }
+
+  late final _wire__crate__api__matrix_client__MatrixClient_remove_profile_avatarPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64, ffi.UintPtr)>>(
+        'frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_remove_profile_avatar',
+      );
+  late final _wire__crate__api__matrix_client__MatrixClient_remove_profile_avatar =
+      _wire__crate__api__matrix_client__MatrixClient_remove_profile_avatarPtr
+          .asFunction<void Function(int, int)>();
+
   void wire__crate__api__matrix_client__MatrixClient_restart_sync_service(
     int port_,
     int that,
@@ -3345,6 +3434,36 @@ class RustLibWire implements BaseWire {
             void Function(int, int, ffi.Pointer<wire_cst_list_prim_u_8_strict>)
           >();
 
+  void wire__crate__api__matrix_client__MatrixClient_set_profile_initials(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> initials,
+  ) {
+    return _wire__crate__api__matrix_client__MatrixClient_set_profile_initials(
+      port_,
+      that,
+      initials,
+    );
+  }
+
+  late final _wire__crate__api__matrix_client__MatrixClient_set_profile_initialsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+          )
+        >
+      >(
+        'frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_profile_initials',
+      );
+  late final _wire__crate__api__matrix_client__MatrixClient_set_profile_initials =
+      _wire__crate__api__matrix_client__MatrixClient_set_profile_initialsPtr
+          .asFunction<
+            void Function(int, int, ffi.Pointer<wire_cst_list_prim_u_8_strict>)
+          >();
+
   void
   wire__crate__api__matrix_client__MatrixClient_set_room_member_power_level(
     int port_,
@@ -3704,6 +3823,44 @@ class RustLibWire implements BaseWire {
               int,
               ffi.Pointer<wire_cst_list_prim_u_8_strict>,
               ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            )
+          >();
+
+  void wire__crate__api__matrix_client__MatrixClient_upload_profile_avatar(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> mime_type,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> data,
+  ) {
+    return _wire__crate__api__matrix_client__MatrixClient_upload_profile_avatar(
+      port_,
+      that,
+      mime_type,
+      data,
+    );
+  }
+
+  late final _wire__crate__api__matrix_client__MatrixClient_upload_profile_avatarPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+          )
+        >
+      >(
+        'frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_upload_profile_avatar',
+      );
+  late final _wire__crate__api__matrix_client__MatrixClient_upload_profile_avatar =
+      _wire__crate__api__matrix_client__MatrixClient_upload_profile_avatarPtr
+          .asFunction<
+            void Function(
+              int,
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
             )
           >();
 
@@ -4483,6 +4640,10 @@ final class wire_cst_message extends ffi.Struct {
 
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> sender;
 
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> sender_user_id;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> sender_avatar_mxc;
+
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> content;
 
   @ffi.Uint64()
@@ -4560,6 +4721,9 @@ final class wire_cst_message extends ffi.Struct {
 
   @ffi.Bool()
   external bool is_redacted;
+
+  @ffi.Uint32()
+  external int read_receipt_count;
 }
 
 final class wire_cst_room_update extends ffi.Struct {
@@ -4655,6 +4819,8 @@ final class wire_cst_room_member_row extends ffi.Struct {
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> user_id_display;
 
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> display_name;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> avatar_url;
 
   @ffi.Int64()
   external int power_level;

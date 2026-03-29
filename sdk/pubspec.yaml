@@ -24,13 +24,29 @@ dependencies:
   native_toolchain_rust: ^1.0.3
   freezed_annotation: ^3.1.0
   path_provider: ^2.1.5
-  media: 
-    path: ../../../media-rs/media
+  media:
+    git:
+      url: https://github.com/kushalmahapatro/media-rs.git
+      ref: feat/fast-decoder
+
+# Same workspace packages as app — see app/pubspec.yaml.
+# media_native_build (via media_dart) allows archive ^3.6.1; matrix_sdk uses ^4 — unify for the solver.
+dependency_overrides:
+  archive: ^4.0.7
+  media_dart:
+    git:
+      url: https://github.com/kushalmahapatro/media-rs.git
+      ref: feat/fast-decoder
+      path: media_dart
+  media_flutter:
+    git:
+      url: https://github.com/kushalmahapatro/media-rs.git
+      ref: feat/fast-decoder
+      path: media_flutter
 
 flutter:
   assets:
     - .matrix-sdk/native/pdfium/lib/
-    - .matrix-sdk/native/bin/
 
 hooks:
   user_defines:

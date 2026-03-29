@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:elementary/elementary.dart';
 import 'package:flutter/material.dart';
 import 'package:matrix/src/core/domain/services/app_config.dart';
 import 'package:matrix/src/core/state_management/base_state_widget_model.dart';
 import 'package:matrix/src/features/auth/domain/models/auth_state.dart';
 
+import 'package:matrix/src/features/settings/domain/profile_prefs.dart';
 import 'package:matrix/src/features/auth/presentation/screens/login_screen.dart';
 import 'package:matrix/src/core/logging_service.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
@@ -130,6 +133,7 @@ class LoginScreenWM extends BaseWidgetModel<LoginScreen, LoginScreenModel> {
 
       if (result.isSuccess() && result.getOrNull() == true) {
         await model.startSync();
+        unawaited(ProfilePrefs.instance.refresh(MatrixService().client));
         await MatrixService().startMatrixNotificationsIfReady();
         if (!context.mounted) return;
         _authState.value = const AuthState.authenticated();

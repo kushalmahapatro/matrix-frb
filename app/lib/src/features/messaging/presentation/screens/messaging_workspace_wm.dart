@@ -1,0 +1,514 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:matrix/src/core/desktop/desktop_dialog_flow.dart';
+import 'package:matrix/src/core/desktop/desktop_shell_scope.dart';
+import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
+import 'package:matrix/src/core/desktop/desktop_window_coordinator.dart';
+import 'package:matrix/src/core/layout/app_layout_variant.dart';
+import 'package:matrix/src/core/layout/app_layout_actions.dart';
+import 'package:matrix/src/core/layout/messaging_layout_preference.dart';
+import 'package:provider/provider.dart';
+import 'package:matrix/src/core/logging_service.dart';
+import 'package:matrix/src/core/navigation/navigator_service.dart';
+import 'package:matrix/src/core/state_management/base_state_widget_model.dart';
+import 'package:matrix/src/core/timeline_local_hidden_store.dart';
+import 'package:matrix/src/features/chat_lisitng/domain/models/chat_state.dart';
+import 'package:matrix/src/features/conversation/presentation/screens/conversation_screen.dart';
+import 'package:matrix/src/features/create_chat/presentation/screens/create_chat_screen.dart';
+import 'package:matrix/src/features/messaging/domain/messaging_room_list_model.dart';
+import 'package:matrix/src/features/messaging/presentation/screens/messaging_workspace_screen.dart';
+import 'package:matrix/src/features/settings/presentation/screens/settings_screen.dart';
+import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
+import 'package:matrix_sdk/matrix_sdk.dart' show Message;
+
+class MessagingWorkspaceWM
+    extends BaseWidgetModel<MessagingWorkspaceScreen, MessagingRoomListModel>
+    implements DesktopShellLauncher {
+  MessagingWorkspaceWM(super.model);
+
+  final GlobalKey<NavigatorState> nestedNavigatorKey =
+      GlobalKey<NavigatorState>();
+
+  final ValueNotifier<ChatState> chatState = ValueNotifier(
+    const ChatState.loading(),
+  );
+  final ValueNotifier<ChatType> selectedChatType = ValueNotifier(ChatType.all);
+  final ValueNotifier<Chat?> selectedRoom = ValueNotifier<Chat?>(null);
+
+  /// Keyboard highlight in the room list (desktop). Separate from [selectedRoom].
+  final ValueNotifier<String?> roomListKeyboardFocusId = ValueNotifier<String?>(
+    null,
+  );
+
+  final FocusNode roomListFocusNode = FocusNode(debugLabel: 'roomList');
+
+  StreamSubscription<List<Chat>>? _roomListSubscription;
+  bool _isSubscribed = false;
+  Timer? _reconnectionTimer;
+  Timer? _healthCheckTimer;
+  int _reconnectionAttempts = 0;
+  DateTime? _lastUpdateTime;
+  static const int _maxReconnectionAttempts = 10;
+  static const Duration _initialReconnectionDelay = Duration(seconds: 1);
+  static const Duration _maxReconnectionDelay = Duration(seconds: 30);
+  static const Duration _healthCheckInterval = Duration(seconds: 30);
+
+  Timer? _emptyRoomListSettleTimer;
+  static const Duration _emptyListSettleDuration = Duration(milliseconds: 1200);
+
+  AppLayoutVariant? _lastLayout;
+
+  AppLayoutVariant _variant(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    MessagingLayoutPreference pref;
+    try {
+      pref = Provider.of<MessagingLayoutPreferenceNotifier>(
+        context,
+        listen: false,
+      ).value;
+    } catch (_) {
+      pref = MessagingLayoutPreference.auto;
+    }
+    return resolveMessagingLayoutVariant(mq: mq, preference: pref);
+  }
+
+  /// Same [layout] the shell used to build split vs compact ([_MessagingBody.variant]).
+  /// Do not infer from an arbitrary [BuildContext]: nested contexts can disagree with
+  /// the shell and route taps through the wrong policy (e.g. split UI + compact open).
+  AppLayoutActions _actionsFor(AppLayoutVariant layout) {
+    if (layout == AppLayoutVariant.compact) {
+      return CompactLayoutActions(
+        pushConversation: (ctx, chat) => _pushConversationCompact(ctx, chat),
+        pushCreate: openCreateChat,
+        pushSettings: (ctx) => unawaited(openSettingsFrom(ctx)),
+        openRoomInNewWindowImpl: (ctx, chat) =>
+            unawaited(_openDesktopConversation(ctx, chat)),
+      );
+    }
+    return SplitLayoutActions(
+      onSelectRoom: (chat) => selectedRoom.value = chat,
+      pushCreate: openCreateChat,
+      pushSettings: (ctx) => unawaited(openSettingsFrom(ctx)),
+      openRoomInNewWindowImpl: (ctx, chat) =>
+          unawaited(_openDesktopConversation(ctx, chat)),
+    );
+  }
+
+  @override
+  Future<T?> openShellFlow<T extends Object?>({
+    required BuildContext anchorContext,
+    required Widget page,
+    String? windowTitle,
+    Size preferredWindowSize = const Size(520, 720),
+  }) async {
+    if (!anchorContext.mounted) return null;
+    if (isDesktopTargetPlatform() &&
+        preferDialogOverModalSheet(anchorContext)) {
+      return _presentInDesktopDialog<T>(anchorContext, page);
+    }
+
+    return NavigatorService.push<T>(anchorContext, page);
+  }
+
+  Future<T?> _presentInDesktopDialog<T extends Object?>(
+    BuildContext anchorContext,
+    Widget page,
+  ) {
+    final mq = MediaQuery.of(anchorContext);
+    final loc = MaterialLocalizations.of(anchorContext);
+    return showGeneralDialog<T>(
+      context: anchorContext,
+      barrierDismissible: true,
+      barrierLabel: loc.modalBarrierDismissLabel,
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        final scheme = Theme.of(dialogContext).colorScheme;
+        return Dialog(
+          backgroundColor: Theme.of(dialogContext).colorScheme.surface,
+          elevation: 12,
+          shadowColor: Colors.black54,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: scheme.outline.withValues(alpha: 0.28)),
+          ),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 40,
+            vertical: 28,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 720,
+              maxHeight: mq.size.height * 0.9,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: DesktopDialogFlowHost(page: page),
+            ),
+          ),
+        );
+      },
+      transitionDuration: const Duration(milliseconds: 220),
+      transitionBuilder: (ctx, anim, sec, child) =>
+          FadeTransition(opacity: anim, child: child),
+    );
+  }
+
+  /// Create chat from any shell context (toolbar, compact stack, split list).
+  Future<String?> openCreateChat(BuildContext anchorContext) =>
+      openShellFlow<String?>(
+        anchorContext: anchorContext,
+        page: const CreateChatScreen(),
+        windowTitle: 'New chat',
+        preferredWindowSize: const Size(540, 720),
+      );
+
+  Future<void> openSettingsFrom(BuildContext anchorContext) async {
+    await openShellFlow<Object?>(
+      anchorContext: anchorContext,
+      page: const SettingsScreen(),
+      windowTitle: 'Settings',
+      preferredWindowSize: const Size(520, 720),
+    );
+  }
+
+  Future<void> _pushConversationCompact(BuildContext context, Chat chat) async {
+    // Do not set [selectedRoom] here: that drives split-pane list selection only.
+    // Setting it would highlight a row under the pushed route (visible on mobile).
+    final nav = nestedNavigatorKey.currentState;
+    if (nav == null) return;
+    await nav.push(
+      MaterialPageRoute<void>(
+        builder: (c) => ConversationScreen(
+          roomId: chat.id,
+          roomName: chat.name,
+          status: chat.status,
+        ),
+      ),
+    );
+    if (!context.mounted) return;
+    if (_variant(context) == AppLayoutVariant.compact) {
+      selectedRoom.value = null;
+    }
+  }
+
+  Future<void> _openDesktopConversation(BuildContext context, Chat chat) async {
+    final ok = await openConversationInNewDesktopWindow(
+      context: context,
+      chat: chat,
+    );
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not open a new window. Check desktop_multi_window runner '
+            'integration (macOS / Windows / Linux).',
+          ),
+          duration: Duration(seconds: 10),
+        ),
+      );
+    }
+  }
+
+  void onRoomTap(AppLayoutVariant shellLayout, Chat chat) {
+    if (isDesktopTargetPlatform()) {
+      roomListFocusNode.requestFocus();
+      roomListKeyboardFocusId.value = chat.id;
+    }
+    _actionsFor(shellLayout).openRoom(context, chat);
+  }
+
+  void onRoomDoubleTap(AppLayoutVariant shellLayout, Chat chat) {
+    if (kIsWeb) return;
+    if (defaultTargetPlatform != TargetPlatform.linux &&
+        defaultTargetPlatform != TargetPlatform.macOS &&
+        defaultTargetPlatform != TargetPlatform.windows) {
+      return;
+    }
+    unawaited(_openDesktopConversation(context, chat));
+  }
+
+  /// Right-click room row — desktop context menu.
+  Future<void> showRoomListContextMenu(
+    BuildContext anchorContext,
+    AppLayoutVariant shellLayout,
+    Chat chat,
+    Offset globalPosition,
+  ) async {
+    if (!isDesktopTargetPlatform()) return;
+    if (!anchorContext.mounted) return;
+    final canNewWindow =
+        !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.linux ||
+            defaultTargetPlatform == TargetPlatform.macOS ||
+            defaultTargetPlatform == TargetPlatform.windows);
+    final choice = await showMenu<String>(
+      context: anchorContext,
+      position: desktopMenuPositionAt(anchorContext, globalPosition),
+      items: [
+        const PopupMenuItem<String>(value: 'open', child: Text('Open')),
+        if (canNewWindow)
+          const PopupMenuItem<String>(
+            value: 'window',
+            child: Text('Open in new window'),
+          ),
+      ],
+    );
+    if (!anchorContext.mounted) return;
+    switch (choice) {
+      case 'open':
+        onRoomTap(shellLayout, chat);
+        break;
+      case 'window':
+        onRoomDoubleTap(shellLayout, chat);
+        break;
+      default:
+        break;
+    }
+  }
+
+  void onChatTypeSelected(ChatType t) => selectedChatType.value = t;
+
+  Future<void> createRoom() async {
+    final result = await openCreateChat(context);
+    if (result != null) {
+      await Future<void>.delayed(const Duration(seconds: 2));
+      final currentState = chatState.value;
+      if (currentState is ChatStateLoaded && context.mounted) {
+        final room = currentState.rooms.firstWhere(
+          (e) => e.id == result,
+          orElse: () => Chat(
+            id: '',
+            name: '',
+            lastMessage: '',
+            status: ChatRoomStatus.invited,
+          ),
+        );
+        if (room.id.isNotEmpty) {
+          _actionsFor(_variant(context)).openRoom(context, room);
+        }
+      }
+    }
+  }
+
+  void openSettings() => unawaited(openSettingsFrom(context));
+
+  void onDesktopCloseOrClear() {
+    final nav = nestedNavigatorKey.currentState;
+    if (nav != null && nav.canPop()) {
+      nav.pop();
+      return;
+    }
+    if (_variant(context) == AppLayoutVariant.split) {
+      selectedRoom.value = null;
+    }
+  }
+
+  @override
+  void initWidgetModel() {
+    super.initWidgetModel();
+    unawaited(TimelineLocalHiddenStore.ensureLoaded());
+    _loadAllChats();
+    _listenToChatUpdates();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final v = _variant(context);
+    if (_lastLayout != v) {
+      _onLayoutVariantChanged(_lastLayout, v);
+      _lastLayout = v;
+    }
+  }
+
+  void _onLayoutVariantChanged(AppLayoutVariant? oldV, AppLayoutVariant newV) {
+    if (oldV == AppLayoutVariant.split && newV == AppLayoutVariant.compact) {
+      final chat = selectedRoom.value;
+      if (chat != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final nav = nestedNavigatorKey.currentState;
+          if (nav != null && nav.mounted) {
+            unawaited(
+              nav.push(
+                MaterialPageRoute<void>(
+                  builder: (c) => ConversationScreen(
+                    roomId: chat.id,
+                    roomName: chat.name,
+                    status: chat.status,
+                  ),
+                ),
+              ),
+            );
+          }
+        });
+      }
+    }
+    if (oldV == AppLayoutVariant.compact && newV == AppLayoutVariant.split) {
+      final nav = nestedNavigatorKey.currentState;
+      if (nav != null && nav.canPop()) {
+        nav.popUntil((r) => r.isFirst);
+      }
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed && _isSubscribed) {
+      LoggingService.info(
+        'MESSAGING_WORKSPACE',
+        'App resumed, restarting sync to restore room updates',
+      );
+      unawaited(_restartSyncAndResubscribe());
+    }
+  }
+
+  @override
+  void dispose() {
+    _emptyRoomListSettleTimer?.cancel();
+    _isSubscribed = false;
+    MatrixService().unregisterRoomUpdatesSubscription();
+    _roomListSubscription?.cancel();
+    _roomListSubscription = null;
+    _reconnectionTimer?.cancel();
+    _stopHealthCheck();
+    roomListKeyboardFocusId.dispose();
+    roomListFocusNode.dispose();
+    chatState.dispose();
+    selectedChatType.dispose();
+    selectedRoom.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadAllChats() async {
+    chatState.value = const ChatState.loading();
+    _listenToChatUpdates();
+  }
+
+  void _onRoomList(List<Chat> list) {
+    LoggingService.info(
+      'MESSAGING_WORKSPACE',
+      'Received room list: ${list.length} rooms',
+    );
+    _emptyRoomListSettleTimer?.cancel();
+
+    if (list.isEmpty) {
+      final hadRooms = chatState.value.maybeWhen(
+        loaded: (rooms) => rooms.isNotEmpty,
+        orElse: () => false,
+      );
+      if (hadRooms) {
+        chatState.value = const ChatState.loaded(rooms: []);
+        selectedChatType.value = selectedChatType.value;
+        _lastUpdateTime = DateTime.now();
+        return;
+      }
+      chatState.value = const ChatState.loading();
+      _emptyRoomListSettleTimer = Timer(_emptyListSettleDuration, () {
+        if (!_isSubscribed || !context.mounted) return;
+        chatState.value = const ChatState.loaded(rooms: []);
+        selectedChatType.value = selectedChatType.value;
+      });
+      _lastUpdateTime = DateTime.now();
+      return;
+    }
+
+    chatState.value = ChatState.loaded(rooms: list);
+    selectedChatType.value = selectedChatType.value;
+    _lastUpdateTime = DateTime.now();
+  }
+
+  void _listenToChatUpdates() {
+    _roomListSubscription?.cancel();
+
+    _roomListSubscription = model.subscribeToRoomList().listen(
+      _onRoomList,
+      onError: (Object error) {
+        LoggingService.error(
+          'MESSAGING_WORKSPACE',
+          'Error in room list stream: $error',
+        );
+        _scheduleReconnection();
+      },
+      onDone: () {
+        LoggingService.info(
+          'MESSAGING_WORKSPACE',
+          'Room list stream completed',
+        );
+        if (_isSubscribed) {
+          _scheduleReconnection();
+        }
+      },
+    );
+
+    MatrixService().registerRoomUpdatesSubscription(_roomListSubscription!);
+    _isSubscribed = true;
+    _resetReconnectionAttempts();
+    _startHealthCheck();
+    LoggingService.info(
+      'MESSAGING_WORKSPACE',
+      'Started listening to room list',
+    );
+  }
+
+  void retry() => _loadAllChats();
+
+  Future<Uint8List?> loadListingThumbnail(String roomId, Message message) =>
+      model.loadListingThumbnail(roomId, message);
+
+  Future<void> _restartSyncAndResubscribe() async {
+    try {
+      await MatrixService().client.restartSyncService();
+      if (_isSubscribed) _listenToChatUpdates();
+    } catch (e) {
+      LoggingService.error('MESSAGING_WORKSPACE', 'Failed to restart sync: $e');
+      if (_isSubscribed) _scheduleReconnection();
+    }
+  }
+
+  void _scheduleReconnection() {
+    if (!_isSubscribed) return;
+    _reconnectionTimer?.cancel();
+    final delay = Duration(
+      seconds:
+          (_initialReconnectionDelay.inSeconds * (1 << _reconnectionAttempts))
+              .clamp(1, _maxReconnectionDelay.inSeconds),
+    );
+    _reconnectionTimer = Timer(delay, () {
+      if (_isSubscribed && _reconnectionAttempts < _maxReconnectionAttempts) {
+        _reconnectionAttempts++;
+        unawaited(_restartSyncAndResubscribe());
+      } else if (_reconnectionAttempts >= _maxReconnectionAttempts) {
+        _reconnectionAttempts = 0;
+      }
+    });
+  }
+
+  void _resetReconnectionAttempts() {
+    if (_reconnectionAttempts > 0) {
+      _reconnectionAttempts = 0;
+    }
+  }
+
+  void _startHealthCheck() {
+    _healthCheckTimer?.cancel();
+    _healthCheckTimer = Timer.periodic(_healthCheckInterval, (timer) {
+      if (!_isSubscribed) {
+        timer.cancel();
+        return;
+      }
+      if (_lastUpdateTime != null) {
+        final timeSinceLastUpdate = DateTime.now().difference(_lastUpdateTime!);
+        if (timeSinceLastUpdate > _healthCheckInterval) {
+          _scheduleReconnection();
+        }
+      }
+    });
+  }
+
+  void _stopHealthCheck() {
+    _healthCheckTimer?.cancel();
+    _healthCheckTimer = null;
+  }
+}

@@ -40,7 +40,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueNom,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -99071645;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -745625122;
 
 // Section: executor
 
@@ -300,6 +300,56 @@ fn wire__crate__api__matrix_client__MatrixClient_fetch_room_message_media_impl(
         },
     )
 }
+fn wire__crate__api__matrix_client__MatrixClient_fetch_user_avatar_thumbnail_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    mxc_uri: impl CstDecode<String>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_fetch_user_avatar_thumbnail",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_mxc_uri = mxc_uri.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::matrix_client::MatrixClient::fetch_user_avatar_thumbnail(
+                                &*api_that_guard,
+                                api_mxc_uri,
+                            )
+                            .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__matrix_client__MatrixClient_get_all_rooms_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     that: impl CstDecode<
@@ -481,6 +531,100 @@ fn wire__crate__api__matrix_client__MatrixClient_get_older_messages_impl(
                                 &*api_that_guard,
                                 api_room_id,
                                 api_count,
+                            )
+                            .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__matrix_client__MatrixClient_get_profile_avatar_mxc_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_get_profile_avatar_mxc",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::matrix_client::MatrixClient::get_profile_avatar_mxc(
+                                &*api_that_guard,
+                            )
+                            .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__matrix_client__MatrixClient_get_profile_initials_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_get_profile_initials",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::matrix_client::MatrixClient::get_profile_initials(
+                                &*api_that_guard,
                             )
                             .await?;
                         Ok(output_ok)
@@ -1365,6 +1509,53 @@ fn wire__crate__api__matrix_client__MatrixClient_register_pusher_impl(
         },
     )
 }
+fn wire__crate__api__matrix_client__MatrixClient_remove_profile_avatar_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_remove_profile_avatar",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::matrix_client::MatrixClient::remove_profile_avatar(
+                                &*api_that_guard,
+                            )
+                            .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__matrix_client__MatrixClient_restart_sync_service_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     that: impl CstDecode<
@@ -1938,6 +2129,56 @@ fn wire__crate__api__matrix_client__MatrixClient_set_display_name_impl(
         },
     )
 }
+fn wire__crate__api__matrix_client__MatrixClient_set_profile_initials_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    initials: impl CstDecode<Option<String>>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_set_profile_initials",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_initials = initials.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::matrix_client::MatrixClient::set_profile_initials(
+                                &*api_that_guard,
+                                api_initials,
+                            )
+                            .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__matrix_client__MatrixClient_set_room_member_power_level_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     that: impl CstDecode<
@@ -2502,6 +2743,59 @@ fn wire__crate__api__matrix_client__MatrixClient_unregister_pusher_impl(
                             api_app_id,
                         )
                         .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__matrix_client__MatrixClient_upload_profile_avatar_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>,
+    >,
+    mime_type: impl CstDecode<String>,
+    data: impl CstDecode<Vec<u8>>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MatrixClient_upload_profile_avatar",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_mime_type = mime_type.cst_decode();
+            let api_data = data.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::matrix_client::MatrixClient::upload_profile_avatar(
+                                &*api_that_guard,
+                                api_mime_type,
+                                api_data,
+                            )
+                            .await?;
                         Ok(output_ok)
                     })()
                     .await,
@@ -3397,6 +3691,8 @@ impl SseDecode for crate::matrix::timelines::Message {
         let mut var_eventId = <String>::sse_decode(deserializer);
         let mut var_transactionId = <String>::sse_decode(deserializer);
         let mut var_sender = <String>::sse_decode(deserializer);
+        let mut var_senderUserId = <String>::sse_decode(deserializer);
+        let mut var_senderAvatarMxc = <String>::sse_decode(deserializer);
         let mut var_content = <String>::sse_decode(deserializer);
         let mut var_timestamp = <u64>::sse_decode(deserializer);
         let mut var_messageType = <crate::matrix::timelines::MessageType>::sse_decode(deserializer);
@@ -3431,10 +3727,13 @@ impl SseDecode for crate::matrix::timelines::Message {
         let mut var_pollStateJson = <String>::sse_decode(deserializer);
         let mut var_linkPreviewsJson = <String>::sse_decode(deserializer);
         let mut var_isRedacted = <bool>::sse_decode(deserializer);
+        let mut var_readReceiptCount = <u32>::sse_decode(deserializer);
         return crate::matrix::timelines::Message {
             event_id: var_eventId,
             transaction_id: var_transactionId,
             sender: var_sender,
+            sender_user_id: var_senderUserId,
+            sender_avatar_mxc: var_senderAvatarMxc,
             content: var_content,
             timestamp: var_timestamp,
             message_type: var_messageType,
@@ -3465,6 +3764,7 @@ impl SseDecode for crate::matrix::timelines::Message {
             poll_state_json: var_pollStateJson,
             link_previews_json: var_linkPreviewsJson,
             is_redacted: var_isRedacted,
+            read_receipt_count: var_readReceiptCount,
         };
     }
 }
@@ -3766,6 +4066,7 @@ impl SseDecode for crate::matrix::room_info::RoomMemberRow {
         let mut var_userId = <String>::sse_decode(deserializer);
         let mut var_userIdDisplay = <String>::sse_decode(deserializer);
         let mut var_displayName = <String>::sse_decode(deserializer);
+        let mut var_avatarUrl = <String>::sse_decode(deserializer);
         let mut var_powerLevel = <i64>::sse_decode(deserializer);
         let mut var_role = <crate::matrix::room_info::RoomMemberRoleDto>::sse_decode(deserializer);
         let mut var_isSelf = <bool>::sse_decode(deserializer);
@@ -3774,6 +4075,7 @@ impl SseDecode for crate::matrix::room_info::RoomMemberRow {
             user_id: var_userId,
             user_id_display: var_userIdDisplay,
             display_name: var_displayName,
+            avatar_url: var_avatarUrl,
             power_level: var_powerLevel,
             role: var_role,
             is_self: var_isSelf,
@@ -4297,6 +4599,8 @@ impl flutter_rust_bridge::IntoDart for crate::matrix::timelines::Message {
             self.event_id.into_into_dart().into_dart(),
             self.transaction_id.into_into_dart().into_dart(),
             self.sender.into_into_dart().into_dart(),
+            self.sender_user_id.into_into_dart().into_dart(),
+            self.sender_avatar_mxc.into_into_dart().into_dart(),
             self.content.into_into_dart().into_dart(),
             self.timestamp.into_into_dart().into_dart(),
             self.message_type.into_into_dart().into_dart(),
@@ -4335,6 +4639,7 @@ impl flutter_rust_bridge::IntoDart for crate::matrix::timelines::Message {
             self.poll_state_json.into_into_dart().into_dart(),
             self.link_previews_json.into_into_dart().into_dart(),
             self.is_redacted.into_into_dart().into_dart(),
+            self.read_receipt_count.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -4586,6 +4891,7 @@ impl flutter_rust_bridge::IntoDart for crate::matrix::room_info::RoomMemberRow {
             self.user_id.into_into_dart().into_dart(),
             self.user_id_display.into_into_dart().into_dart(),
             self.display_name.into_into_dart().into_dart(),
+            self.avatar_url.into_into_dart().into_dart(),
             self.power_level.into_into_dart().into_dart(),
             self.role.into_into_dart().into_dart(),
             self.is_self.into_into_dart().into_dart(),
@@ -5343,6 +5649,8 @@ impl SseEncode for crate::matrix::timelines::Message {
         <String>::sse_encode(self.event_id, serializer);
         <String>::sse_encode(self.transaction_id, serializer);
         <String>::sse_encode(self.sender, serializer);
+        <String>::sse_encode(self.sender_user_id, serializer);
+        <String>::sse_encode(self.sender_avatar_mxc, serializer);
         <String>::sse_encode(self.content, serializer);
         <u64>::sse_encode(self.timestamp, serializer);
         <crate::matrix::timelines::MessageType>::sse_encode(self.message_type, serializer);
@@ -5379,6 +5687,7 @@ impl SseEncode for crate::matrix::timelines::Message {
         <String>::sse_encode(self.poll_state_json, serializer);
         <String>::sse_encode(self.link_previews_json, serializer);
         <bool>::sse_encode(self.is_redacted, serializer);
+        <u32>::sse_encode(self.read_receipt_count, serializer);
     }
 }
 
@@ -5635,6 +5944,7 @@ impl SseEncode for crate::matrix::room_info::RoomMemberRow {
         <String>::sse_encode(self.user_id, serializer);
         <String>::sse_encode(self.user_id_display, serializer);
         <String>::sse_encode(self.display_name, serializer);
+        <String>::sse_encode(self.avatar_url, serializer);
         <i64>::sse_encode(self.power_level, serializer);
         <crate::matrix::room_info::RoomMemberRoleDto>::sse_encode(self.role, serializer);
         <bool>::sse_encode(self.is_self, serializer);
@@ -6373,6 +6683,8 @@ mod io {
                 event_id: self.event_id.cst_decode(),
                 transaction_id: self.transaction_id.cst_decode(),
                 sender: self.sender.cst_decode(),
+                sender_user_id: self.sender_user_id.cst_decode(),
+                sender_avatar_mxc: self.sender_avatar_mxc.cst_decode(),
                 content: self.content.cst_decode(),
                 timestamp: self.timestamp.cst_decode(),
                 message_type: self.message_type.cst_decode(),
@@ -6405,6 +6717,7 @@ mod io {
                 poll_state_json: self.poll_state_json.cst_decode(),
                 link_previews_json: self.link_previews_json.cst_decode(),
                 is_redacted: self.is_redacted.cst_decode(),
+                read_receipt_count: self.read_receipt_count.cst_decode(),
             }
         }
     }
@@ -6484,6 +6797,7 @@ mod io {
                 user_id: self.user_id.cst_decode(),
                 user_id_display: self.user_id_display.cst_decode(),
                 display_name: self.display_name.cst_decode(),
+                avatar_url: self.avatar_url.cst_decode(),
                 power_level: self.power_level.cst_decode(),
                 role: self.role.cst_decode(),
                 is_self: self.is_self.cst_decode(),
@@ -6637,6 +6951,8 @@ mod io {
                 event_id: core::ptr::null_mut(),
                 transaction_id: core::ptr::null_mut(),
                 sender: core::ptr::null_mut(),
+                sender_user_id: core::ptr::null_mut(),
+                sender_avatar_mxc: core::ptr::null_mut(),
                 content: core::ptr::null_mut(),
                 timestamp: Default::default(),
                 message_type: Default::default(),
@@ -6667,6 +6983,7 @@ mod io {
                 poll_state_json: core::ptr::null_mut(),
                 link_previews_json: core::ptr::null_mut(),
                 is_redacted: Default::default(),
+                read_receipt_count: Default::default(),
             }
         }
     }
@@ -6770,6 +7087,7 @@ mod io {
                 user_id: core::ptr::null_mut(),
                 user_id_display: core::ptr::null_mut(),
                 display_name: core::ptr::null_mut(),
+                avatar_url: core::ptr::null_mut(),
                 power_level: Default::default(),
                 role: Default::default(),
                 is_self: Default::default(),
@@ -6959,6 +7277,17 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_fetch_user_avatar_thumbnail(
+        port_: i64,
+        that: usize,
+        mxc_uri: *mut wire_cst_list_prim_u_8_strict,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_fetch_user_avatar_thumbnail_impl(
+            port_, that, mxc_uri,
+        )
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_all_rooms(
         port_: i64,
         that: usize,
@@ -6995,6 +7324,22 @@ mod io {
         wire__crate__api__matrix_client__MatrixClient_get_older_messages_impl(
             port_, that, room_id, count,
         )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_profile_avatar_mxc(
+        port_: i64,
+        that: usize,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_get_profile_avatar_mxc_impl(port_, that)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_profile_initials(
+        port_: i64,
+        that: usize,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_get_profile_initials_impl(port_, that)
     }
 
     #[unsafe(no_mangle)]
@@ -7203,6 +7548,14 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_remove_profile_avatar(
+        port_: i64,
+        that: usize,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_remove_profile_avatar_impl(port_, that)
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_restart_sync_service(
         port_: i64,
         that: usize,
@@ -7378,6 +7731,17 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_profile_initials(
+        port_: i64,
+        that: usize,
+        initials: *mut wire_cst_list_prim_u_8_strict,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_set_profile_initials_impl(
+            port_, that, initials,
+        )
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_room_member_power_level(
         port_: i64,
         that: usize,
@@ -7504,6 +7868,18 @@ mod io {
     ) {
         wire__crate__api__matrix_client__MatrixClient_unregister_pusher_impl(
             port_, that, push_key, app_id,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_upload_profile_avatar(
+        port_: i64,
+        that: usize,
+        mime_type: *mut wire_cst_list_prim_u_8_strict,
+        data: *mut wire_cst_list_prim_u_8_loose,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_upload_profile_avatar_impl(
+            port_, that, mime_type, data,
         )
     }
 
@@ -7973,6 +8349,8 @@ media_cache_path: *mut wire_cst_list_prim_u_8_strict }
         event_id: *mut wire_cst_list_prim_u_8_strict,
         transaction_id: *mut wire_cst_list_prim_u_8_strict,
         sender: *mut wire_cst_list_prim_u_8_strict,
+        sender_user_id: *mut wire_cst_list_prim_u_8_strict,
+        sender_avatar_mxc: *mut wire_cst_list_prim_u_8_strict,
         content: *mut wire_cst_list_prim_u_8_strict,
         timestamp: u64,
         message_type: i32,
@@ -8003,6 +8381,7 @@ media_cache_path: *mut wire_cst_list_prim_u_8_strict }
         poll_state_json: *mut wire_cst_list_prim_u_8_strict,
         link_previews_json: *mut wire_cst_list_prim_u_8_strict,
         is_redacted: bool,
+        read_receipt_count: u32,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -8064,6 +8443,7 @@ media_cache_path: *mut wire_cst_list_prim_u_8_strict }
         user_id: *mut wire_cst_list_prim_u_8_strict,
         user_id_display: *mut wire_cst_list_prim_u_8_strict,
         display_name: *mut wire_cst_list_prim_u_8_strict,
+        avatar_url: *mut wire_cst_list_prim_u_8_strict,
         power_level: i64,
         role: i32,
         is_self: bool,
@@ -8524,44 +8904,47 @@ mod web {
                 .unwrap();
             assert_eq!(
                 self_.length(),
-                33,
-                "Expected 33 elements, got {}",
+                36,
+                "Expected 36 elements, got {}",
                 self_.length()
             );
             crate::matrix::timelines::Message {
                 event_id: self_.get(0).cst_decode(),
                 transaction_id: self_.get(1).cst_decode(),
                 sender: self_.get(2).cst_decode(),
-                content: self_.get(3).cst_decode(),
-                timestamp: self_.get(4).cst_decode(),
-                message_type: self_.get(5).cst_decode(),
-                room_msg_kind: self_.get(6).cst_decode(),
-                send_state: self_.get(7).cst_decode(),
-                send_error: self_.get(8).cst_decode(),
-                send_recoverable: self_.get(9).cst_decode(),
-                is_own: self_.get(10).cst_decode(),
-                media_mimetype: self_.get(11).cst_decode(),
-                media_size_bytes: self_.get(12).cst_decode(),
-                media_blurhash: self_.get(13).cst_decode(),
-                media_preview_width: self_.get(14).cst_decode(),
-                media_preview_height: self_.get(15).cst_decode(),
-                audio_duration_ms: self_.get(16).cst_decode(),
-                audio_waveform: self_.get(17).cst_decode(),
-                in_reply_to_event_id: self_.get(18).cst_decode(),
-                in_reply_to_sender: self_.get(19).cst_decode(),
-                in_reply_to_preview: self_.get(20).cst_decode(),
-                in_reply_to_room_msg_kind: self_.get(21).cst_decode(),
-                in_reply_to_media_mimetype: self_.get(22).cst_decode(),
-                in_reply_to_media_size_bytes: self_.get(23).cst_decode(),
-                in_reply_to_media_blurhash: self_.get(24).cst_decode(),
-                in_reply_to_media_preview_width: self_.get(25).cst_decode(),
-                in_reply_to_media_preview_height: self_.get(26).cst_decode(),
-                in_reply_to_parent_redacted: self_.get(27).cst_decode(),
-                reactions: self_.get(28).cst_decode(),
-                poll_options_json: self_.get(29).cst_decode(),
-                poll_state_json: self_.get(30).cst_decode(),
-                link_previews_json: self_.get(31).cst_decode(),
-                is_redacted: self_.get(32).cst_decode(),
+                sender_user_id: self_.get(3).cst_decode(),
+                sender_avatar_mxc: self_.get(4).cst_decode(),
+                content: self_.get(5).cst_decode(),
+                timestamp: self_.get(6).cst_decode(),
+                message_type: self_.get(7).cst_decode(),
+                room_msg_kind: self_.get(8).cst_decode(),
+                send_state: self_.get(9).cst_decode(),
+                send_error: self_.get(10).cst_decode(),
+                send_recoverable: self_.get(11).cst_decode(),
+                is_own: self_.get(12).cst_decode(),
+                media_mimetype: self_.get(13).cst_decode(),
+                media_size_bytes: self_.get(14).cst_decode(),
+                media_blurhash: self_.get(15).cst_decode(),
+                media_preview_width: self_.get(16).cst_decode(),
+                media_preview_height: self_.get(17).cst_decode(),
+                audio_duration_ms: self_.get(18).cst_decode(),
+                audio_waveform: self_.get(19).cst_decode(),
+                in_reply_to_event_id: self_.get(20).cst_decode(),
+                in_reply_to_sender: self_.get(21).cst_decode(),
+                in_reply_to_preview: self_.get(22).cst_decode(),
+                in_reply_to_room_msg_kind: self_.get(23).cst_decode(),
+                in_reply_to_media_mimetype: self_.get(24).cst_decode(),
+                in_reply_to_media_size_bytes: self_.get(25).cst_decode(),
+                in_reply_to_media_blurhash: self_.get(26).cst_decode(),
+                in_reply_to_media_preview_width: self_.get(27).cst_decode(),
+                in_reply_to_media_preview_height: self_.get(28).cst_decode(),
+                in_reply_to_parent_redacted: self_.get(29).cst_decode(),
+                reactions: self_.get(30).cst_decode(),
+                poll_options_json: self_.get(31).cst_decode(),
+                poll_state_json: self_.get(32).cst_decode(),
+                link_previews_json: self_.get(33).cst_decode(),
+                is_redacted: self_.get(34).cst_decode(),
+                read_receipt_count: self_.get(35).cst_decode(),
             }
         }
     }
@@ -8711,18 +9094,19 @@ mod web {
                 .unwrap();
             assert_eq!(
                 self_.length(),
-                7,
-                "Expected 7 elements, got {}",
+                8,
+                "Expected 8 elements, got {}",
                 self_.length()
             );
             crate::matrix::room_info::RoomMemberRow {
                 user_id: self_.get(0).cst_decode(),
                 user_id_display: self_.get(1).cst_decode(),
                 display_name: self_.get(2).cst_decode(),
-                power_level: self_.get(3).cst_decode(),
-                role: self_.get(4).cst_decode(),
-                is_self: self_.get(5).cst_decode(),
-                current_user_can_kick: self_.get(6).cst_decode(),
+                avatar_url: self_.get(3).cst_decode(),
+                power_level: self_.get(4).cst_decode(),
+                role: self_.get(5).cst_decode(),
+                is_self: self_.get(6).cst_decode(),
+                current_user_can_kick: self_.get(7).cst_decode(),
             }
         }
     }
@@ -9366,6 +9750,17 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_fetch_user_avatar_thumbnail(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        mxc_uri: String,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_fetch_user_avatar_thumbnail_impl(
+            port_, that, mxc_uri,
+        )
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__matrix_client__MatrixClient_get_all_rooms(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -9402,6 +9797,22 @@ mod web {
         wire__crate__api__matrix_client__MatrixClient_get_older_messages_impl(
             port_, that, room_id, count,
         )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_get_profile_avatar_mxc(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_get_profile_avatar_mxc_impl(port_, that)
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_get_profile_initials(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_get_profile_initials_impl(port_, that)
     }
 
     #[wasm_bindgen]
@@ -9610,6 +10021,14 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_remove_profile_avatar(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_remove_profile_avatar_impl(port_, that)
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__matrix_client__MatrixClient_restart_sync_service(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -9785,6 +10204,17 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_set_profile_initials(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        initials: Option<String>,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_set_profile_initials_impl(
+            port_, that, initials,
+        )
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__matrix_client__MatrixClient_set_room_member_power_level(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -9911,6 +10341,18 @@ mod web {
     ) {
         wire__crate__api__matrix_client__MatrixClient_unregister_pusher_impl(
             port_, that, push_key, app_id,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__matrix_client__MatrixClient_upload_profile_avatar(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        mime_type: String,
+        data: Box<[u8]>,
+    ) {
+        wire__crate__api__matrix_client__MatrixClient_upload_profile_avatar_impl(
+            port_, that, mime_type, data,
         )
     }
 

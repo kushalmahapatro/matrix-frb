@@ -1,5 +1,5 @@
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
+import 'package:matrix/src/core/matrix_avatar_disk_cache.dart';
 import 'package:matrix/src/core/timeline_local_hidden_store.dart';
 import 'package:matrix/src/core/video_send_media_prep.dart'
     show AppTimelineSendPrep, isTimelineVideoSendCandidate;
@@ -57,19 +57,34 @@ class ConversationService {
     await matrixService.client.roomListSubscribeToRooms(roomId: roomId);
   }
 
-  Future<ConversationInfo> loadRoomInfo(String roomId) async {
+  /// One [getRoomDetails] round-trip for header state and member avatars (avoid duplicate Rust work).
+  Future<Result<({ConversationInfo info, RoomDetails details})>> loadRoomSnapshot(
+    String roomId,
+  ) async {
     final r = await getRoomDetails(roomId);
     return r.fold(
-      (d) => ConversationInfo(
-        id: d.roomId,
-        name: d.displayName.trim().isNotEmpty ? d.displayName.trim() : roomId,
-        topic: d.topic,
-        memberCount: d.memberCount,
-        isDirect: d.isDirect,
-        avatarUrl: null,
+      (d) => Success(
+        (
+          info: ConversationInfo(
+            id: d.roomId,
+            name: d.displayName.trim().isNotEmpty
+                ? d.displayName.trim()
+                : roomId,
+            topic: d.topic,
+            memberCount: d.memberCount,
+            isDirect: d.isDirect,
+            avatarUrl: null,
+          ),
+          details: d,
+        ),
       ),
-      (f) => throw f,
+      Failure.new,
     );
+  }
+
+  Future<ConversationInfo> loadRoomInfo(String roomId) async {
+    final r = await loadRoomSnapshot(roomId);
+    return r.fold((s) => s.info, (f) => throw f);
   }
 
   /// Queues send on the UI timeline (local echo). [eventId] is often empty until echoed; UI follows the timeline stream.
@@ -291,6 +306,30 @@ class ConversationService {
         roomId: roomId,
         eventId: eventId,
         thumbnail: thumbnail,
+      );
+      return Success(bytes);
+    } catch (e) {
+      return Failure(Exception('$e'));
+    }
+  }
+
+  /// Profile avatar bytes for an `mxc://` URI (thumbnail when the server provides one).
+  ///
+  /// On IO platforms, serves from
+  /// `{matrix_media_cache}/images/downloads/avatars/` when already downloaded.
+  Future<Result<Uint8List>> fetchUserAvatarThumbnail({
+    required String mxcUri,
+  }) async {
+    try {
+      if (kIsWeb || kIsWasm) {
+        final bytes = await matrixService.client.fetchUserAvatarThumbnail(
+          mxcUri: mxcUri,
+        );
+        return Success(bytes);
+      }
+      final bytes = await MatrixAvatarDiskCache.instance.loadOrFetch(
+        mxcUri,
+        () => matrixService.client.fetchUserAvatarThumbnail(mxcUri: mxcUri),
       );
       return Success(bytes);
     } catch (e) {
