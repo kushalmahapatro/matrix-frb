@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_blurhash/flutter_blurhash.dart';
 import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
 import 'package:matrix/src/core/timeline_local_hidden_store.dart';
+import 'package:matrix/src/core/timeline_raster_thumb.dart';
 import 'package:matrix/src/core/presentation/widgets/terminal_container.dart';
 import 'package:matrix/src/features/chat_lisitng/domain/models/chat_state.dart';
 import 'package:matrix_sdk/matrix_sdk.dart';
@@ -862,6 +863,15 @@ class _ChatListingMediaSubtitleState extends State<ChatListingMediaSubtitle> {
       if (b != null && b.isNotEmpty && !_chatListingRasterBytes(b)) {
         b = null;
       }
+      if (b != null && b.isNotEmpty) {
+        final e = timelineThumbDecodeExtentPx(_thumb);
+        final small = await encodeRasterPngFitBox(
+          b,
+          targetWidthPx: e,
+          targetHeightPx: e,
+        );
+        if (small != null) b = small;
+      }
       if (!mounted) return;
       setState(() {
         _bytes = b;
@@ -913,6 +923,8 @@ class _ChatListingMediaSubtitleState extends State<ChatListingMediaSubtitle> {
           height: _thumb,
           fit: BoxFit.cover,
           gaplessPlayback: true,
+          cacheWidth: timelineThumbDecodeExtentPx(_thumb, context),
+          cacheHeight: timelineThumbDecodeExtentPx(_thumb, context),
           errorBuilder: (_, __, ___) => _canUseSubtitleBlurhash
               ? BlurHash(hash: bh, imageFit: BoxFit.cover)
               : Icon(icon, size: 10, color: scheme.primary),

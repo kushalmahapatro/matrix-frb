@@ -135,7 +135,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ClientConfig dco_decode_box_autoadd_client_config(dynamic raw);
 
   @protected
+  PlatformInt64 dco_decode_box_autoadd_i_64(dynamic raw);
+
+  @protected
   Message dco_decode_box_autoadd_message(dynamic raw);
+
+  @protected
+  RoomPowerLevelSettingsPatch
+  dco_decode_box_autoadd_room_power_level_settings_patch(dynamic raw);
 
   @protected
   RoomUpdate dco_decode_box_autoadd_room_update(dynamic raw);
@@ -210,6 +217,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  List<RoomBannedUserRow> dco_decode_list_room_banned_user_row(dynamic raw);
+
+  @protected
   List<RoomFileItem> dco_decode_list_room_file_item(dynamic raw);
 
   @protected
@@ -255,6 +265,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
 
   @protected
+  PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
+
+  @protected
   Message? dco_decode_opt_box_autoadd_message(dynamic raw);
 
   @protected
@@ -283,6 +296,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Float32List? dco_decode_opt_list_prim_f_32_strict(dynamic raw);
 
   @protected
+  RoomBannedUserRow dco_decode_room_banned_user_row(dynamic raw);
+
+  @protected
   RoomDetails dco_decode_room_details(dynamic raw);
 
   @protected
@@ -305,6 +321,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RoomPollItem dco_decode_room_poll_item(dynamic raw);
+
+  @protected
+  RoomPowerLevelSettingsPatch dco_decode_room_power_level_settings_patch(
+    dynamic raw,
+  );
 
   @protected
   RoomUpdate dco_decode_room_update(dynamic raw);
@@ -455,7 +476,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  PlatformInt64 sse_decode_box_autoadd_i_64(SseDeserializer deserializer);
+
+  @protected
   Message sse_decode_box_autoadd_message(SseDeserializer deserializer);
+
+  @protected
+  RoomPowerLevelSettingsPatch
+  sse_decode_box_autoadd_room_power_level_settings_patch(
+    SseDeserializer deserializer,
+  );
 
   @protected
   RoomUpdate sse_decode_box_autoadd_room_update(SseDeserializer deserializer);
@@ -532,6 +562,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
+  List<RoomBannedUserRow> sse_decode_list_room_banned_user_row(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<RoomFileItem> sse_decode_list_room_file_item(
     SseDeserializer deserializer,
   );
@@ -591,6 +626,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
 
   @protected
+  PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer);
+
+  @protected
   Message? sse_decode_opt_box_autoadd_message(SseDeserializer deserializer);
 
   @protected
@@ -625,6 +663,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RoomBannedUserRow sse_decode_room_banned_user_row(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RoomDetails sse_decode_room_details(SseDeserializer deserializer);
 
   @protected
@@ -649,6 +692,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RoomPollItem sse_decode_room_poll_item(SseDeserializer deserializer);
+
+  @protected
+  RoomPowerLevelSettingsPatch sse_decode_room_power_level_settings_patch(
+    SseDeserializer deserializer,
+  );
 
   @protected
   RoomUpdate sse_decode_room_update(SseDeserializer deserializer);
@@ -845,9 +893,23 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  JSAny cst_encode_box_autoadd_i_64(PlatformInt64 raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_i_64(raw);
+  }
+
+  @protected
   JSAny cst_encode_box_autoadd_message(Message raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return cst_encode_message(raw);
+  }
+
+  @protected
+  JSAny cst_encode_box_autoadd_room_power_level_settings_patch(
+    RoomPowerLevelSettingsPatch raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_room_power_level_settings_patch(raw);
   }
 
   @protected
@@ -980,6 +1042,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  JSAny cst_encode_list_room_banned_user_row(List<RoomBannedUserRow> raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.map(cst_encode_room_banned_user_row).toList().jsify()!;
+  }
+
+  @protected
   JSAny cst_encode_list_room_file_item(List<RoomFileItem> raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return raw.map(cst_encode_room_file_item).toList().jsify()!;
@@ -1099,6 +1167,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  JSAny? cst_encode_opt_box_autoadd_i_64(PlatformInt64? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? null : cst_encode_box_autoadd_i_64(raw);
+  }
+
+  @protected
   JSAny? cst_encode_opt_box_autoadd_message(Message? raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return raw == null ? null : cst_encode_box_autoadd_message(raw);
@@ -1158,6 +1232,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  JSAny cst_encode_room_banned_user_row(RoomBannedUserRow raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_String(raw.userId),
+      cst_encode_String(raw.userIdDisplay),
+      cst_encode_String(raw.displayName),
+    ].jsify()!;
+  }
+
+  @protected
   JSAny cst_encode_room_details(RoomDetails raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return [
@@ -1171,6 +1255,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_String(raw.currentUserId),
       cst_encode_bool(raw.currentUserIsAdmin),
       cst_encode_bool(raw.currentUserIsModerator),
+      cst_encode_bool(raw.currentUserCanInvite),
+      cst_encode_bool(raw.currentUserCanBan),
+      cst_encode_i_64(raw.powerLevelInviteRequired),
+      cst_encode_i_64(raw.powerLevelKickRequired),
+      cst_encode_i_64(raw.powerLevelBanRequired),
+      cst_encode_list_room_banned_user_row(raw.bannedUsers),
     ].jsify()!;
   }
 
@@ -1216,6 +1306,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_room_member_role_dto(raw.role),
       cst_encode_bool(raw.isSelf),
       cst_encode_bool(raw.currentUserCanKick),
+      cst_encode_bool(raw.currentUserCanBan),
     ].jsify()!;
   }
 
@@ -1229,6 +1320,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_String(raw.question),
       cst_encode_u_64(raw.timestamp),
       cst_encode_bool(raw.isOutgoing),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_room_power_level_settings_patch(
+    RoomPowerLevelSettingsPatch raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_opt_box_autoadd_i_64(raw.ban),
+      cst_encode_opt_box_autoadd_i_64(raw.invite),
+      cst_encode_opt_box_autoadd_i_64(raw.kick),
+      cst_encode_opt_box_autoadd_i_64(raw.redact),
+      cst_encode_opt_box_autoadd_i_64(raw.eventsDefault),
+      cst_encode_opt_box_autoadd_i_64(raw.stateDefault),
+      cst_encode_opt_box_autoadd_i_64(raw.usersDefault),
     ].jsify()!;
   }
 
@@ -1542,7 +1649,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_i_64(
+    PlatformInt64 self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_message(Message self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_room_power_level_settings_patch(
+    RoomPowerLevelSettingsPatch self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_room_update(
@@ -1636,6 +1755,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_room_banned_user_row(
+    List<RoomBannedUserRow> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_room_file_item(
     List<RoomFileItem> self,
     SseSerializer serializer,
@@ -1705,6 +1830,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_i_64(
+    PlatformInt64? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_message(
     Message? self,
     SseSerializer serializer,
@@ -1748,6 +1879,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_room_banned_user_row(
+    RoomBannedUserRow self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_room_details(RoomDetails self, SseSerializer serializer);
 
   @protected
@@ -1779,6 +1916,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_room_poll_item(RoomPollItem self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_room_power_level_settings_patch(
+    RoomPowerLevelSettingsPatch self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_room_update(RoomUpdate self, SseSerializer serializer);
@@ -1854,6 +1997,41 @@ class RustLibWire implements BaseWire {
   ) => wasmModule
       .wire__crate__logger__platform__FieldsFormatterForFiles_default(port_);
 
+  void
+  wire__crate__api__matrix_client__MatrixClient_apply_room_power_level_settings(
+    NativePortType port_,
+    int that,
+    String room_id,
+    JSAny patch,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_apply_room_power_level_settings(
+        port_,
+        that,
+        room_id,
+        patch,
+      );
+
+  void wire__crate__api__matrix_client__MatrixClient_backup_exists_on_server(
+    NativePortType port_,
+    int that,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_backup_exists_on_server(
+        port_,
+        that,
+      );
+
+  void wire__crate__api__matrix_client__MatrixClient_ban_room_member(
+    NativePortType port_,
+    int that,
+    String room_id,
+    String user_id,
+  ) => wasmModule.wire__crate__api__matrix_client__MatrixClient_ban_room_member(
+    port_,
+    that,
+    room_id,
+    user_id,
+  );
+
   void wire__crate__api__matrix_client__MatrixClient_cancel_timeline_file_send(
     NativePortType port_,
     int that,
@@ -1895,6 +2073,18 @@ class RustLibWire implements BaseWire {
         user_ids,
       );
 
+  void
+  wire__crate__api__matrix_client__MatrixClient_enable_recovery_with_passphrase(
+    NativePortType port_,
+    int that,
+    String passphrase,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_enable_recovery_with_passphrase(
+        port_,
+        that,
+        passphrase,
+      );
+
   void wire__crate__api__matrix_client__MatrixClient_fetch_room_message_media(
     NativePortType port_,
     int that,
@@ -1929,6 +2119,16 @@ class RustLibWire implements BaseWire {
     port_,
     that,
   );
+
+  void
+  wire__crate__api__matrix_client__MatrixClient_get_cached_profile_avatar_mxc(
+    NativePortType port_,
+    int that,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_get_cached_profile_avatar_mxc(
+        port_,
+        that,
+      );
 
   void wire__crate__api__matrix_client__MatrixClient_get_display_name(
     NativePortType port_,
@@ -1981,6 +2181,15 @@ class RustLibWire implements BaseWire {
         that,
       );
 
+  void wire__crate__api__matrix_client__MatrixClient_get_recovery_state(
+    NativePortType port_,
+    int that,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_get_recovery_state(
+        port_,
+        that,
+      );
+
   void wire__crate__api__matrix_client__MatrixClient_get_room_details(
     NativePortType port_,
     int that,
@@ -2002,6 +2211,19 @@ class RustLibWire implements BaseWire {
         port_,
         that,
         room_id,
+      );
+
+  void wire__crate__api__matrix_client__MatrixClient_invite_user_to_room(
+    NativePortType port_,
+    int that,
+    String room_id,
+    String user_id,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_invite_user_to_room(
+        port_,
+        that,
+        room_id,
+        user_id,
       );
 
   void wire__crate__api__matrix_client__MatrixClient_is_client_authenticated(
@@ -2093,6 +2315,15 @@ class RustLibWire implements BaseWire {
     filter,
   );
 
+  void wire__crate__api__matrix_client__MatrixClient_logged_in_user_id(
+    NativePortType port_,
+    int that,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_logged_in_user_id(
+        port_,
+        that,
+      );
+
   void wire__crate__api__matrix_client__MatrixClient_login(
     NativePortType port_,
     int that,
@@ -2133,6 +2364,17 @@ class RustLibWire implements BaseWire {
         that,
       );
 
+  void wire__crate__api__matrix_client__MatrixClient_recover_with_passphrase(
+    NativePortType port_,
+    int that,
+    String passphrase,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_recover_with_passphrase(
+        port_,
+        that,
+        passphrase,
+      );
+
   void wire__crate__api__matrix_client__MatrixClient_redact_timeline_event(
     NativePortType port_,
     int that,
@@ -2148,6 +2390,15 @@ class RustLibWire implements BaseWire {
         event_id,
         transaction_id,
         reason,
+      );
+
+  void wire__crate__api__matrix_client__MatrixClient_refresh_recovery_state(
+    NativePortType port_,
+    int that,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_refresh_recovery_state(
+        port_,
+        that,
       );
 
   void wire__crate__api__matrix_client__MatrixClient_register(
@@ -2495,6 +2746,19 @@ class RustLibWire implements BaseWire {
         reaction_key,
       );
 
+  void wire__crate__api__matrix_client__MatrixClient_unban_room_member(
+    NativePortType port_,
+    int that,
+    String room_id,
+    String user_id,
+  ) => wasmModule
+      .wire__crate__api__matrix_client__MatrixClient_unban_room_member(
+        port_,
+        that,
+        room_id,
+        user_id,
+      );
+
   void wire__crate__api__matrix_client__MatrixClient_unregister_pusher(
     NativePortType port_,
     int that,
@@ -2641,6 +2905,27 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
   );
 
   external void
+  wire__crate__api__matrix_client__MatrixClient_apply_room_power_level_settings(
+    NativePortType port_,
+    int that,
+    String room_id,
+    JSAny patch,
+  );
+
+  external void
+  wire__crate__api__matrix_client__MatrixClient_backup_exists_on_server(
+    NativePortType port_,
+    int that,
+  );
+
+  external void wire__crate__api__matrix_client__MatrixClient_ban_room_member(
+    NativePortType port_,
+    int that,
+    String room_id,
+    String user_id,
+  );
+
+  external void
   wire__crate__api__matrix_client__MatrixClient_cancel_timeline_file_send(
     NativePortType port_,
     int that,
@@ -2666,6 +2951,13 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
   );
 
   external void
+  wire__crate__api__matrix_client__MatrixClient_enable_recovery_with_passphrase(
+    NativePortType port_,
+    int that,
+    String passphrase,
+  );
+
+  external void
   wire__crate__api__matrix_client__MatrixClient_fetch_room_message_media(
     NativePortType port_,
     int that,
@@ -2682,6 +2974,12 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
   );
 
   external void wire__crate__api__matrix_client__MatrixClient_get_all_rooms(
+    NativePortType port_,
+    int that,
+  );
+
+  external void
+  wire__crate__api__matrix_client__MatrixClient_get_cached_profile_avatar_mxc(
     NativePortType port_,
     int that,
   );
@@ -2718,6 +3016,12 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     int that,
   );
 
+  external void
+  wire__crate__api__matrix_client__MatrixClient_get_recovery_state(
+    NativePortType port_,
+    int that,
+  );
+
   external void wire__crate__api__matrix_client__MatrixClient_get_room_details(
     NativePortType port_,
     int that,
@@ -2729,6 +3033,14 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     NativePortType port_,
     int that,
     String room_id,
+  );
+
+  external void
+  wire__crate__api__matrix_client__MatrixClient_invite_user_to_room(
+    NativePortType port_,
+    int that,
+    String room_id,
+    String user_id,
   );
 
   external void
@@ -2784,6 +3096,11 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     int filter,
   );
 
+  external void wire__crate__api__matrix_client__MatrixClient_logged_in_user_id(
+    NativePortType port_,
+    int that,
+  );
+
   external void wire__crate__api__matrix_client__MatrixClient_login(
     NativePortType port_,
     int that,
@@ -2810,6 +3127,13 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
   );
 
   external void
+  wire__crate__api__matrix_client__MatrixClient_recover_with_passphrase(
+    NativePortType port_,
+    int that,
+    String passphrase,
+  );
+
+  external void
   wire__crate__api__matrix_client__MatrixClient_redact_timeline_event(
     NativePortType port_,
     int that,
@@ -2817,6 +3141,12 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     String event_id,
     String transaction_id,
     String? reason,
+  );
+
+  external void
+  wire__crate__api__matrix_client__MatrixClient_refresh_recovery_state(
+    NativePortType port_,
+    int that,
   );
 
   external void wire__crate__api__matrix_client__MatrixClient_register(
@@ -3019,6 +3349,13 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     String event_id,
     String transaction_id,
     String reaction_key,
+  );
+
+  external void wire__crate__api__matrix_client__MatrixClient_unban_room_member(
+    NativePortType port_,
+    int that,
+    String room_id,
+    String user_id,
   );
 
   external void wire__crate__api__matrix_client__MatrixClient_unregister_pusher(

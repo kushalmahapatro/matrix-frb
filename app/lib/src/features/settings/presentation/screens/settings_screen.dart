@@ -7,6 +7,11 @@ import 'package:matrix/src/core/layout/messaging_layout_preference.dart';
 import 'package:matrix/src/core/navigation/navigator_service.dart';
 import 'package:provider/provider.dart';
 import 'package:matrix/src/core/presentation/widgets/terminal_container.dart';
+import 'package:matrix/src/features/settings/domain/profile_prefs.dart';
+import 'package:matrix/src/features/key_recovery/domain/key_recovery_prefs.dart';
+import 'package:matrix/src/features/key_recovery/presentation/key_recovery_copy.dart';
+import 'package:matrix/src/features/key_recovery/presentation/screens/login_recovery_unlock_screen.dart';
+import 'package:matrix/src/features/key_recovery/presentation/screens/setup_key_recovery_screen.dart';
 import 'package:matrix/src/features/settings/presentation/screens/profile_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -37,17 +42,60 @@ class SettingsScreen extends StatelessWidget {
                     ),
                     _buildSettingItem(
                       context: context,
-                      icon: Icons.security,
-                      title: 'Security',
-                      subtitle: 'Manage security settings',
-                      onTap: () {},
-                    ),
-                    _buildSettingItem(
-                      context: context,
                       icon: Icons.logout,
                       title: 'Logout',
                       subtitle: 'Sign out of your account',
                       onTap: () => _showLogoutDialog(context),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              TerminalContainer(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ENCRYPTION & KEY BACKUP',
+                      style: theme.textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Same as the reminder on the home screen. If the app says a backup '
+                      'already exists on your account, you did not lose it — it usually '
+                      'means another Matrix client or device created it. Use Unlock with '
+                      'passphrase and the passphrase or security key you saved then.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      KeyRecoveryCopy.passphraseChangeFaq,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSettingItem(
+                      context: context,
+                      icon: Icons.key,
+                      title: 'Set up key backup',
+                      subtitle: 'Choose a passphrase and back up your keys',
+                      onTap: () => NavigatorService.push(
+                        context,
+                        const SetupKeyRecoveryScreen(showEducation: true),
+                      ),
+                    ),
+                    _buildSettingItem(
+                      context: context,
+                      icon: Icons.vpn_key_outlined,
+                      title: 'Unlock with passphrase',
+                      subtitle: 'Enter the recovery passphrase from another device',
+                      onTap: () => NavigatorService.push(
+                        context,
+                        const LoginRecoveryUnlockScreen(closeWhenDone: true),
+                      ),
                     ),
                   ],
                 ),
@@ -360,7 +408,8 @@ class SettingsScreen extends StatelessWidget {
             text: 'LOGOUT',
             onPressed: () {
               Navigator.of(context).pop();
-              // Implement logout logic
+              ProfilePrefs.instance.clear();
+              unawaited(KeyRecoveryPrefs.clearBannerDontShowAgain());
               Navigator.of(
                 context,
               ).pushNamedAndRemoveUntil('/', (route) => false);

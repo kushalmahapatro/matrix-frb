@@ -27,7 +27,7 @@ dependencies:
   media:
     git:
       url: https://github.com/kushalmahapatro/media-rs.git
-      ref: feat/fast-decoder
+      ref: 6a56ba80124b4a1673e8a7767532f088aa64ea1e
   path_provider: ^2.1.5
   crypto: ^3.0.7
   file_picker: ^8.1.4
@@ -52,6 +52,7 @@ dependencies:
   just_audio: ^0.10.5
   desktop_multi_window: ^0.3.0
   image: ^4.8.0
+  crop_your_image: ^2.0.0
 
 dev_dependencies:
   flutter_test:
@@ -59,8 +60,6 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   freezed: ^3.1.0
   build_runner: ^2.5.4
-  integration_test:
-    sdk: flutter
   flutter_launcher_icons: ^0.14.4
 
 flutter_launcher_icons:
@@ -108,12 +107,12 @@ dependency_overrides:
   media_dart:
     git:
       url: https://github.com/kushalmahapatro/media-rs.git
-      ref: feat/fast-decoder
+      ref: 6a56ba80124b4a1673e8a7767532f088aa64ea1e
       path: media_dart
   media_flutter:
     git:
       url: https://github.com/kushalmahapatro/media-rs.git
-      ref: feat/fast-decoder
+      ref: 6a56ba80124b4a1673e8a7767532f088aa64ea1e
       path: media_flutter
 
 hooks:

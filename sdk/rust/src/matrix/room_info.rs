@@ -10,8 +10,9 @@ use matrix_sdk::ruma::events::{
 use matrix_sdk::ruma::{
     events::room::power_levels::UserPowerLevel, int, Int, RoomId, UInt, UserId,
 };
-use matrix_sdk::{Client, RoomMemberships};
+use matrix_sdk::room::power_levels::RoomPowerLevelChanges;
 use matrix_sdk::room::RoomMemberRole;
+use matrix_sdk::{Client, RoomMemberships};
 use matrix_sdk_base::event_cache::store::EventCacheStoreLockState;
 use matrix_sdk_common::linked_chunk::{ChunkContent, LinkedChunkId};
 use serde::{Deserialize, Serialize};
@@ -57,6 +58,31 @@ pub struct RoomMemberRow {
     pub is_self: bool,
     /// Whether the **current** user may kick this member (server rules: own power ≥ kick, own > target).
     pub current_user_can_kick: bool,
+    /// Whether the **current** user may ban this member (own power ≥ ban threshold, own > target).
+    pub current_user_can_ban: bool,
+}
+
+/// A banned user row (for unban from room info).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[frb]
+pub struct RoomBannedUserRow {
+    pub user_id: String,
+    pub user_id_display: String,
+    pub display_name: String,
+}
+
+/// Partial update for [`m.room.power_levels`](https://spec.matrix.org/latest/client-server-api/#mroompower_levels).
+/// Only set fields you want to change; others stay unchanged on the server.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[frb]
+pub struct RoomPowerLevelSettingsPatch {
+    pub ban: Option<i64>,
+    pub invite: Option<i64>,
+    pub kick: Option<i64>,
+    pub redact: Option<i64>,
+    pub events_default: Option<i64>,
+    pub state_default: Option<i64>,
+    pub users_default: Option<i64>,
 }
 
 /// Summary for the room info / settings UI.
@@ -73,6 +99,15 @@ pub struct RoomDetails {
     pub current_user_id: String,
     pub current_user_is_admin: bool,
     pub current_user_is_moderator: bool,
+    /// From the current user's membership + power levels (can call invite API).
+    pub current_user_can_invite: bool,
+    /// From the current user's membership + power levels (can call ban / unban).
+    pub current_user_can_ban: bool,
+    /// Minimum power level required to invite (`m.room.power_levels`); defaults when unknown.
+    pub power_level_invite_required: i64,
+    pub power_level_kick_required: i64,
+    pub power_level_ban_required: i64,
+    pub banned_users: Vec<RoomBannedUserRow>,
 }
 
 /// Filter for file rows from the cached timeline.
@@ -150,6 +185,20 @@ fn current_user_can_kick_target(
     own_i >= kick_threshold && own_i > tgt_i
 }
 
+fn current_user_can_ban_target(
+    own: UserPowerLevel,
+    target: UserPowerLevel,
+    ban_threshold: i64,
+    target_is_self: bool,
+) -> bool {
+    if target_is_self {
+        return false;
+    }
+    let own_i = user_power_to_i64(own);
+    let tgt_i = user_power_to_i64(target);
+    own_i >= ban_threshold && own_i > tgt_i
+}
+
 /// Load room metadata and joined members (including DMs, for avatars / counts).
 pub async fn fetch_room_details(client: &Client, room_id: String) -> Result<RoomDetails, String> {
     let rid = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
@@ -178,6 +227,22 @@ pub async fn fetch_room_details(client: &Client, room_id: String) -> Result<Room
         .as_ref()
         .map(|pl| pl.kick.into())
         .unwrap_or(50);
+    let ban_threshold: i64 = power_levels
+        .as_ref()
+        .map(|pl| pl.ban.into())
+        .unwrap_or(50);
+    let power_level_invite_required: i64 = power_levels
+        .as_ref()
+        .map(|pl| pl.invite.into())
+        .unwrap_or(50);
+    let power_level_kick_required: i64 = power_levels
+        .as_ref()
+        .map(|pl| pl.kick.into())
+        .unwrap_or(50);
+    let power_level_ban_required: i64 = power_levels
+        .as_ref()
+        .map(|pl| pl.ban.into())
+        .unwrap_or(50);
 
     let own_power = room
         .get_user_power_level(own_uid)
@@ -198,6 +263,33 @@ pub async fn fetch_room_details(client: &Client, room_id: String) -> Result<Room
         .map_err(|e| e.to_string())?;
     let member_count = joined.len() as u32;
 
+    let (current_user_can_invite, current_user_can_ban) = joined
+        .iter()
+        .find(|m| m.is_account_user())
+        .map(|m| (m.can_invite(), m.can_ban()))
+        .unwrap_or((false, false));
+
+    let banned_sdk = room
+        .members(RoomMemberships::BAN)
+        .await
+        .unwrap_or_default();
+    let mut banned_users: Vec<RoomBannedUserRow> = banned_sdk
+        .into_iter()
+        .map(|m| {
+            let uid = m.user_id().to_string();
+            let display_name_raw = m
+                .display_name()
+                .map(|s| s.to_owned())
+                .unwrap_or_else(|| uid.clone());
+            RoomBannedUserRow {
+                user_id: uid.clone(),
+                user_id_display: format_user_id_for_display(&uid),
+                display_name: format_user_id_for_display(&display_name_raw),
+            }
+        })
+        .collect();
+    banned_users.sort_by(|a, b| a.display_name.to_lowercase().cmp(&b.display_name.to_lowercase()));
+
     let mut rows: Vec<(RoomMemberRow, String)> = Vec::new();
     for m in joined {
         let uid = m.user_id().to_string();
@@ -210,6 +302,7 @@ pub async fn fetch_room_details(client: &Client, room_id: String) -> Result<Room
         let pl = m.power_level();
         let power_level = user_power_to_i64(pl);
         let can_kick = current_user_can_kick_target(own_power, pl, kick_threshold, is_self);
+        let can_ban = current_user_can_ban_target(own_power, pl, ban_threshold, is_self);
         let uid_display = format_user_id_for_display(&uid);
         let avatar_url = m
             .avatar_url()
@@ -225,6 +318,7 @@ pub async fn fetch_room_details(client: &Client, room_id: String) -> Result<Room
                 role,
                 is_self,
                 current_user_can_kick: can_kick,
+                current_user_can_ban: can_ban,
             },
             display_name_raw,
         ));
@@ -260,6 +354,12 @@ pub async fn fetch_room_details(client: &Client, room_id: String) -> Result<Room
         current_user_id: format_user_id_for_display(&own_id),
         current_user_is_admin,
         current_user_is_moderator,
+        current_user_can_invite,
+        current_user_can_ban,
+        power_level_invite_required,
+        power_level_kick_required,
+        power_level_ban_required,
+        banned_users,
     })
 }
 
@@ -748,4 +848,76 @@ pub async fn set_room_member_power_level(
         .await
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// Invite a user by Matrix ID (`@localpart:server`).
+pub async fn invite_user_to_room(
+    client: &Client,
+    room_id: String,
+    user_id: String,
+) -> Result<(), String> {
+    let rid = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+    let room = client.get_room(&rid).ok_or_else(|| "Room not found".to_string())?;
+    let uid = UserId::parse(&user_id).map_err(|e| e.to_string())?;
+    room
+        .invite_user_by_id(&uid)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Ban a user (must not be a higher power than the caller).
+pub async fn ban_room_member(
+    client: &Client,
+    room_id: String,
+    user_id: String,
+) -> Result<(), String> {
+    let rid = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+    let room = client.get_room(&rid).ok_or_else(|| "Room not found".to_string())?;
+    let uid = UserId::parse(&user_id).map_err(|e| e.to_string())?;
+    room
+        .ban_user(&uid, None)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Remove a ban so the user can join again (or be re-invited).
+pub async fn unban_room_member(
+    client: &Client,
+    room_id: String,
+    user_id: String,
+) -> Result<(), String> {
+    let rid = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+    let room = client.get_room(&rid).ok_or_else(|| "Room not found".to_string())?;
+    let uid = UserId::parse(&user_id).map_err(|e| e.to_string())?;
+    room
+        .unban_user(&uid, None)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Apply selected `m.room.power_levels` fields (e.g. lower invite threshold so members can invite).
+pub async fn apply_room_power_level_settings(
+    client: &Client,
+    room_id: String,
+    patch: RoomPowerLevelSettingsPatch,
+) -> Result<(), String> {
+    let rid = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+    let room = client.get_room(&rid).ok_or_else(|| "Room not found".to_string())?;
+    let changes = RoomPowerLevelChanges {
+        ban: patch.ban,
+        invite: patch.invite,
+        kick: patch.kick,
+        redact: patch.redact,
+        events_default: patch.events_default,
+        state_default: patch.state_default,
+        users_default: patch.users_default,
+        room_name: None,
+        room_avatar: None,
+        room_topic: None,
+        space_child: None,
+    };
+    room
+        .apply_power_level_changes(changes)
+        .await
+        .map_err(|e| e.to_string())
 }

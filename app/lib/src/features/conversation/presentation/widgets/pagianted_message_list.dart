@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import 'package:matrix/src/core/open_in_app_url.dart';
 import 'package:matrix/src/features/conversation/presentation/widgets/audio_message_waveform.dart';
 import 'package:matrix/src/core/timeline_local_hidden_store.dart';
+import 'package:matrix/src/core/timeline_raster_thumb.dart';
 import 'package:matrix/src/features/settings/domain/profile_prefs.dart';
 import 'package:matrix/src/features/conversation/domain/models/conversation_state.dart'
     hide MessageType;
@@ -1322,11 +1323,17 @@ class _MessageSenderAvatarState extends State<_MessageSenderAvatar> {
       _loadFuture = Future<Uint8List?>.value(hit);
       return;
     }
-    _loadFuture = widget.loadBytes(m).then((b) {
-      if (b != null && b.isNotEmpty) {
-        _bytesCache[m] = b;
-      }
-      return b;
+    _loadFuture = widget.loadBytes(m).then((b) async {
+      if (b == null || b.isEmpty) return b;
+      final e = timelineThumbDecodeExtentPx(_kMessageAvatarSize);
+      final small = await encodeRasterPngFitBox(
+        b,
+        targetWidthPx: e,
+        targetHeightPx: e,
+      );
+      final out = small ?? b;
+      _bytesCache[m] = out;
+      return out;
     });
   }
 
@@ -1395,6 +1402,14 @@ class _MessageSenderAvatarState extends State<_MessageSenderAvatar> {
                   fit: BoxFit.cover,
                   width: _kMessageAvatarSize,
                   height: _kMessageAvatarSize,
+                  cacheWidth: timelineThumbDecodeExtentPx(
+                    _kMessageAvatarSize,
+                    context,
+                  ),
+                  cacheHeight: timelineThumbDecodeExtentPx(
+                    _kMessageAvatarSize,
+                    context,
+                  ),
                   gaplessPlayback: true,
                   errorBuilder: (_, __, ___) => placeholder(),
                 ),
@@ -1713,13 +1728,26 @@ class _InlineReplyTargetThumb extends StatefulWidget {
 class _InlineReplyTargetThumbState extends State<_InlineReplyTargetThumb> {
   late final Future<Uint8List?> _future;
 
+  Future<Uint8List?> _loadAndDownscaleThumb() async {
+    final raw = await widget.loadMessageMedia(widget.eventId, thumbnail: true);
+    if (raw == null || raw.isEmpty) return null;
+    if (!_isTimelineRasterBytes(raw)) return null;
+    final e = timelineThumbDecodeExtentPx(_kInlineReplyThumb);
+    final small = await encodeRasterPngFitBox(
+      raw,
+      targetWidthPx: e,
+      targetHeightPx: e,
+    );
+    return small ?? raw;
+  }
+
   @override
   void initState() {
     super.initState();
     if (widget.kind == RoomMessageKind.audio) {
       _future = Future<Uint8List?>.value(null);
     } else {
-      _future = widget.loadMessageMedia(widget.eventId, thumbnail: true);
+      _future = _loadAndDownscaleThumb();
     }
   }
 
@@ -1788,6 +1816,14 @@ class _InlineReplyTargetThumbState extends State<_InlineReplyTargetThumb> {
               bytes,
               fit: BoxFit.cover,
               gaplessPlayback: true,
+              cacheWidth: timelineThumbDecodeExtentPx(
+                _kInlineReplyThumb,
+                context,
+              ),
+              cacheHeight: timelineThumbDecodeExtentPx(
+                _kInlineReplyThumb,
+                context,
+              ),
               errorBuilder: (_, __, ___) =>
                   _inlineReplyKindPlaceholder(widget.kind, theme),
             ),
@@ -3637,7 +3673,12 @@ Future<_TimelinePreviewMeta?> _timelineImagePreviewMeta(Uint8List data) async {
   final exif = _jpegExifOrientation(data);
   ui.Codec? codec;
   try {
-    codec = await ui.instantiateImageCodec(data);
+    final cap = kTimelineMetaDecodeMaxEdgePx;
+    codec = await ui.instantiateImageCodec(
+      data,
+      targetWidth: cap,
+      targetHeight: cap,
+    );
     final frame = await codec.getNextFrame();
     final w = frame.image.width;
     final h = frame.image.height;
@@ -4146,7 +4187,22 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
       _TimelinePreviewMeta? meta;
       if (b != null && b.isNotEmpty) {
         meta = await _timelineImagePreviewMeta(b);
-        if (meta == null) b = null;
+        if (meta == null) {
+          b = null;
+        } else {
+          final frame = _timelineLoadingThumbFrameSize(
+            widget.mediaPreviewWidth,
+            widget.mediaPreviewHeight,
+          );
+          final tw = timelineThumbDecodeExtentPx(frame.width);
+          final th = timelineThumbDecodeExtentPx(frame.height);
+          final small = await encodeRasterPngFitBox(
+            b,
+            targetWidthPx: tw,
+            targetHeightPx: th,
+          );
+          if (small != null) b = small;
+        }
       }
       if (!mounted) return;
       setState(() {
@@ -4349,7 +4405,7 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
                   showTapHint: widget.onOpen != null,
                   audioDurationMs: widget.audioDurationMs,
                 ))
-        : _buildThumbnailWithSideInfo(theme, meta);
+        : _buildThumbnailWithSideInfo(context, theme, meta);
     final extra = _extraCaption(theme);
     return _maybeWrapOpen(
       extra != null
@@ -4363,6 +4419,7 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
 
   /// Event thumbnail in a fixed frame; [Row] with metadata in [Expanded].
   Widget _buildThumbnailWithSideInfo(
+    BuildContext context,
     ThemeData theme,
     _TimelinePreviewMeta meta,
   ) {
@@ -4373,6 +4430,11 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
     final portrait = oriented.height > oriented.width;
     final tw = portrait ? _kTimelineThumbPortraitW : _kTimelineThumbLandscapeW;
     final th = portrait ? _kTimelineThumbPortraitH : _kTimelineThumbLandscapeH;
+    final cache = timelineImageCacheDimensions(
+      context,
+      logicalWidth: tw,
+      logicalHeight: th,
+    );
     Widget thumbDecodeError(_, Object __, StackTrace? ___) {
       if (_canUseBlurhashAsThumbnailFallback()) {
         return BlurHash(
@@ -4398,6 +4460,8 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
             _bytes!,
             gaplessPlayback: true,
             filterQuality: FilterQuality.medium,
+            cacheWidth: cache.cacheWidth,
+            cacheHeight: cache.cacheHeight,
             errorBuilder: thumbDecodeError,
           )
         : RotatedBox(
@@ -4406,6 +4470,8 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
               _bytes!,
               gaplessPlayback: true,
               filterQuality: FilterQuality.medium,
+              cacheWidth: cache.cacheWidth,
+              cacheHeight: cache.cacheHeight,
               errorBuilder: thumbDecodeError,
             ),
           );

@@ -29,6 +29,18 @@
                 "--dart-define-from-file",
                 "dart_defines/inve.json"
             ]
+        },
+        {
+            "name": "App-Profile",
+            "type": "dart",
+            "cwd": "${workspaceFolder}/app",
+            "request": "launch",
+            "program": "lib/main.dart",
+            "flutterMode": "profile",
+            "args": [
+                "--dart-define-from-file",
+                "dart_defines/inve.json"
+            ]
         }
     ]
 }

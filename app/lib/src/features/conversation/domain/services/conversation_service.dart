@@ -16,6 +16,7 @@ import 'package:matrix_sdk/matrix_sdk.dart'
         RoomFileItem,
         RoomLinkItem,
         RoomPollItem,
+        RoomPowerLevelSettingsPatch,
         RoomUpdate;
 import 'package:result_dart/result_dart.dart';
 
@@ -117,6 +118,10 @@ class ConversationService {
 
   /// [prep] from [AppTimelineSendPrep.prepareForSend] when the file was prepared in the UI; otherwise
   /// sends [originalFilePath] as-is (generic files). Disposes [prep] when non-null.
+  ///
+  /// On success, the Rust SDK writes **`file_upload_cache`** (`app_db.sqlite3`): plain rooms store
+  /// **`file_mxc`** and thumbnail **`mxc`** (plus metadata) after main + thumbnail upload; encrypted
+  /// rooms store `e2ee_msgtype_json` / `e2ee_thumbnail_json` when the event can be read back.
   Future<Result<Unit>> sendTimelineAttachment({
     required String roomId,
     required String originalFilePath,
@@ -637,6 +642,61 @@ class ConversationService {
         roomId: roomId,
         userId: userId,
         powerLevel: powerLevel,
+      );
+      return const Success(unit);
+    } catch (e) {
+      return Failure(Exception('$e'));
+    }
+  }
+
+  Future<Result<Unit>> inviteUserToRoom({
+    required String roomId,
+    required String userId,
+  }) async {
+    try {
+      await matrixService.client.inviteUserToRoom(
+        roomId: roomId,
+        userId: userId,
+      );
+      return const Success(unit);
+    } catch (e) {
+      return Failure(Exception('$e'));
+    }
+  }
+
+  Future<Result<Unit>> banRoomMember({
+    required String roomId,
+    required String userId,
+  }) async {
+    try {
+      await matrixService.client.banRoomMember(roomId: roomId, userId: userId);
+      return const Success(unit);
+    } catch (e) {
+      return Failure(Exception('$e'));
+    }
+  }
+
+  Future<Result<Unit>> unbanRoomMember({
+    required String roomId,
+    required String userId,
+  }) async {
+    try {
+      await matrixService.client.unbanRoomMember(roomId: roomId, userId: userId);
+      return const Success(unit);
+    } catch (e) {
+      return Failure(Exception('$e'));
+    }
+  }
+
+  /// Updates `m.room.power_levels` for the fields set in [patch] only.
+  Future<Result<Unit>> applyRoomPowerLevelSettings({
+    required String roomId,
+    required RoomPowerLevelSettingsPatch patch,
+  }) async {
+    try {
+      await matrixService.client.applyRoomPowerLevelSettings(
+        roomId: roomId,
+        patch: patch,
       );
       return const Success(unit);
     } catch (e) {

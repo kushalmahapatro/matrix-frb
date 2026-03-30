@@ -22,6 +22,7 @@ import 'package:matrix/src/features/conversation/presentation/screens/conversati
 import 'package:matrix/src/features/create_chat/presentation/screens/create_chat_screen.dart';
 import 'package:matrix/src/features/messaging/domain/messaging_room_list_model.dart';
 import 'package:matrix/src/features/messaging/presentation/screens/messaging_workspace_wm.dart';
+import 'package:matrix/src/features/key_recovery/presentation/widgets/key_recovery_banner.dart';
 import 'package:matrix/src/features/messaging/presentation/widgets/chat_list_pane.dart';
 import 'package:matrix/src/features/settings/presentation/screens/settings_screen.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
@@ -302,6 +303,10 @@ class _MessagingBody extends StatelessWidget {
         wm.selectedChatType,
         wm.selectedRoom,
         wm.roomListKeyboardFocusId,
+        wm.recoveryBannerState,
+        wm.recoveryBannerDismissedThisSession,
+        wm.recoveryBannerDontShowAgainPersisted,
+        wm.recoveryServerBackupExists,
         TimelineLocalHiddenStore.revision,
       ]),
       builder: (context, _) {
@@ -327,7 +332,7 @@ class _MessagingBody extends StatelessWidget {
                 });
               }
             }
-            return ChatListPane(
+            final list = ChatListPane(
               rooms: rooms,
               selectedChatType: wm.selectedChatType.value,
               selectedRoomId: shellLayout == AppLayoutVariant.split
@@ -352,6 +357,22 @@ class _MessagingBody extends StatelessWidget {
               keyboardFocusedRoomId: isDesktopTargetPlatform()
                   ? wm.roomListKeyboardFocusId
                   : null,
+            );
+            if (!wm.shouldShowRecoveryBanner) {
+              return list;
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                KeyRecoveryBanner(
+                  preferUnlockFlow: wm.preferUnlockRecoveryBanner,
+                  onSetUp: (dontShowAgain) => unawaited(
+                    wm.openKeyRecoverySetup(context, dontShowAgain: dontShowAgain),
+                  ),
+                  onDismiss: wm.dismissRecoveryBanner,
+                ),
+                Expanded(child: list),
+              ],
             );
           },
         );

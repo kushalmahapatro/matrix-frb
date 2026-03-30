@@ -76,7 +76,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => -745625122;
+  int get rustContentHash => -331672617;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -89,6 +89,22 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 abstract class RustLibApi extends BaseApi {
   Future<FieldsFormatterForFiles>
   crateLoggerPlatformFieldsFormatterForFilesDefault();
+
+  Future<void> crateApiMatrixClientMatrixClientApplyRoomPowerLevelSettings({
+    required MatrixClient that,
+    required String roomId,
+    required RoomPowerLevelSettingsPatch patch,
+  });
+
+  Future<bool> crateApiMatrixClientMatrixClientBackupExistsOnServer({
+    required MatrixClient that,
+  });
+
+  Future<void> crateApiMatrixClientMatrixClientBanRoomMember({
+    required MatrixClient that,
+    required String roomId,
+    required String userId,
+  });
 
   Future<void> crateApiMatrixClientMatrixClientCancelTimelineFileSend({
     required MatrixClient that,
@@ -109,6 +125,11 @@ abstract class RustLibApi extends BaseApi {
     required List<String> userIds,
   });
 
+  Future<String> crateApiMatrixClientMatrixClientEnableRecoveryWithPassphrase({
+    required MatrixClient that,
+    required String passphrase,
+  });
+
   Future<Uint8List> crateApiMatrixClientMatrixClientFetchRoomMessageMedia({
     required MatrixClient that,
     required String roomId,
@@ -122,6 +143,10 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<List<RoomUpdate>> crateApiMatrixClientMatrixClientGetAllRooms({
+    required MatrixClient that,
+  });
+
+  Future<String?> crateApiMatrixClientMatrixClientGetCachedProfileAvatarMxc({
     required MatrixClient that,
   });
 
@@ -148,6 +173,10 @@ abstract class RustLibApi extends BaseApi {
     required MatrixClient that,
   });
 
+  Future<String> crateApiMatrixClientMatrixClientGetRecoveryState({
+    required MatrixClient that,
+  });
+
   Future<RoomDetails> crateApiMatrixClientMatrixClientGetRoomDetails({
     required MatrixClient that,
     required String roomId,
@@ -157,6 +186,12 @@ abstract class RustLibApi extends BaseApi {
   crateApiMatrixClientMatrixClientGetTimelineItemsByRoomId({
     required MatrixClient that,
     required String roomId,
+  });
+
+  Future<void> crateApiMatrixClientMatrixClientInviteUserToRoom({
+    required MatrixClient that,
+    required String roomId,
+    required String userId,
   });
 
   Future<bool> crateApiMatrixClientMatrixClientIsClientAuthenticated({
@@ -202,6 +237,10 @@ abstract class RustLibApi extends BaseApi {
     required RoomFileFilter filter,
   });
 
+  Future<String?> crateApiMatrixClientMatrixClientLoggedInUserId({
+    required MatrixClient that,
+  });
+
   Future<bool> crateApiMatrixClientMatrixClientLogin({
     required MatrixClient that,
     required String username,
@@ -221,12 +260,21 @@ abstract class RustLibApi extends BaseApi {
     required MatrixClient that,
   });
 
+  Future<void> crateApiMatrixClientMatrixClientRecoverWithPassphrase({
+    required MatrixClient that,
+    required String passphrase,
+  });
+
   Future<void> crateApiMatrixClientMatrixClientRedactTimelineEvent({
     required MatrixClient that,
     required String roomId,
     required String eventId,
     required String transactionId,
     String? reason,
+  });
+
+  Future<void> crateApiMatrixClientMatrixClientRefreshRecoveryState({
+    required MatrixClient that,
   });
 
   Future<bool> crateApiMatrixClientMatrixClientRegister({
@@ -386,6 +434,12 @@ abstract class RustLibApi extends BaseApi {
     required String reactionKey,
   });
 
+  Future<void> crateApiMatrixClientMatrixClientUnbanRoomMember({
+    required MatrixClient that,
+    required String roomId,
+    required String userId,
+  });
+
   Future<void> crateApiMatrixClientMatrixClientUnregisterPusher({
     required MatrixClient that,
     required String pushKey,
@@ -486,6 +540,126 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "FieldsFormatterForFiles_default",
         argNames: [],
+      );
+
+  @override
+  Future<void> crateApiMatrixClientMatrixClientApplyRoomPowerLevelSettings({
+    required MatrixClient that,
+    required String roomId,
+    required RoomPowerLevelSettingsPatch patch,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          var arg1 = cst_encode_String(roomId);
+          var arg2 = cst_encode_box_autoadd_room_power_level_settings_patch(
+            patch,
+          );
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_apply_room_power_level_settings(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiMatrixClientMatrixClientApplyRoomPowerLevelSettingsConstMeta,
+        argValues: [that, roomId, patch],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientApplyRoomPowerLevelSettingsConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_apply_room_power_level_settings",
+        argNames: ["that", "roomId", "patch"],
+      );
+
+  @override
+  Future<bool> crateApiMatrixClientMatrixClientBackupExistsOnServer({
+    required MatrixClient that,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_backup_exists_on_server(
+                port_,
+                arg0,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_bool,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiMatrixClientMatrixClientBackupExistsOnServerConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientBackupExistsOnServerConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_backup_exists_on_server",
+        argNames: ["that"],
+      );
+
+  @override
+  Future<void> crateApiMatrixClientMatrixClientBanRoomMember({
+    required MatrixClient that,
+    required String roomId,
+    required String userId,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          var arg1 = cst_encode_String(roomId);
+          var arg2 = cst_encode_String(userId);
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_ban_room_member(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiMatrixClientMatrixClientBanRoomMemberConstMeta,
+        argValues: [that, roomId, userId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMatrixClientMatrixClientBanRoomMemberConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_ban_room_member",
+        argNames: ["that", "roomId", "userId"],
       );
 
   @override
@@ -634,6 +808,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<String> crateApiMatrixClientMatrixClientEnableRecoveryWithPassphrase({
+    required MatrixClient that,
+    required String passphrase,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          var arg1 = cst_encode_String(passphrase);
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_enable_recovery_with_passphrase(
+                port_,
+                arg0,
+                arg1,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_String,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiMatrixClientMatrixClientEnableRecoveryWithPassphraseConstMeta,
+        argValues: [that, passphrase],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientEnableRecoveryWithPassphraseConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_enable_recovery_with_passphrase",
+        argNames: ["that", "passphrase"],
+      );
+
+  @override
   Future<Uint8List> crateApiMatrixClientMatrixClientFetchRoomMessageMedia({
     required MatrixClient that,
     required String roomId,
@@ -748,6 +961,42 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiMatrixClientMatrixClientGetAllRoomsConstMeta =>
       const TaskConstMeta(
         debugName: "MatrixClient_get_all_rooms",
+        argNames: ["that"],
+      );
+
+  @override
+  Future<String?> crateApiMatrixClientMatrixClientGetCachedProfileAvatarMxc({
+    required MatrixClient that,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_get_cached_profile_avatar_mxc(
+                port_,
+                arg0,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_opt_String,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiMatrixClientMatrixClientGetCachedProfileAvatarMxcConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientGetCachedProfileAvatarMxcConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_get_cached_profile_avatar_mxc",
         argNames: ["that"],
       );
 
@@ -937,6 +1186,41 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<String> crateApiMatrixClientMatrixClientGetRecoveryState({
+    required MatrixClient that,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_get_recovery_state(
+                port_,
+                arg0,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_String,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiMatrixClientMatrixClientGetRecoveryStateConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientGetRecoveryStateConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_get_recovery_state",
+        argNames: ["that"],
+      );
+
+  @override
   Future<RoomDetails> crateApiMatrixClientMatrixClientGetRoomDetails({
     required MatrixClient that,
     required String roomId,
@@ -1011,6 +1295,47 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "MatrixClient_get_timeline_items_by_room_id",
         argNames: ["that", "roomId"],
+      );
+
+  @override
+  Future<void> crateApiMatrixClientMatrixClientInviteUserToRoom({
+    required MatrixClient that,
+    required String roomId,
+    required String userId,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          var arg1 = cst_encode_String(roomId);
+          var arg2 = cst_encode_String(userId);
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_invite_user_to_room(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiMatrixClientMatrixClientInviteUserToRoomConstMeta,
+        argValues: [that, roomId, userId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientInviteUserToRoomConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_invite_user_to_room",
+        argNames: ["that", "roomId", "userId"],
       );
 
   @override
@@ -1320,6 +1645,40 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<String?> crateApiMatrixClientMatrixClientLoggedInUserId({
+    required MatrixClient that,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_logged_in_user_id(
+                port_,
+                arg0,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_opt_String,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiMatrixClientMatrixClientLoggedInUserIdConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMatrixClientMatrixClientLoggedInUserIdConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_logged_in_user_id",
+        argNames: ["that"],
+      );
+
+  @override
   Future<bool> crateApiMatrixClientMatrixClientLogin({
     required MatrixClient that,
     required String username,
@@ -1462,6 +1821,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiMatrixClientMatrixClientRecoverWithPassphrase({
+    required MatrixClient that,
+    required String passphrase,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          var arg1 = cst_encode_String(passphrase);
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_recover_with_passphrase(
+                port_,
+                arg0,
+                arg1,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiMatrixClientMatrixClientRecoverWithPassphraseConstMeta,
+        argValues: [that, passphrase],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientRecoverWithPassphraseConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_recover_with_passphrase",
+        argNames: ["that", "passphrase"],
+      );
+
+  @override
   Future<void> crateApiMatrixClientMatrixClientRedactTimelineEvent({
     required MatrixClient that,
     required String roomId,
@@ -1507,6 +1905,42 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "MatrixClient_redact_timeline_event",
         argNames: ["that", "roomId", "eventId", "transactionId", "reason"],
+      );
+
+  @override
+  Future<void> crateApiMatrixClientMatrixClientRefreshRecoveryState({
+    required MatrixClient that,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_refresh_recovery_state(
+                port_,
+                arg0,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiMatrixClientMatrixClientRefreshRecoveryStateConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiMatrixClientMatrixClientRefreshRecoveryStateConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_refresh_recovery_state",
+        argNames: ["that"],
       );
 
   @override
@@ -2667,6 +3101,46 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiMatrixClientMatrixClientUnbanRoomMember({
+    required MatrixClient that,
+    required String roomId,
+    required String userId,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient(
+                that,
+              );
+          var arg1 = cst_encode_String(roomId);
+          var arg2 = cst_encode_String(userId);
+          return wire
+              .wire__crate__api__matrix_client__MatrixClient_unban_room_member(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiMatrixClientMatrixClientUnbanRoomMemberConstMeta,
+        argValues: [that, roomId, userId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMatrixClientMatrixClientUnbanRoomMemberConstMeta =>
+      const TaskConstMeta(
+        debugName: "MatrixClient_unban_room_member",
+        argNames: ["that", "roomId", "userId"],
+      );
+
+  @override
   Future<void> crateApiMatrixClientMatrixClientUnregisterPusher({
     required MatrixClient that,
     required String pushKey,
@@ -3134,9 +3608,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  PlatformInt64 dco_decode_box_autoadd_i_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_i_64(raw);
+  }
+
+  @protected
   Message dco_decode_box_autoadd_message(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_message(raw);
+  }
+
+  @protected
+  RoomPowerLevelSettingsPatch
+  dco_decode_box_autoadd_room_power_level_settings_patch(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_room_power_level_settings_patch(raw);
   }
 
   @protected
@@ -3311,6 +3798,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<RoomBannedUserRow> dco_decode_list_room_banned_user_row(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_room_banned_user_row).toList();
+  }
+
+  @protected
   List<RoomFileItem> dco_decode_list_room_file_item(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_room_file_item).toList();
@@ -3457,6 +3950,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_i_64(raw);
+  }
+
+  @protected
   Message? dco_decode_opt_box_autoadd_message(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_message(raw);
@@ -3515,11 +4014,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  RoomBannedUserRow dco_decode_room_banned_user_row(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return RoomBannedUserRow(
+      userId: dco_decode_String(arr[0]),
+      userIdDisplay: dco_decode_String(arr[1]),
+      displayName: dco_decode_String(arr[2]),
+    );
+  }
+
+  @protected
   RoomDetails dco_decode_room_details(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 10)
-      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
+    if (arr.length != 16)
+      throw Exception('unexpected arr length: expect 16 but see ${arr.length}');
     return RoomDetails(
       roomId: dco_decode_String(arr[0]),
       displayName: dco_decode_String(arr[1]),
@@ -3531,6 +4043,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       currentUserId: dco_decode_String(arr[7]),
       currentUserIsAdmin: dco_decode_bool(arr[8]),
       currentUserIsModerator: dco_decode_bool(arr[9]),
+      currentUserCanInvite: dco_decode_bool(arr[10]),
+      currentUserCanBan: dco_decode_bool(arr[11]),
+      powerLevelInviteRequired: dco_decode_i_64(arr[12]),
+      powerLevelKickRequired: dco_decode_i_64(arr[13]),
+      powerLevelBanRequired: dco_decode_i_64(arr[14]),
+      bannedUsers: dco_decode_list_room_banned_user_row(arr[15]),
     );
   }
 
@@ -3586,8 +4104,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   RoomMemberRow dco_decode_room_member_row(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 8)
-      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    if (arr.length != 9)
+      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
     return RoomMemberRow(
       userId: dco_decode_String(arr[0]),
       userIdDisplay: dco_decode_String(arr[1]),
@@ -3597,6 +4115,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       role: dco_decode_room_member_role_dto(arr[5]),
       isSelf: dco_decode_bool(arr[6]),
       currentUserCanKick: dco_decode_bool(arr[7]),
+      currentUserCanBan: dco_decode_bool(arr[8]),
     );
   }
 
@@ -3619,6 +4138,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       question: dco_decode_String(arr[3]),
       timestamp: dco_decode_u_64(arr[4]),
       isOutgoing: dco_decode_bool(arr[5]),
+    );
+  }
+
+  @protected
+  RoomPowerLevelSettingsPatch dco_decode_room_power_level_settings_patch(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    return RoomPowerLevelSettingsPatch(
+      ban: dco_decode_opt_box_autoadd_i_64(arr[0]),
+      invite: dco_decode_opt_box_autoadd_i_64(arr[1]),
+      kick: dco_decode_opt_box_autoadd_i_64(arr[2]),
+      redact: dco_decode_opt_box_autoadd_i_64(arr[3]),
+      eventsDefault: dco_decode_opt_box_autoadd_i_64(arr[4]),
+      stateDefault: dco_decode_opt_box_autoadd_i_64(arr[5]),
+      usersDefault: dco_decode_opt_box_autoadd_i_64(arr[6]),
     );
   }
 
@@ -3963,9 +4501,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  PlatformInt64 sse_decode_box_autoadd_i_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_i_64(deserializer));
+  }
+
+  @protected
   Message sse_decode_box_autoadd_message(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_message(deserializer));
+  }
+
+  @protected
+  RoomPowerLevelSettingsPatch
+  sse_decode_box_autoadd_room_power_level_settings_patch(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_room_power_level_settings_patch(deserializer));
   }
 
   @protected
@@ -4173,6 +4726,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
+  List<RoomBannedUserRow> sse_decode_list_room_banned_user_row(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <RoomBannedUserRow>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_room_banned_user_row(deserializer));
+    }
+    return ans_;
   }
 
   @protected
@@ -4426,6 +4993,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_i_64(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
   Message? sse_decode_opt_box_autoadd_message(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -4526,6 +5104,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  RoomBannedUserRow sse_decode_room_banned_user_row(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_userId = sse_decode_String(deserializer);
+    var var_userIdDisplay = sse_decode_String(deserializer);
+    var var_displayName = sse_decode_String(deserializer);
+    return RoomBannedUserRow(
+      userId: var_userId,
+      userIdDisplay: var_userIdDisplay,
+      displayName: var_displayName,
+    );
+  }
+
+  @protected
   RoomDetails sse_decode_room_details(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_roomId = sse_decode_String(deserializer);
@@ -4538,6 +5131,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_currentUserId = sse_decode_String(deserializer);
     var var_currentUserIsAdmin = sse_decode_bool(deserializer);
     var var_currentUserIsModerator = sse_decode_bool(deserializer);
+    var var_currentUserCanInvite = sse_decode_bool(deserializer);
+    var var_currentUserCanBan = sse_decode_bool(deserializer);
+    var var_powerLevelInviteRequired = sse_decode_i_64(deserializer);
+    var var_powerLevelKickRequired = sse_decode_i_64(deserializer);
+    var var_powerLevelBanRequired = sse_decode_i_64(deserializer);
+    var var_bannedUsers = sse_decode_list_room_banned_user_row(deserializer);
     return RoomDetails(
       roomId: var_roomId,
       displayName: var_displayName,
@@ -4549,6 +5148,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       currentUserId: var_currentUserId,
       currentUserIsAdmin: var_currentUserIsAdmin,
       currentUserIsModerator: var_currentUserIsModerator,
+      currentUserCanInvite: var_currentUserCanInvite,
+      currentUserCanBan: var_currentUserCanBan,
+      powerLevelInviteRequired: var_powerLevelInviteRequired,
+      powerLevelKickRequired: var_powerLevelKickRequired,
+      powerLevelBanRequired: var_powerLevelBanRequired,
+      bannedUsers: var_bannedUsers,
     );
   }
 
@@ -4625,6 +5230,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_role = sse_decode_room_member_role_dto(deserializer);
     var var_isSelf = sse_decode_bool(deserializer);
     var var_currentUserCanKick = sse_decode_bool(deserializer);
+    var var_currentUserCanBan = sse_decode_bool(deserializer);
     return RoomMemberRow(
       userId: var_userId,
       userIdDisplay: var_userIdDisplay,
@@ -4634,6 +5240,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       role: var_role,
       isSelf: var_isSelf,
       currentUserCanKick: var_currentUserCanKick,
+      currentUserCanBan: var_currentUserCanBan,
     );
   }
 
@@ -4660,6 +5267,29 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       question: var_question,
       timestamp: var_timestamp,
       isOutgoing: var_isOutgoing,
+    );
+  }
+
+  @protected
+  RoomPowerLevelSettingsPatch sse_decode_room_power_level_settings_patch(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_ban = sse_decode_opt_box_autoadd_i_64(deserializer);
+    var var_invite = sse_decode_opt_box_autoadd_i_64(deserializer);
+    var var_kick = sse_decode_opt_box_autoadd_i_64(deserializer);
+    var var_redact = sse_decode_opt_box_autoadd_i_64(deserializer);
+    var var_eventsDefault = sse_decode_opt_box_autoadd_i_64(deserializer);
+    var var_stateDefault = sse_decode_opt_box_autoadd_i_64(deserializer);
+    var var_usersDefault = sse_decode_opt_box_autoadd_i_64(deserializer);
+    return RoomPowerLevelSettingsPatch(
+      ban: var_ban,
+      invite: var_invite,
+      kick: var_kick,
+      redact: var_redact,
+      eventsDefault: var_eventsDefault,
+      stateDefault: var_stateDefault,
+      usersDefault: var_usersDefault,
     );
   }
 
@@ -5300,9 +5930,27 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_i_64(
+    PlatformInt64 self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_64(self, serializer);
+  }
+
+  @protected
   void sse_encode_box_autoadd_message(Message self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_message(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_room_power_level_settings_patch(
+    RoomPowerLevelSettingsPatch self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_room_power_level_settings_patch(self, serializer);
   }
 
   @protected
@@ -5503,6 +6151,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_room_banned_user_row(
+    List<RoomBannedUserRow> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_room_banned_user_row(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_room_file_item(
     List<RoomFileItem> self,
     SseSerializer serializer,
@@ -5687,6 +6347,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_box_autoadd_i_64(
+    PlatformInt64? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_i_64(self, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_opt_box_autoadd_message(
     Message? self,
     SseSerializer serializer,
@@ -5789,6 +6462,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_room_banned_user_row(
+    RoomBannedUserRow self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.userId, serializer);
+    sse_encode_String(self.userIdDisplay, serializer);
+    sse_encode_String(self.displayName, serializer);
+  }
+
+  @protected
   void sse_encode_room_details(RoomDetails self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.roomId, serializer);
@@ -5801,6 +6485,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.currentUserId, serializer);
     sse_encode_bool(self.currentUserIsAdmin, serializer);
     sse_encode_bool(self.currentUserIsModerator, serializer);
+    sse_encode_bool(self.currentUserCanInvite, serializer);
+    sse_encode_bool(self.currentUserCanBan, serializer);
+    sse_encode_i_64(self.powerLevelInviteRequired, serializer);
+    sse_encode_i_64(self.powerLevelKickRequired, serializer);
+    sse_encode_i_64(self.powerLevelBanRequired, serializer);
+    sse_encode_list_room_banned_user_row(self.bannedUsers, serializer);
   }
 
   @protected
@@ -5861,6 +6551,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_room_member_role_dto(self.role, serializer);
     sse_encode_bool(self.isSelf, serializer);
     sse_encode_bool(self.currentUserCanKick, serializer);
+    sse_encode_bool(self.currentUserCanBan, serializer);
   }
 
   @protected
@@ -5881,6 +6572,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.question, serializer);
     sse_encode_u_64(self.timestamp, serializer);
     sse_encode_bool(self.isOutgoing, serializer);
+  }
+
+  @protected
+  void sse_encode_room_power_level_settings_patch(
+    RoomPowerLevelSettingsPatch self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_opt_box_autoadd_i_64(self.ban, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.invite, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.kick, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.redact, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.eventsDefault, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.stateDefault, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.usersDefault, serializer);
   }
 
   @protected
@@ -6097,6 +6803,31 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
         RustLib.instance.api.rust_arc_decrement_strong_count_MatrixClientPtr,
   );
 
+  /// Update `m.room.power_levels` thresholds (invite / kick / ban / defaults). Requires sufficient PL.
+  Future<void> applyRoomPowerLevelSettings({
+    required String roomId,
+    required RoomPowerLevelSettingsPatch patch,
+  }) => RustLib.instance.api
+      .crateApiMatrixClientMatrixClientApplyRoomPowerLevelSettings(
+        that: this,
+        roomId: roomId,
+        patch: patch,
+      );
+
+  /// True if the server already holds a key backup for this account.
+  Future<bool> backupExistsOnServer() => RustLib.instance.api
+      .crateApiMatrixClientMatrixClientBackupExistsOnServer(that: this);
+
+  /// Ban a joined member (or enforce ban). Requires ban power.
+  Future<void> banRoomMember({
+    required String roomId,
+    required String userId,
+  }) => RustLib.instance.api.crateApiMatrixClientMatrixClientBanRoomMember(
+    that: this,
+    roomId: roomId,
+    userId: userId,
+  );
+
   /// Cancels an in-progress [MatrixClient::send_timeline_file_with_progress] (upload / send).
   Future<void> cancelTimelineFileSend() => RustLib.instance.api
       .crateApiMatrixClientMatrixClientCancelTimelineFileSend(that: this);
@@ -6115,6 +6846,14 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
     name: name,
     userIds: userIds,
   );
+
+  /// Enable secret storage and key backup; [passphrase] unlocks recovery on other devices.
+  Future<String> enableRecoveryWithPassphrase({required String passphrase}) =>
+      RustLib.instance.api
+          .crateApiMatrixClientMatrixClientEnableRecoveryWithPassphrase(
+            that: this,
+            passphrase: passphrase,
+          );
 
   /// Fetches decrypted media bytes for a timeline message (image/video/file/audio).
   /// `event_id` may be a server event id or a **local transaction id** for pending echoes.
@@ -6142,6 +6881,11 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
   /// Fetch all rooms the user is in. Uses the app stored in this client (from [MatrixClient::start_sync_service]).
   Future<List<RoomUpdate>> getAllRooms() => RustLib.instance.api
       .crateApiMatrixClientMatrixClientGetAllRooms(that: this);
+
+  /// Avatar MXC from the state-store cache only (no network). Empty until a successful
+  /// [get_profile_avatar_mxc] / sync has populated the cache.
+  Future<String?> getCachedProfileAvatarMxc() => RustLib.instance.api
+      .crateApiMatrixClientMatrixClientGetCachedProfileAvatarMxc(that: this);
 
   /// Get the current user's display name (profile).
   Future<String?> getDisplayName() => RustLib.instance.api
@@ -6174,6 +6918,10 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
   Future<String?> getProfileInitials() => RustLib.instance.api
       .crateApiMatrixClientMatrixClientGetProfileInitials(that: this);
 
+  /// Current recovery state: `unknown` | `enabled` | `disabled` | `incomplete` (lowercase).
+  Future<String> getRecoveryState() => RustLib.instance.api
+      .crateApiMatrixClientMatrixClientGetRecoveryState(that: this);
+
   /// Room summary, joined members (empty for DMs), and moderation flags for the current user.
   Future<RoomDetails> getRoomDetails({required String roomId}) =>
       RustLib.instance.api.crateApiMatrixClientMatrixClientGetRoomDetails(
@@ -6187,6 +6935,16 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
             that: this,
             roomId: roomId,
           );
+
+  /// Invite a user by Matrix ID (`@localpart:server`). Requires invite power.
+  Future<void> inviteUserToRoom({
+    required String roomId,
+    required String userId,
+  }) => RustLib.instance.api.crateApiMatrixClientMatrixClientInviteUserToRoom(
+    that: this,
+    roomId: roomId,
+    userId: userId,
+  );
 
   /// Whether the client has an active session.
   Future<bool> isClientAuthenticated() => RustLib.instance.api
@@ -6246,6 +7004,10 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
     filter: filter,
   );
 
+  /// Canonical Matrix user id (`@localpart:server`) when logged in.
+  Future<String?> loggedInUserId() => RustLib.instance.api
+      .crateApiMatrixClientMatrixClientLoggedInUserId(that: this);
+
   /// Log in with username and password.
   Future<bool> login({required String username, required String password}) =>
       RustLib.instance.api.crateApiMatrixClientMatrixClientLogin(
@@ -6269,6 +7031,15 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
   Future<bool> pauseSyncService() => RustLib.instance.api
       .crateApiMatrixClientMatrixClientPauseSyncService(that: this);
 
+  /// Restore secrets from the server using recovery passphrase or security key.
+  Future<void> recoverWithPassphrase({required String passphrase}) => RustLib
+      .instance
+      .api
+      .crateApiMatrixClientMatrixClientRecoverWithPassphrase(
+        that: this,
+        passphrase: passphrase,
+      );
+
   /// Redact a timeline message for **everyone** (`m.room.redaction`) or abort a matching local echo.
   ///
   /// Pass [event_id] for remote echoes, or [transaction_id] for a local row (matrix-sdk-ui picks redact vs abort).
@@ -6285,6 +7056,10 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
         transactionId: transactionId,
         reason: reason,
       );
+
+  /// Wait for E2EE initialization so recovery state reflects account data (call after login / sync start).
+  Future<void> refreshRecoveryState() => RustLib.instance.api
+      .crateApiMatrixClientMatrixClientRefreshRecoveryState(that: this);
 
   /// Register a new account.
   Future<bool> register({
@@ -6547,6 +7322,16 @@ class MatrixClientImpl extends RustOpaque implements MatrixClient {
         transactionId: transactionId,
         reactionKey: reactionKey,
       );
+
+  /// Revoke a ban (`unban` in Matrix).
+  Future<void> unbanRoomMember({
+    required String roomId,
+    required String userId,
+  }) => RustLib.instance.api.crateApiMatrixClientMatrixClientUnbanRoomMember(
+    that: this,
+    roomId: roomId,
+    userId: userId,
+  );
 
   Future<void> unregisterPusher({
     required String pushKey,

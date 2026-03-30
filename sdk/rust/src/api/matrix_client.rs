@@ -27,17 +27,17 @@ use crate::{
         client::ClientConfig,
         file_send_progress::{FileSendPhase, FileSendProgress},
         file_upload_cache::FileUploadCache,
-        file_upload_cache_redaction,
+        file_upload_cache_redaction, profile_account, recovery,
+        room_info::{
+            self, RoomDetails, RoomFileFilter, RoomFileItem, RoomLinkItem, RoomPollItem,
+            RoomPowerLevelSettingsPatch,
+        },
         rooms::{self, RoomUpdate},
         send_timeline_file,
         sync_notifications::SyncNotificationSummary,
         sync_service::{self, App},
         timeline_media,
-        profile_account,
         timelines::{self, Message},
-        room_info::{
-            self, RoomDetails, RoomFileFilter, RoomFileItem, RoomLinkItem, RoomPollItem,
-        },
         user_serach,
     },
 };
@@ -172,6 +172,40 @@ impl MatrixClient {
         crate::matrix::authentication::is_client_authenticated(&self.client)
     }
 
+    /// Canonical Matrix user id (`@localpart:server`) when logged in.
+    pub fn logged_in_user_id(&self) -> Option<String> {
+        self.client.user_id().map(|u| u.to_string())
+    }
+
+    /// Current recovery state: `unknown` | `enabled` | `disabled` | `incomplete` (lowercase).
+    pub fn get_recovery_state(&self) -> Result<String, String> {
+        Ok(recovery::get_recovery_state_label(&self.client))
+    }
+
+    /// Wait for E2EE initialization so recovery state reflects account data (call after login / sync start).
+    pub async fn refresh_recovery_state(&self) -> Result<(), String> {
+        recovery::wait_for_recovery_state_ready(&self.client).await;
+        Ok(())
+    }
+
+    /// Enable secret storage and key backup; [passphrase] unlocks recovery on other devices.
+    pub async fn enable_recovery_with_passphrase(
+        &self,
+        passphrase: String,
+    ) -> Result<String, String> {
+        recovery::enable_recovery_with_passphrase(&self.client, passphrase).await
+    }
+
+    /// Restore secrets from the server using recovery passphrase or security key.
+    pub async fn recover_with_passphrase(&self, passphrase: String) -> Result<(), String> {
+        recovery::recover_with_passphrase(&self.client, passphrase).await
+    }
+
+    /// True if the server already holds a key backup for this account.
+    pub async fn backup_exists_on_server(&self) -> Result<bool, String> {
+        recovery::backup_exists_on_server(&self.client).await
+    }
+
     /// Get the current user's display name (profile).
     pub async fn get_display_name(&self) -> Result<Option<String>, String> {
         self.client
@@ -206,13 +240,27 @@ impl MatrixClient {
             .map(|u| u.to_string()))
     }
 
+    /// Avatar MXC from the state-store cache only (no network). Empty until a successful
+    /// [get_profile_avatar_mxc] / sync has populated the cache.
+    pub async fn get_cached_profile_avatar_mxc(&self) -> Result<Option<String>, String> {
+        Ok(self
+            .client
+            .account()
+            .get_cached_avatar_url()
+            .await
+            .map_err(|e| e.to_string())?
+            .map(|u| u.to_string()))
+    }
+
     /// Upload bytes as the account avatar (JPEG/PNG/WebP, etc.).
     pub async fn upload_profile_avatar(
         &self,
         mime_type: String,
         data: Vec<u8>,
     ) -> Result<(), String> {
-        let mime: mime::Mime = mime_type.parse().map_err(|e| format!("Invalid mimetype: {e}"))?;
+        let mime: mime::Mime = mime_type
+            .parse()
+            .map_err(|e| format!("Invalid mimetype: {e}"))?;
         self.client
             .account()
             .upload_avatar(&mime, data)
@@ -502,11 +550,10 @@ impl MatrixClient {
             PollKind::Undisclosed
         };
         let ms = max_selections.max(1);
-        block.max_selections = UInt::new(ms)
-            .ok_or_else(|| "max_selections out of range".to_string())?;
+        block.max_selections =
+            UInt::new(ms).ok_or_else(|| "max_selections out of range".to_string())?;
 
-        let new_content =
-            NewUnstablePollStartEventContent::plain_text(question.clone(), block);
+        let new_content = NewUnstablePollStartEventContent::plain_text(question.clone(), block);
         let _send_handle = timeline_arc
             .send(AnyMessageLikeEventContent::UnstablePollStart(
                 UnstablePollStartEventContent::New(new_content),
@@ -900,7 +947,8 @@ impl MatrixClient {
             tg.get(&room_owned)
                 .map(|t| t.timeline.clone())
                 .ok_or_else(|| {
-                    "No timeline for this room; open the conversation and wait for sync.".to_string()
+                    "No timeline for this room; open the conversation and wait for sync."
+                        .to_string()
                 })?
         };
 
@@ -995,11 +1043,7 @@ impl MatrixClient {
     }
 
     /// Remove a member from the room (kick). Requires sufficient power level.
-    pub async fn kick_room_member(
-        &self,
-        room_id: String,
-        user_id: String,
-    ) -> Result<(), String> {
+    pub async fn kick_room_member(&self, room_id: String, user_id: String) -> Result<(), String> {
         room_info::kick_room_member(&self.client, room_id, user_id).await
     }
 
@@ -1011,6 +1055,42 @@ impl MatrixClient {
         power_level: i64,
     ) -> Result<(), String> {
         room_info::set_room_member_power_level(&self.client, room_id, user_id, power_level).await
+    }
+
+    /// Invite a user by Matrix ID (`@localpart:server`). Requires invite power.
+    pub async fn invite_user_to_room(
+        &self,
+        room_id: String,
+        user_id: String,
+    ) -> Result<(), String> {
+        room_info::invite_user_to_room(&self.client, room_id, user_id).await
+    }
+
+    /// Ban a joined member (or enforce ban). Requires ban power.
+    pub async fn ban_room_member(
+        &self,
+        room_id: String,
+        user_id: String,
+    ) -> Result<(), String> {
+        room_info::ban_room_member(&self.client, room_id, user_id).await
+    }
+
+    /// Revoke a ban (`unban` in Matrix).
+    pub async fn unban_room_member(
+        &self,
+        room_id: String,
+        user_id: String,
+    ) -> Result<(), String> {
+        room_info::unban_room_member(&self.client, room_id, user_id).await
+    }
+
+    /// Update `m.room.power_levels` thresholds (invite / kick / ban / defaults). Requires sufficient PL.
+    pub async fn apply_room_power_level_settings(
+        &self,
+        room_id: String,
+        patch: RoomPowerLevelSettingsPatch,
+    ) -> Result<(), String> {
+        room_info::apply_room_power_level_settings(&self.client, room_id, patch).await
     }
 
     pub async fn get_timeline_items_by_room_id(
@@ -1231,7 +1311,9 @@ impl MatrixClient {
         // Register the Matrix handler + broadcast hub even if Dart subscribed slightly before
         // `start_sync_service` (or after a cold start); otherwise the stream would never attach.
         if let Err(e) = self.ensure_sync_notification_handler().await {
-            tracing::warn!("subscribe_to_sync_notifications: ensure_sync_notification_handler: {e}");
+            tracing::warn!(
+                "subscribe_to_sync_notifications: ensure_sync_notification_handler: {e}"
+            );
             return;
         }
         let tx = self.sync_notification_tx.lock().await.clone();

@@ -7,6 +7,7 @@ import 'package:matrix/src/features/auth/presentation/screens/login_screen_wm.da
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
 import 'package:matrix/src/features/auth/routes/auth_route.dart';
 import 'package:matrix/src/features/chat_lisitng/presentation/screens/chat_listing_screen.dart';
+import 'package:matrix/src/features/key_recovery/presentation/screens/post_registration_key_recovery_screen.dart';
 
 LoginScreenWM loginScreenWMFactory(BuildContext context) {
   return LoginScreenWM(LoginScreenModel(MatrixService()));
@@ -181,17 +182,27 @@ class LoginScreen extends ElementaryWidget<LoginScreenWM> implements AuthRoute {
             },
           ),
           const SizedBox(height: 20),
-          TerminalTextField(
-            controller: wm.passwordController,
-            label: 'PASSWORD',
-            hint: 'Enter your password',
-            icon: Icons.lock,
-            isPassword: true,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Password is required';
-              }
-              return null;
+          ValueListenableBuilder(
+            valueListenable: wm.formData,
+            builder: (context, formData, child) {
+              return TerminalTextField(
+                controller: wm.passwordController,
+                label: 'PASSWORD',
+                hint: 'Enter your password',
+                icon: Icons.lock,
+                isPassword: true,
+                obscureText: !formData.showPassword,
+                suffixIcon: formData.showPassword
+                    ? Icons.visibility_off
+                    : Icons.visibility,
+                onSuffixPressed: wm.togglePasswordVisibility,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Password is required';
+                  }
+                  return null;
+                },
+              );
             },
           ),
           const SizedBox(height: 30),
@@ -344,5 +355,13 @@ class LoginScreen extends ElementaryWidget<LoginScreenWM> implements AuthRoute {
   @override
   void navigateToChatListingScreen(BuildContext context) {
     NavigatorService.pushReplacement(context, const ChatListingScreen());
+  }
+
+  @override
+  void navigateToPostRegistrationRecovery(BuildContext context) {
+    NavigatorService.pushReplacement(
+      context,
+      const PostRegistrationKeyRecoveryScreen(),
+    );
   }
 }

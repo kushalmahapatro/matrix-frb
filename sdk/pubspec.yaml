@@ -27,7 +27,7 @@ dependencies:
   media:
     git:
       url: https://github.com/kushalmahapatro/media-rs.git
-      ref: feat/fast-decoder
+      ref: 6a56ba80124b4a1673e8a7767532f088aa64ea1e
 
 # Same workspace packages as app — see app/pubspec.yaml.
 # media_native_build (via media_dart) allows archive ^3.6.1; matrix_sdk uses ^4 — unify for the solver.
@@ -36,12 +36,12 @@ dependency_overrides:
   media_dart:
     git:
       url: https://github.com/kushalmahapatro/media-rs.git
-      ref: feat/fast-decoder
+      ref: 6a56ba80124b4a1673e8a7767532f088aa64ea1e
       path: media_dart
   media_flutter:
     git:
       url: https://github.com/kushalmahapatro/media-rs.git
-      ref: feat/fast-decoder
+      ref: 6a56ba80124b4a1673e8a7767532f088aa64ea1e
       path: media_flutter
 
 flutter:

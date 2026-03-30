@@ -26,7 +26,12 @@ Future<void> runLocalBuild(
   );
 
   // Pdfium / FFmpeg for `cargo`: env + `.matrix-sdk/native/` under this package.
-  final envVars = matrixNativeMediaCargoEnv(packageRoot: input.packageRoot);
+  final envVars = {
+    ...matrixNativeMediaCargoEnv(packageRoot: input.packageRoot),
+    // Align with Runner IPHONEOS_DEPLOYMENT_TARGET; Cargo’s default (10.0) breaks
+    // the final link (undefined ___chkstk_darwin) with modern Xcode + OpenSSL/SQLCipher.
+    'IPHONEOS_DEPLOYMENT_TARGET': '13.0',
+  };
 
   final rustBuilder = RustBuilder(
     assetName: assetName,

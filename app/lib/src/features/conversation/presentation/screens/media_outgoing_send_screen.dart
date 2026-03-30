@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:matrix/src/features/conversation/presentation/widgets/audio_message_waveform.dart';
 import 'package:matrix/src/core/video_send_media_prep.dart';
+import 'package:media/media.dart' show EncodeTimeEstimate;
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path/path.dart' as p;
@@ -56,6 +57,12 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
   bool _estimateDone = false;
   int? _estimateHd720Bytes;
   int? _estimateSd480Bytes;
+  EncodeTimeEstimate? _encodeEstHd720;
+  EncodeTimeEstimate? _encodeEstSd480;
+
+  double? _videoTranscodeLinear;
+  bool _videoTranscodePastEstimate = false;
+  String? _videoTranscodeMsg;
 
   int? _originalFileBytes;
   bool _videoThumbLoading = false;
@@ -132,11 +139,13 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
       _estimateDone = false;
     });
     try {
-      final est = await estimateVideoHdSdOutputBytesParallel(widget.filePath);
+      final est = await estimateVideoHdSdForTimelineSend(widget.filePath);
       if (!mounted) return;
       setState(() {
-        _estimateHd720Bytes = est.hd720Bytes;
-        _estimateSd480Bytes = est.sd480Bytes;
+        _estimateHd720Bytes = est.sizes.hd720Bytes;
+        _estimateSd480Bytes = est.sizes.sd480Bytes;
+        _encodeEstHd720 = est.hd720Encode;
+        _encodeEstSd480 = est.sd480Encode;
         _estimatingVideo = false;
         _estimateDone = true;
       });
@@ -145,6 +154,8 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
       setState(() {
         _estimateHd720Bytes = null;
         _estimateSd480Bytes = null;
+        _encodeEstHd720 = null;
+        _encodeEstSd480 = null;
         _estimatingVideo = false;
         _estimateDone = true;
       });
@@ -170,6 +181,9 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
       _error = null;
       _prepStage = null;
       _rustProgress = null;
+      _videoTranscodeLinear = null;
+      _videoTranscodePastEstimate = false;
+      _videoTranscodeMsg = null;
     });
     AppTimelineSendPrep? prep;
     try {
@@ -177,7 +191,29 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
         widget.filePath,
         mimeType: widget.mimeType,
         onStage: (s) {
-          if (mounted) setState(() => _prepStage = s);
+          if (!mounted) return;
+          setState(() {
+            _prepStage = s;
+            if (s != MediaOutboundPrepStage.compressingVideo) {
+              _videoTranscodeLinear = null;
+              _videoTranscodePastEstimate = false;
+              _videoTranscodeMsg = null;
+            }
+          });
+        },
+        onVideoTranscodeProgress: (c) {
+          if (!mounted) return;
+          setState(() {
+            if (c.linearProgress != null) {
+              _videoTranscodeLinear = c.linearProgress;
+            }
+            if (c.pastEstimate != null) {
+              _videoTranscodePastEstimate = c.pastEstimate!;
+            }
+            if (c.message != null) {
+              _videoTranscodeMsg = c.message;
+            }
+          });
         },
         videoQuality: _videoQuality,
       );
@@ -284,6 +320,89 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
     if (kb < 1024) return '${kb.toStringAsFixed(kb >= 100 ? 0 : 1)} KB';
     final mb = kb / 1024;
     return '${mb.toStringAsFixed(mb >= 100 ? 0 : 1)} MB';
+  }
+
+  String _formatEncodeEta(EncodeTimeEstimate? e) {
+    if (e == null) return '—';
+    final ms = e.estimated.inMilliseconds;
+    if (ms <= 0) return '—';
+    return '~${e.estimatedSeconds.toStringAsFixed(0)} s (${e.confidence.name})';
+  }
+
+  Widget _prepStageProgressBar(ThemeData theme) {
+    final stage = _prepStage;
+    if (stage == null) {
+      return const SizedBox.shrink();
+    }
+    if (stage != MediaOutboundPrepStage.compressingVideo) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: LinearProgressIndicator(),
+      );
+    }
+
+    final selEta = _videoQuality == VideoSendQuality.hd
+        ? _encodeEstHd720
+        : _encodeEstSd480;
+    final etaMs = selEta?.estimated.inMilliseconds ?? 0;
+    final timeBased = etaMs > 0;
+    final linear = (_videoTranscodeLinear ?? 0).clamp(0.0, 1.0);
+
+    if (timeBased && selEta != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_videoTranscodePastEstimate)
+              const LinearProgressIndicator()
+            else
+              LinearProgressIndicator(value: linear),
+            const SizedBox(height: 6),
+            Text(
+              _videoTranscodePastEstimate
+                  ? 'Past ~${selEta.estimatedSeconds.toStringAsFixed(0)} s estimate — still encoding…'
+                  : '${(linear * 100).toStringAsFixed(0)}% of ~${selEta.estimatedSeconds.toStringAsFixed(0)} s '
+                      '(${selEta.confidence.name})',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (_videoTranscodeMsg != null && _videoTranscodeMsg!.trim().isNotEmpty)
+              Text(
+                _videoTranscodeMsg!,
+                style: theme.textTheme.bodySmall,
+              ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LinearProgressIndicator(
+            value: (_videoTranscodeLinear != null && _videoTranscodeLinear! > 0)
+                ? _videoTranscodeLinear!.clamp(0.0, 1.0)
+                : null,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'No time estimate (unknown duration) — native progress when available.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          if (_videoTranscodeMsg != null && _videoTranscodeMsg!.trim().isNotEmpty)
+            Text(
+              _videoTranscodeMsg!,
+              style: theme.textTheme.bodySmall,
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _estimateRow(
@@ -583,12 +702,45 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
                         bytes: _estimateHd720Bytes,
                         emphasize: _videoQuality == VideoSendQuality.hd,
                       ),
-                      const SizedBox(height: 6),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 108, top: 2, bottom: 4),
+                        child: Text(
+                          _estimatingVideo
+                              ? '…'
+                              : 'Wall time (est.): ${_formatEncodeEta(_encodeEstHd720)}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: 11,
+                            color: _videoQuality == VideoSendQuality.hd
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.outline,
+                            fontWeight: _videoQuality == VideoSendQuality.hd
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ),
                       _estimateRow(
                         theme,
                         label: 'SD (480p)',
                         bytes: _estimateSd480Bytes,
                         emphasize: _videoQuality == VideoSendQuality.sd,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 108, top: 2, bottom: 4),
+                        child: Text(
+                          _estimatingVideo
+                              ? '…'
+                              : 'Wall time (est.): ${_formatEncodeEta(_encodeEstSd480)}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: 11,
+                            color: _videoQuality == VideoSendQuality.sd
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.outline,
+                            fontWeight: _videoQuality == VideoSendQuality.sd
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          ),
+                        ),
                       ),
                       if (_estimatingVideo) ...[
                         const SizedBox(height: 8),
@@ -655,11 +807,7 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
                       ),
                     ),
                   ),
-                if (_prepStage != null)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: LinearProgressIndicator(),
-                  ),
+                if (_prepStage != null) _prepStageProgressBar(theme),
                 if (_rustProgress != null) ...[
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),

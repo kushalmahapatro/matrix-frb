@@ -394,8 +394,8 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "feat/fast-decoder"
-      resolved-ref: "358fa3a3f86f90bc3c1b9815e3c8b1feed3b16bb"
+      ref: "6a56ba80124b4a1673e8a7767532f088aa64ea1e"
+      resolved-ref: "6a56ba80124b4a1673e8a7767532f088aa64ea1e"
       url: "https://github.com/kushalmahapatro/media-rs.git"
     source: git
     version: "0.1.0"
@@ -403,8 +403,8 @@ packages:
     dependency: "direct overridden"
     description:
       path: media_dart
-      ref: "feat/fast-decoder"
-      resolved-ref: "358fa3a3f86f90bc3c1b9815e3c8b1feed3b16bb"
+      ref: "6a56ba80124b4a1673e8a7767532f088aa64ea1e"
+      resolved-ref: "6a56ba80124b4a1673e8a7767532f088aa64ea1e"
       url: "https://github.com/kushalmahapatro/media-rs.git"
     source: git
     version: "0.1.0"
@@ -412,8 +412,8 @@ packages:
     dependency: "direct overridden"
     description:
       path: media_flutter
-      ref: "feat/fast-decoder"
-      resolved-ref: "358fa3a3f86f90bc3c1b9815e3c8b1feed3b16bb"
+      ref: "6a56ba80124b4a1673e8a7767532f088aa64ea1e"
+      resolved-ref: "6a56ba80124b4a1673e8a7767532f088aa64ea1e"
       url: "https://github.com/kushalmahapatro/media-rs.git"
     source: git
     version: "0.1.0"
@@ -421,8 +421,8 @@ packages:
     dependency: transitive
     description:
       path: "tool/native_build"
-      ref: "358fa3a3f86f90bc3c1b9815e3c8b1feed3b16bb"
-      resolved-ref: "358fa3a3f86f90bc3c1b9815e3c8b1feed3b16bb"
+      ref: "6a56ba80124b4a1673e8a7767532f088aa64ea1e"
+      resolved-ref: "6a56ba80124b4a1673e8a7767532f088aa64ea1e"
       url: "https://github.com/kushalmahapatro/media-rs.git"
     source: git
     version: "0.1.0"

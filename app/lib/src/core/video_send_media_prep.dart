@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:io';
 
@@ -7,6 +8,10 @@ import 'package:path_provider/path_provider.dart';
 
 /// Compress videos at or above this size before send (H.264/AAC MP4 via `media` package).
 const int kVideoTranscodeMinBytes = 2 * 1024 * 1024;
+
+/// Timeline video / image thumbnail: medium JPEG (max long edge), same tier as media_flutter
+/// [ThumbnailWidthPreset.medium].
+const int kTimelineVideoThumbnailMaxEdgePx = 720;
 
 /// Target bitrate for HD (720p) transcode — keep in sync with [CompressParams] for that preset.
 const int kVideoTranscodeTargetBitrateKbps = 2000;
@@ -42,7 +47,46 @@ enum MediaOutboundPrepStage {
   generatingThumbnail,
 }
 
-typedef MediaOutboundPrepStageCallback = void Function(MediaOutboundPrepStage stage);
+typedef MediaOutboundPrepStageCallback =
+    void Function(MediaOutboundPrepStage stage);
+
+/// Partial updates while [Media.transcodeVideoStream] runs (see media_flutter video example).
+class VideoTranscodeProgressChunk {
+  const VideoTranscodeProgressChunk({
+    this.linearProgress,
+    this.pastEstimate,
+    this.message,
+  });
+
+  /// 0–1 when time-based and still within ETA; ignored when `null` (keep UI value).
+  final double? linearProgress;
+
+  /// When time-based and wall time exceeded [EncodeTimeEstimate]; `null` means unchanged.
+  final bool? pastEstimate;
+
+  /// Native encoder status line; `null` means unchanged.
+  final String? message;
+}
+
+typedef VideoTranscodeProgressCallback =
+    void Function(VideoTranscodeProgressChunk chunk);
+
+/// Parallel [estimateCompressedSize] + [estimateEncodeWallClock] for 720p / 480p presets.
+class VideoHdSdTimelineEstimates {
+  VideoHdSdTimelineEstimates({
+    required this.sizes,
+    this.hd720Encode,
+    this.sd480Encode,
+  });
+
+  final VideoHdSdEstimates sizes;
+
+  /// Wall-clock transcode ETA when a large file is transcoded to HD; `null` if N/A.
+  final EncodeTimeEstimate? hd720Encode;
+
+  /// Wall-clock transcode ETA for SD preset; `null` if N/A.
+  final EncodeTimeEstimate? sd480Encode;
+}
 
 /// Parallel [estimateCompression] results for 720p (HD) and 480p (SD) targets.
 class VideoHdSdEstimates {
@@ -67,21 +111,20 @@ int? _probeDurationMs(VideoProbe probe) {
   return ms > 0 ? ms : null;
 }
 
-/// Uses `media` [estimateCompressedSize] with [VideoPreset.p720] and [VideoPreset.p480]
-/// (Telegram-style bitrate caps; close to prior 720p/480p targets).
-/// Below [kVideoTranscodeMinBytes], both estimates are the source file size (no transcode).
-Future<VideoHdSdEstimates> estimateVideoHdSdOutputBytesParallel(
+/// Uses `media` [estimateCompressedSize] and [estimateEncodeWallClock] with [VideoPreset.p720]
+/// and [VideoPreset.p480]. Below [kVideoTranscodeMinBytes], sizes are the source file size and
+/// encode ETAs are omitted (no transcode).
+Future<VideoHdSdTimelineEstimates> estimateVideoHdSdForTimelineSend(
   String sourcePath,
 ) async {
   final src = File(sourcePath);
   if (!await src.exists()) {
-    return const VideoHdSdEstimates();
+    return VideoHdSdTimelineEstimates(sizes: const VideoHdSdEstimates());
   }
   final sourceLen = await src.length();
   if (sourceLen < kVideoTranscodeMinBytes) {
-    return VideoHdSdEstimates(
-      hd720Bytes: sourceLen,
-      sd480Bytes: sourceLen,
+    return VideoHdSdTimelineEstimates(
+      sizes: VideoHdSdEstimates(hd720Bytes: sourceLen, sd480Bytes: sourceLen),
     );
   }
 
@@ -96,18 +139,36 @@ Future<VideoHdSdEstimates> estimateVideoHdSdOutputBytesParallel(
       probe: probe,
       preset: VideoPreset.p480,
     );
-    return VideoHdSdEstimates(
-      hd720Bytes: _clampEstimatedBytesToSource(hdEst.estimatedBytes, sourceLen),
-      sd480Bytes: _clampEstimatedBytesToSource(sdEst.estimatedBytes, sourceLen),
+    final hdTime = estimateEncodeWallClock(
+      probe: probe,
+      preset: VideoPreset.p720,
+    );
+    final sdTime = estimateEncodeWallClock(
+      probe: probe,
+      preset: VideoPreset.p480,
+    );
+    return VideoHdSdTimelineEstimates(
+      sizes: VideoHdSdEstimates(
+        hd720Bytes: _clampEstimatedBytesToSource(
+          hdEst.estimatedBytes,
+          sourceLen,
+        ),
+        sd480Bytes: _clampEstimatedBytesToSource(
+          sdEst.estimatedBytes,
+          sourceLen,
+        ),
+      ),
+      hd720Encode: hdTime.estimated.inMilliseconds > 0 ? hdTime : null,
+      sd480Encode: sdTime.estimated.inMilliseconds > 0 ? sdTime : null,
     );
   } catch (e, st) {
     developer.log(
-      'estimateCompressedSize (media)',
+      'estimateCompressedSize / estimateEncodeWallClock (media)',
       error: e,
       stackTrace: st,
       name: 'matrix.timeline_send',
     );
-    return const VideoHdSdEstimates();
+    return VideoHdSdTimelineEstimates(sizes: const VideoHdSdEstimates());
   }
 }
 
@@ -175,6 +236,7 @@ class AppTimelineSendPrep {
     String path, {
     String? mimeType,
     MediaOutboundPrepStageCallback? onStage,
+    VideoTranscodeProgressCallback? onVideoTranscodeProgress,
     VideoSendQuality videoQuality = VideoSendQuality.sd,
   }) async {
     final m = mimeType?.toLowerCase().trim();
@@ -191,7 +253,12 @@ class AppTimelineSendPrep {
       return null;
     }
     if (await isTimelineVideoSendCandidate(path, mimeType: mimeType)) {
-      return _fromVideo(path, onStage: onStage, quality: videoQuality);
+      return _fromVideo(
+        path,
+        onStage: onStage,
+        onVideoTranscodeProgress: onVideoTranscodeProgress,
+        quality: videoQuality,
+      );
     }
     if (await isTimelineImageSendCandidate(path, mimeType: mimeType)) {
       return _fromImage(path, onStage: onStage);
@@ -202,11 +269,13 @@ class AppTimelineSendPrep {
   static Future<AppTimelineSendPrep?> _fromVideo(
     String path, {
     MediaOutboundPrepStageCallback? onStage,
+    VideoTranscodeProgressCallback? onVideoTranscodeProgress,
     VideoSendQuality quality = VideoSendQuality.sd,
   }) async {
     final v = await prepareVideoForTimelineSend(
       path,
       onStage: onStage,
+      onVideoTranscodeProgress: onVideoTranscodeProgress,
       quality: quality,
     );
     if (v == null) return null;
@@ -301,28 +370,20 @@ Future<bool> fileHeaderLooksLikeVideoContainer(String path) async {
     raf = await f.open();
     final buf = await raf.read(12);
     if (buf.length < 12) return false;
-    if (buf[4] == 0x66 &&
-        buf[5] == 0x74 &&
-        buf[6] == 0x79 &&
-        buf[7] == 0x70) {
-      final brand =
-          String.fromCharCodes(buf.sublist(8, 12)).toLowerCase().trim();
+    if (buf[4] == 0x66 && buf[5] == 0x74 && buf[6] == 0x79 && buf[7] == 0x70) {
+      final brand = String.fromCharCodes(
+        buf.sublist(8, 12),
+      ).toLowerCase().trim();
       if (_isIsoBmffStillImageBrand(brand)) {
         return false;
       }
       return true;
     }
-    if (buf[0] == 0x52 &&
-        buf[1] == 0x49 &&
-        buf[2] == 0x46 &&
-        buf[3] == 0x46) {
+    if (buf[0] == 0x52 && buf[1] == 0x49 && buf[2] == 0x46 && buf[3] == 0x46) {
       return true;
     }
     // WebM / Matroska (EBML)
-    if (buf[0] == 0x1a &&
-        buf[1] == 0x45 &&
-        buf[2] == 0xdf &&
-        buf[3] == 0xa3) {
+    if (buf[0] == 0x1a && buf[1] == 0x45 && buf[2] == 0xdf && buf[3] == 0xa3) {
       return true;
     }
     return false;
@@ -335,7 +396,17 @@ Future<bool> fileHeaderLooksLikeVideoContainer(String path) async {
 
 bool _isIsoBmffStillImageBrand(String brand) {
   if (brand.isEmpty) return false;
-  const prefixes = ['heic', 'heif', 'heix', 'heim', 'heis', 'mif1', 'msf1', 'avif', 'miaf'];
+  const prefixes = [
+    'heic',
+    'heif',
+    'heix',
+    'heim',
+    'heis',
+    'mif1',
+    'msf1',
+    'avif',
+    'miaf',
+  ];
   for (final p in prefixes) {
     if (brand.startsWith(p)) return true;
   }
@@ -384,8 +455,9 @@ Future<bool> fileHeaderLooksLikeRasterImage(String path) async {
         buf[5] == 0x74 &&
         buf[6] == 0x79 &&
         buf[7] == 0x70) {
-      final brand =
-          String.fromCharCodes(buf.sublist(8, 12)).toLowerCase().trim();
+      final brand = String.fromCharCodes(
+        buf.sublist(8, 12),
+      ).toLowerCase().trim();
       return _isIsoBmffStillImageBrand(brand);
     }
     return false;
@@ -430,7 +502,7 @@ Future<ImageThumbnailPrep?> prepareRasterImageThumbnailForTimelineSend(
       path: sourcePath,
       outputPath: thumbOut,
       timeSec: 0,
-      maxEdge: 720,
+      maxEdge: kTimelineVideoThumbnailMaxEdgePx,
       format: ThumbnailFormat.jpeg,
     );
     final tf = File(writtenPath);
@@ -459,7 +531,7 @@ Future<String?> generateVideoPreviewThumbnailForUi(String sourcePath) async {
       path: sourcePath,
       outputPath: thumbOut,
       timeSec: 1.0,
-      maxEdge: 720,
+      maxEdge: kTimelineVideoThumbnailMaxEdgePx,
       format: ThumbnailFormat.jpeg,
     );
     final tf = File(writtenPath);
@@ -477,9 +549,130 @@ Future<String?> generateVideoPreviewThumbnailForUi(String sourcePath) async {
   return null;
 }
 
+/// H.264/AAC transcode with optional ETA-based UI progress (media_flutter video example pattern).
+Future<String?> _tryTranscodeToMp4({
+  required String sourcePath,
+  required String outMp4,
+  required int sourceLen,
+  required VideoSendQuality quality,
+  VideoTranscodeProgressCallback? onVideoTranscodeProgress,
+}) async {
+  Timer? timer;
+  final sw = Stopwatch();
+  try {
+    await Media.init();
+    VideoProbe? probe;
+    try {
+      probe = await Media.probe(sourcePath);
+    } catch (_) {}
+
+    final preset = quality == VideoSendQuality.hd
+        ? VideoPreset.p720
+        : VideoPreset.p480;
+    final eta = probe != null
+        ? estimateEncodeWallClock(probe: probe, preset: preset)
+        : const EncodeTimeEstimate(
+            estimated: Duration.zero,
+            confidence: EstimateConfidence.low,
+          );
+    final estimateMs = eta.estimated.inMilliseconds;
+    final useTimeBasedProgress = estimateMs > 0;
+    String? lastStreamMessage;
+
+    void tickTimer() {
+      final cb = onVideoTranscodeProgress;
+      if (cb == null || !useTimeBasedProgress) return;
+      final elapsed = sw.elapsedMilliseconds;
+      final past = elapsed >= estimateMs;
+      cb(
+        VideoTranscodeProgressChunk(
+          linearProgress: past ? null : (elapsed / estimateMs).clamp(0.0, 1.0),
+          pastEstimate: past,
+          message: lastStreamMessage,
+        ),
+      );
+    }
+
+    sw.start();
+    if (useTimeBasedProgress && onVideoTranscodeProgress != null) {
+      timer = Timer.periodic(const Duration(milliseconds: 120), (_) {
+        tickTimer();
+      });
+      tickTimer();
+    }
+
+    try {
+      await for (final ev in Media.transcodeVideoStream(
+        inputPath: sourcePath,
+        outputPath: outMp4,
+        videoBitrateKbps: quality.targetBitrateKbps,
+        maxWidth: quality.targetWidth,
+        audioBitrateKbps: 128,
+      )) {
+        final m = ev.message?.trim();
+        if (m != null && m.isNotEmpty) {
+          lastStreamMessage = m;
+        }
+        final cb = onVideoTranscodeProgress;
+        if (cb == null) continue;
+        if (useTimeBasedProgress) {
+          cb(VideoTranscodeProgressChunk(message: lastStreamMessage));
+        } else {
+          cb(
+            VideoTranscodeProgressChunk(
+              linearProgress: ev.fraction.clamp(0.0, 1.0),
+              pastEstimate: false,
+              message: lastStreamMessage,
+            ),
+          );
+        }
+      }
+    } finally {
+      timer?.cancel();
+      sw.stop();
+    }
+
+    final wallMs = sw.elapsedMilliseconds;
+    final out = File(outMp4);
+    if (!await out.exists()) return null;
+    final outLen = await out.length();
+    if (outLen > 0 && outLen + 65536 < sourceLen) {
+      if (probe?.durationMs != null && probe!.durationMs! > 0 && wallMs >= 0) {
+        TranscodeCalibration.instance.recordObservation(
+          sourceDurationMs: probe.durationMs!.toInt(),
+          wallClockMs: wallMs,
+          preset: preset,
+        );
+      }
+      onVideoTranscodeProgress?.call(
+        const VideoTranscodeProgressChunk(
+          linearProgress: 1.0,
+          pastEstimate: false,
+        ),
+      );
+      return outMp4;
+    }
+    try {
+      await out.delete();
+    } catch (_) {}
+    return null;
+  } catch (e, st) {
+    timer?.cancel();
+    sw.stop();
+    developer.log(
+      'transcode (media)',
+      error: e,
+      stackTrace: st,
+      name: 'matrix.timeline_send',
+    );
+    return null;
+  }
+}
+
 Future<VideoSendMediaPrep?> prepareVideoForTimelineSend(
   String sourcePath, {
   MediaOutboundPrepStageCallback? onStage,
+  VideoTranscodeProgressCallback? onVideoTranscodeProgress,
   VideoSendQuality quality = VideoSendQuality.sd,
 }) async {
   final src = File(sourcePath);
@@ -495,44 +688,27 @@ Future<VideoSendMediaPrep?> prepareVideoForTimelineSend(
   if (len >= kVideoTranscodeMinBytes) {
     onStage?.call(MediaOutboundPrepStage.compressingVideo);
     try {
-      await Media.init();
       final outBase = p.join(dir.path, 'matrix_media_vid_${stamp}_$base');
       final outMp4 = outBase.toLowerCase().endsWith('.mp4')
           ? outBase
           : '$outBase.mp4';
-      await for (final _ in Media.transcodeVideoStream(
-        inputPath: sourcePath,
-        outputPath: outMp4,
-        videoBitrateKbps: quality.targetBitrateKbps,
-        maxWidth: quality.targetWidth,
-        audioBitrateKbps: 128,
-      )) {}
-      final out = File(outMp4);
-      if (await out.exists()) {
-        final outLen = await out.length();
-        if (outLen > 0 && outLen + 65536 < len) {
-          pathToSend = outMp4;
-          temps.add(out);
-        } else {
-          try {
-            await out.delete();
-          } catch (_) {}
-        }
+      final transcoded = await _tryTranscodeToMp4(
+        sourcePath: sourcePath,
+        outMp4: outMp4,
+        sourceLen: len,
+        quality: quality,
+        onVideoTranscodeProgress: onVideoTranscodeProgress,
+      );
+      if (transcoded != null) {
+        pathToSend = transcoded;
+        temps.add(File(transcoded));
       }
     } catch (_) {}
   }
 
   onStage?.call(MediaOutboundPrepStage.generatingThumbnail);
 
-  final timeCandidatesSec = <double>[
-    1.0,
-    0.0,
-    0.5,
-    0.25,
-    2.0,
-    0.1,
-    3.0,
-  ];
+  final timeCandidatesSec = <double>[1.0, 0.0, 0.5, 0.25, 2.0, 0.1, 3.0];
   try {
     await Media.init();
     final info = await Media.probe(pathToSend);
@@ -550,15 +726,17 @@ Future<VideoSendMediaPrep?> prepareVideoForTimelineSend(
   for (final timeSec in timeCandidatesSec) {
     final key = timeSec.toString();
     if (!seenTimes.add(key)) continue;
-    final thumbOut =
-        p.join(dir.path, 'matrix_media_thumb_${stamp}_${key}_$base.jpg');
+    final thumbOut = p.join(
+      dir.path,
+      'matrix_media_thumb_${stamp}_${key}_$base.jpg',
+    );
     try {
       await Media.init();
       final writtenPath = await Media.thumbnailSaveToPath(
         path: pathToSend,
         outputPath: thumbOut,
         timeSec: timeSec,
-        maxEdge: 720,
+        maxEdge: kTimelineVideoThumbnailMaxEdgePx,
         format: ThumbnailFormat.jpeg,
       );
       final tf = File(writtenPath);
@@ -570,33 +748,6 @@ Future<VideoSendMediaPrep?> prepareVideoForTimelineSend(
     } catch (e, st) {
       developer.log(
         'Video thumbnail (media package) t=$timeSec s',
-        error: e,
-        stackTrace: st,
-        name: 'matrix.timeline_send',
-      );
-    }
-  }
-
-  if (thumbPath == null) {
-    final thumbOut =
-        p.join(dir.path, 'matrix_media_thumb_${stamp}_fallback_$base.jpg');
-    try {
-      await Media.init();
-      final writtenPath = await Media.thumbnailSaveToPath(
-        path: pathToSend,
-        outputPath: thumbOut,
-        timeSec: 1.0,
-        maxEdge: 512,
-        format: ThumbnailFormat.jpeg,
-      );
-      final tf = File(writtenPath);
-      if (await tf.exists() && await tf.length() > 0) {
-        thumbPath = writtenPath;
-        temps.add(tf);
-      }
-    } catch (e, st) {
-      developer.log(
-        'Video thumbnail fallback',
         error: e,
         stackTrace: st,
         name: 'matrix.timeline_send',

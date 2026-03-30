@@ -19,6 +19,11 @@ import 'package:matrix/src/features/conversation/presentation/screens/conversati
 import 'package:matrix/src/features/create_chat/presentation/screens/create_chat_screen.dart';
 import 'package:matrix/src/features/messaging/domain/messaging_room_list_model.dart';
 import 'package:matrix/src/features/messaging/presentation/screens/messaging_workspace_screen.dart';
+import 'package:matrix/src/features/settings/domain/profile_local_cache.dart';
+import 'package:matrix/src/features/settings/domain/profile_prefs.dart';
+import 'package:matrix/src/features/key_recovery/domain/key_recovery_prefs.dart';
+import 'package:matrix/src/features/key_recovery/presentation/screens/login_recovery_unlock_screen.dart';
+import 'package:matrix/src/features/key_recovery/presentation/screens/setup_key_recovery_screen.dart';
 import 'package:matrix/src/features/settings/presentation/screens/settings_screen.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
 import 'package:matrix_sdk/matrix_sdk.dart' show Message;
@@ -42,7 +47,43 @@ class MessagingWorkspaceWM
     null,
   );
 
+  /// Empty until first [refreshRecoveryBannerState] completes; then SDK label.
+  final ValueNotifier<String> recoveryBannerState = ValueNotifier<String>('');
+
+  final ValueNotifier<bool> recoveryBannerDismissedThisSession =
+      ValueNotifier<bool>(false);
+
+  /// Persisted “don’t show again” after user checks the box and acts on the banner.
+  final ValueNotifier<bool> recoveryBannerDontShowAgainPersisted =
+      ValueNotifier<bool>(false);
+
+  /// From [MatrixClient.backupExistsOnServer] after refresh (false if check failed).
+  final ValueNotifier<bool> recoveryServerBackupExists =
+      ValueNotifier<bool>(false);
+
   final FocusNode roomListFocusNode = FocusNode(debugLabel: 'roomList');
+
+  /// Unlock screen when keys are incomplete, or server already has a backup (even if local state is "disabled").
+  bool get preferUnlockRecoveryBanner {
+    final s = recoveryBannerState.value;
+    if (s == 'incomplete') return true;
+    return recoveryServerBackupExists.value;
+  }
+
+  bool get shouldShowRecoveryBanner {
+    final s = recoveryBannerState.value;
+    if (s.isEmpty || s == 'enabled') return false;
+    if (recoveryBannerDismissedThisSession.value) return false;
+    if (recoveryBannerDontShowAgainPersisted.value) return false;
+    return true;
+  }
+
+  Future<void> _applyBannerDontShowAgain(bool dontShowAgain) async {
+    if (!dontShowAgain) return;
+    recoveryBannerDontShowAgainPersisted.value = true;
+    recoveryBannerDismissedThisSession.value = true;
+    await KeyRecoveryPrefs.setBannerDontShowAgain(true);
+  }
 
   StreamSubscription<List<Chat>>? _roomListSubscription;
   bool _isSubscribed = false;
@@ -293,6 +334,57 @@ class MessagingWorkspaceWM
 
   void openSettings() => unawaited(openSettingsFrom(context));
 
+  Future<void> refreshRecoveryBannerState() async {
+    try {
+      final persisted = await KeyRecoveryPrefs.isBannerDontShowAgain();
+      recoveryBannerDontShowAgainPersisted.value = persisted;
+      await MatrixService().client.refreshRecoveryState();
+      final s = await MatrixService().client.getRecoveryState();
+      recoveryBannerState.value = s;
+      final backup = await MatrixService().client.backupExistsOnServer();
+      recoveryServerBackupExists.value = backup;
+    } catch (e) {
+      LoggingService.error(
+        'MESSAGING_WORKSPACE',
+        'refreshRecoveryBannerState: $e',
+      );
+      recoveryBannerState.value = 'unknown';
+      recoveryServerBackupExists.value = false;
+    }
+  }
+
+  void dismissRecoveryBanner(bool dontShowAgain) {
+    if (dontShowAgain) {
+      unawaited(_applyBannerDontShowAgain(true));
+    } else {
+      recoveryBannerDismissedThisSession.value = true;
+    }
+  }
+
+  Future<void> openKeyRecoverySetup(
+    BuildContext anchorContext, {
+    bool dontShowAgain = false,
+  }) async {
+    if (dontShowAgain) {
+      await _applyBannerDontShowAgain(true);
+    }
+    if (!anchorContext.mounted) return;
+    final Widget page = preferUnlockRecoveryBanner
+        ? const LoginRecoveryUnlockScreen(closeWhenDone: true)
+        : const SetupKeyRecoveryScreen(showEducation: true);
+    final title =
+        preferUnlockRecoveryBanner ? 'Unlock encryption' : 'Key backup';
+    await openShellFlow<void>(
+      anchorContext: anchorContext,
+      page: page,
+      windowTitle: title,
+      preferredWindowSize: const Size(520, 640),
+    );
+    if (anchorContext.mounted) {
+      await refreshRecoveryBannerState();
+    }
+  }
+
   void onDesktopCloseOrClear() {
     final nav = nestedNavigatorKey.currentState;
     if (nav != null && nav.canPop()) {
@@ -304,10 +396,20 @@ class MessagingWorkspaceWM
     }
   }
 
+  Future<void> _loadBannerDontShowAgainFromPrefs() async {
+    try {
+      if (await KeyRecoveryPrefs.isBannerDontShowAgain()) {
+        recoveryBannerDontShowAgainPersisted.value = true;
+      }
+    } catch (_) {}
+  }
+
   @override
   void initWidgetModel() {
     super.initWidgetModel();
     unawaited(TimelineLocalHiddenStore.ensureLoaded());
+    unawaited(_loadBannerDontShowAgainFromPrefs());
+    unawaited(refreshRecoveryBannerState());
     _loadAllChats();
     _listenToChatUpdates();
   }
@@ -361,6 +463,9 @@ class MessagingWorkspaceWM
         'App resumed, restarting sync to restore room updates',
       );
       unawaited(_restartSyncAndResubscribe());
+      unawaited(refreshRecoveryBannerState());
+      unawaited(ProfileLocalCache.refreshFromClient(MatrixService().client));
+      unawaited(ProfilePrefs.instance.refresh(MatrixService().client));
     }
   }
 
@@ -378,6 +483,10 @@ class MessagingWorkspaceWM
     chatState.dispose();
     selectedChatType.dispose();
     selectedRoom.dispose();
+    recoveryBannerState.dispose();
+    recoveryBannerDismissedThisSession.dispose();
+    recoveryBannerDontShowAgainPersisted.dispose();
+    recoveryServerBackupExists.dispose();
     super.dispose();
   }
 

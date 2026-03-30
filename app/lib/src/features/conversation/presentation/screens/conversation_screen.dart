@@ -1,5 +1,6 @@
 import 'package:elementary/elementary.dart';
 import 'package:flutter/material.dart';
+import 'package:matrix/src/core/timeline_raster_thumb.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_blurhash/flutter_blurhash.dart';
 import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
@@ -695,6 +696,20 @@ class _ReplyDraftMediaThumb extends StatefulWidget {
 class _ReplyDraftMediaThumbState extends State<_ReplyDraftMediaThumb> {
   late final Future<Uint8List?> _thumbFuture;
 
+  Future<Uint8List?> _loadReplyDraftThumb(Message d) async {
+    final id = d.eventId.isNotEmpty ? d.eventId : d.transactionId;
+    final raw = await widget.wm.fetchRoomMessageMedia(id, thumbnail: true);
+    if (raw == null || raw.isEmpty) return null;
+    if (!_replyThumbLooksLikeRaster(raw)) return null;
+    final e = timelineThumbDecodeExtentPx(_kReplyDraftThumb);
+    final small = await encodeRasterPngFitBox(
+      raw,
+      targetWidthPx: e,
+      targetHeightPx: e,
+    );
+    return small ?? raw;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -702,8 +717,7 @@ class _ReplyDraftMediaThumbState extends State<_ReplyDraftMediaThumb> {
     if (d.roomMsgKind == RoomMessageKind.audio) {
       _thumbFuture = Future<Uint8List?>.value(null);
     } else {
-      final id = d.eventId.isNotEmpty ? d.eventId : d.transactionId;
-      _thumbFuture = widget.wm.fetchRoomMessageMedia(id, thumbnail: true);
+      _thumbFuture = _loadReplyDraftThumb(d);
     }
   }
 
@@ -776,6 +790,14 @@ class _ReplyDraftMediaThumbState extends State<_ReplyDraftMediaThumb> {
               bytes,
               fit: BoxFit.cover,
               gaplessPlayback: true,
+              cacheWidth: timelineThumbDecodeExtentPx(
+                _kReplyDraftThumb,
+                context,
+              ),
+              cacheHeight: timelineThumbDecodeExtentPx(
+                _kReplyDraftThumb,
+                context,
+              ),
               errorBuilder: (_, __, ___) => canBlur
                   ? BlurHash(hash: bh, imageFit: BoxFit.cover)
                   : _replyDraftKindPlaceholder(d.roomMsgKind, theme),

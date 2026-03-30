@@ -7,6 +7,32 @@ import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'timelines.dart';
 
+/// A banned user row (for unban from room info).
+class RoomBannedUserRow {
+  final String userId;
+  final String userIdDisplay;
+  final String displayName;
+
+  const RoomBannedUserRow({
+    required this.userId,
+    required this.userIdDisplay,
+    required this.displayName,
+  });
+
+  @override
+  int get hashCode =>
+      userId.hashCode ^ userIdDisplay.hashCode ^ displayName.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RoomBannedUserRow &&
+          runtimeType == other.runtimeType &&
+          userId == other.userId &&
+          userIdDisplay == other.userIdDisplay &&
+          displayName == other.displayName;
+}
+
 /// Summary for the room info / settings UI.
 class RoomDetails {
   final String roomId;
@@ -20,6 +46,18 @@ class RoomDetails {
   final bool currentUserIsAdmin;
   final bool currentUserIsModerator;
 
+  /// From the current user's membership + power levels (can call invite API).
+  final bool currentUserCanInvite;
+
+  /// From the current user's membership + power levels (can call ban / unban).
+  final bool currentUserCanBan;
+
+  /// Minimum power level required to invite (`m.room.power_levels`); defaults when unknown.
+  final PlatformInt64 powerLevelInviteRequired;
+  final PlatformInt64 powerLevelKickRequired;
+  final PlatformInt64 powerLevelBanRequired;
+  final List<RoomBannedUserRow> bannedUsers;
+
   const RoomDetails({
     required this.roomId,
     required this.displayName,
@@ -31,6 +69,12 @@ class RoomDetails {
     required this.currentUserId,
     required this.currentUserIsAdmin,
     required this.currentUserIsModerator,
+    required this.currentUserCanInvite,
+    required this.currentUserCanBan,
+    required this.powerLevelInviteRequired,
+    required this.powerLevelKickRequired,
+    required this.powerLevelBanRequired,
+    required this.bannedUsers,
   });
 
   @override
@@ -44,7 +88,13 @@ class RoomDetails {
       members.hashCode ^
       currentUserId.hashCode ^
       currentUserIsAdmin.hashCode ^
-      currentUserIsModerator.hashCode;
+      currentUserIsModerator.hashCode ^
+      currentUserCanInvite.hashCode ^
+      currentUserCanBan.hashCode ^
+      powerLevelInviteRequired.hashCode ^
+      powerLevelKickRequired.hashCode ^
+      powerLevelBanRequired.hashCode ^
+      bannedUsers.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -60,7 +110,13 @@ class RoomDetails {
           members == other.members &&
           currentUserId == other.currentUserId &&
           currentUserIsAdmin == other.currentUserIsAdmin &&
-          currentUserIsModerator == other.currentUserIsModerator;
+          currentUserIsModerator == other.currentUserIsModerator &&
+          currentUserCanInvite == other.currentUserCanInvite &&
+          currentUserCanBan == other.currentUserCanBan &&
+          powerLevelInviteRequired == other.powerLevelInviteRequired &&
+          powerLevelKickRequired == other.powerLevelKickRequired &&
+          powerLevelBanRequired == other.powerLevelBanRequired &&
+          bannedUsers == other.bannedUsers;
 }
 
 /// Filter for file rows from the cached timeline.
@@ -192,6 +248,9 @@ class RoomMemberRow {
   /// Whether the **current** user may kick this member (server rules: own power ≥ kick, own > target).
   final bool currentUserCanKick;
 
+  /// Whether the **current** user may ban this member (own power ≥ ban threshold, own > target).
+  final bool currentUserCanBan;
+
   const RoomMemberRow({
     required this.userId,
     required this.userIdDisplay,
@@ -201,6 +260,7 @@ class RoomMemberRow {
     required this.role,
     required this.isSelf,
     required this.currentUserCanKick,
+    required this.currentUserCanBan,
   });
 
   @override
@@ -212,7 +272,8 @@ class RoomMemberRow {
       powerLevel.hashCode ^
       role.hashCode ^
       isSelf.hashCode ^
-      currentUserCanKick.hashCode;
+      currentUserCanKick.hashCode ^
+      currentUserCanBan.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -226,7 +287,8 @@ class RoomMemberRow {
           powerLevel == other.powerLevel &&
           role == other.role &&
           isSelf == other.isSelf &&
-          currentUserCanKick == other.currentUserCanKick;
+          currentUserCanKick == other.currentUserCanKick &&
+          currentUserCanBan == other.currentUserCanBan;
 }
 
 /// One `org.matrix.msc3381.poll.start` row from the event cache (group room index).
@@ -267,4 +329,49 @@ class RoomPollItem {
           question == other.question &&
           timestamp == other.timestamp &&
           isOutgoing == other.isOutgoing;
+}
+
+/// Partial update for [`m.room.power_levels`](https://spec.matrix.org/latest/client-server-api/#mroompower_levels).
+/// Only set fields you want to change; others stay unchanged on the server.
+class RoomPowerLevelSettingsPatch {
+  final PlatformInt64? ban;
+  final PlatformInt64? invite;
+  final PlatformInt64? kick;
+  final PlatformInt64? redact;
+  final PlatformInt64? eventsDefault;
+  final PlatformInt64? stateDefault;
+  final PlatformInt64? usersDefault;
+
+  const RoomPowerLevelSettingsPatch({
+    this.ban,
+    this.invite,
+    this.kick,
+    this.redact,
+    this.eventsDefault,
+    this.stateDefault,
+    this.usersDefault,
+  });
+
+  @override
+  int get hashCode =>
+      ban.hashCode ^
+      invite.hashCode ^
+      kick.hashCode ^
+      redact.hashCode ^
+      eventsDefault.hashCode ^
+      stateDefault.hashCode ^
+      usersDefault.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RoomPowerLevelSettingsPatch &&
+          runtimeType == other.runtimeType &&
+          ban == other.ban &&
+          invite == other.invite &&
+          kick == other.kick &&
+          redact == other.redact &&
+          eventsDefault == other.eventsDefault &&
+          stateDefault == other.stateDefault &&
+          usersDefault == other.usersDefault;
 }

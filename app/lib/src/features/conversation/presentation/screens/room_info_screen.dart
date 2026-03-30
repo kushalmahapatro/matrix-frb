@@ -7,6 +7,7 @@ import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
 import 'package:flutter_linkify/flutter_linkify.dart';
 import 'package:matrix/src/core/open_in_app_url.dart';
 import 'package:matrix/src/core/timeline_local_hidden_store.dart';
+import 'package:matrix/src/core/timeline_raster_thumb.dart';
 import 'package:matrix/src/core/presentation/widgets/terminal_container.dart';
 import 'package:matrix/src/features/conversation/presentation/widgets/link_preview_cards.dart';
 import 'package:matrix/src/features/conversation/domain/services/conversation_service.dart';
@@ -55,6 +56,11 @@ abstract final class _RoomInfoStyles {
     thickness: 1,
     color: t.colorScheme.outline.withValues(alpha: 0.35),
   );
+}
+
+bool _isValidMatrixUserId(String raw) {
+  final s = raw.trim();
+  return RegExp(r'^@[^:@\s]+:[^\s:]+$').hasMatch(s);
 }
 
 IconData _roomFileIcon(RoomMessageKind k) {
@@ -250,6 +256,217 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
     );
   }
 
+  Future<void> _ban(RoomMemberRow m) async {
+    final ok = await _terminalConfirm(
+      title: 'ban_user',
+      body:
+          'Ban ${m.displayName}? They will be removed and blocked from re-joining until unbanned.',
+      confirmLabel: 'BAN',
+      destructive: true,
+    );
+    if (ok != true || !mounted) return;
+    final r = await _service.banRoomMember(
+      roomId: widget.roomId,
+      userId: m.userId,
+    );
+    r.fold(
+      (_) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('${m.displayName} was banned')));
+        _loadDetails();
+      },
+      (f) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ban failed: $f'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _unban(RoomBannedUserRow b) async {
+    final ok = await _terminalConfirm(
+      title: 'unban_user',
+      body: 'Remove the ban for ${b.displayName}? They can be invited again.',
+      confirmLabel: 'UNBAN',
+    );
+    if (ok != true || !mounted) return;
+    final r = await _service.unbanRoomMember(
+      roomId: widget.roomId,
+      userId: b.userId,
+    );
+    r.fold(
+      (_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unbanned ${b.displayName}')),
+        );
+        _loadDetails();
+      },
+      (f) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unban failed: $f'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showInviteMemberDialog(ThemeData theme) async {
+    final ctrl = TextEditingController();
+    final scheme = theme.colorScheme;
+    final userId = await showDialog<String>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (dialogCtx) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+          child: DesktopEscScope(
+            child: TerminalContainer(
+              showBorder: true,
+              showGlow: false,
+              borderColor: scheme.primary,
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'INVITE MEMBER',
+                    style: _RoomInfoStyles.sectionHeader(theme),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Matrix user ID (@name:server)',
+                    style: _RoomInfoStyles.captionMuted(theme),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: ctrl,
+                    style: theme.textTheme.bodyMedium,
+                    decoration: InputDecoration(
+                      hintText: '@user:example.org',
+                      hintStyle: _RoomInfoStyles.captionMuted(theme),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: scheme.primary.withValues(alpha: 0.65)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: scheme.primary, width: 1.5),
+                      ),
+                    ),
+                    autocorrect: false,
+                    textInputAction: TextInputAction.done,
+                  ),
+                  const SizedBox(height: 22),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TerminalButton(
+                          text: 'CANCEL',
+                          onPressed: () => Navigator.pop(dialogCtx),
+                          isPrimary: false,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TerminalButton(
+                          text: 'INVITE',
+                          onPressed: () {
+                            final raw = ctrl.text;
+                            if (!_isValidMatrixUserId(raw)) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Enter a full Matrix ID like @user:server',
+                                    style: TextStyle(color: scheme.onError),
+                                  ),
+                                  backgroundColor: scheme.error,
+                                ),
+                              );
+                              return;
+                            }
+                            Navigator.pop(dialogCtx, raw.trim());
+                          },
+                          isPrimary: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    ctrl.dispose();
+    if (userId == null || !mounted) return;
+    final r = await _service.inviteUserToRoom(
+      roomId: widget.roomId,
+      userId: userId,
+    );
+    if (!mounted) return;
+    r.fold(
+      (_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Invite sent to $userId')),
+        );
+        _loadDetails();
+      },
+      (f) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Invite failed: $f'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _applyInvitePowerLevel(int inviteRequired) async {
+    final r = await _service.applyRoomPowerLevelSettings(
+      roomId: widget.roomId,
+      patch: RoomPowerLevelSettingsPatch(invite: inviteRequired),
+    );
+    if (!mounted) return;
+    r.fold(
+      (_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Room invite rules updated')),
+        );
+        _loadDetails();
+      },
+      (f) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Update failed: $f'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      },
+    );
+  }
+
+  void _showRoomPermissionsSheet(ThemeData theme) {
+    final d = _details!;
+    unawaited(
+      _presentRoomInfoAuxiliary(
+        (sheetContext) => _RoomPermissionsSheet(
+          sheetContext: sheetContext,
+          theme: theme,
+          details: d,
+          onSetInviteLevel: _applyInvitePowerLevel,
+        ),
+      ),
+    );
+  }
+
   Future<void> _setPower(RoomMemberRow m, int level, String label) async {
     final r = await _service.setRoomMemberPowerLevel(
       roomId: widget.roomId,
@@ -436,7 +653,8 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
                     child: Text(
                       'Encrypted: ${d.isEncrypted ? "yes" : "no"} · '
                       'Members: ${d.memberCount} · '
-                      '${d.isDirect ? "Direct" : "Group"}',
+                      '${d.isDirect ? "Direct" : "Group"}'
+                      '${d.isDirect ? "" : " · invite PL ≥ ${d.powerLevelInviteRequired}"}',
                       style: _RoomInfoStyles.captionMuted(theme).copyWith(
                         color: scheme.onSurface.withValues(alpha: 0.85),
                         fontSize: 12,
@@ -477,21 +695,46 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
           icon: Icons.bolt_outlined,
           onTap: _showActionsBottomSheet,
         ),
-        if (!d.isDirect && d.members.isNotEmpty) ...[
+        if (!d.isDirect && d.currentUserIsAdmin)
+          _roomLinkRow(
+            theme,
+            label: 'Room permissions',
+            icon: Icons.admin_panel_settings_outlined,
+            onTap: () => _showRoomPermissionsSheet(theme),
+          ),
+        if (!d.isDirect) ...[
           const SizedBox(height: 8),
           Text('MEMBERS', style: _RoomInfoStyles.sectionHeader(theme)),
           _RoomInfoStyles.sectionDivider(theme),
           const SizedBox(height: 8),
-          ...d.members.map((m) => _memberTile(theme, d, m)),
-        ],
-        if (!d.isDirect && d.members.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: Text(
-              'Member list will appear after sync.',
-              style: _RoomInfoStyles.captionMuted(theme),
+          if (d.currentUserCanInvite)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: TerminalButton(
+                text: 'INVITE MEMBER',
+                onPressed: () => _showInviteMemberDialog(theme),
+                icon: Icons.person_add_outlined,
+                isPrimary: false,
+              ),
             ),
-          ),
+          if (d.members.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                'Member list will appear after sync.',
+                style: _RoomInfoStyles.captionMuted(theme),
+              ),
+            )
+          else
+            ...d.members.map((m) => _memberTile(theme, d, m)),
+          if (d.bannedUsers.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Text('BANNED', style: _RoomInfoStyles.sectionHeader(theme)),
+            _RoomInfoStyles.sectionDivider(theme),
+            const SizedBox(height: 8),
+            ...d.bannedUsers.map((b) => _bannedUserTile(theme, d, b)),
+          ],
+        ],
       ],
     );
   }
@@ -655,9 +898,67 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
     );
   }
 
+  Widget _bannedUserTile(ThemeData theme, RoomDetails d, RoomBannedUserRow b) {
+    final scheme = theme.colorScheme;
+    final canUnban = d.currentUserCanBan;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              border: Border.all(color: scheme.error.withValues(alpha: 0.85), width: 1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Icon(Icons.block, color: scheme.error, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  b.displayName,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  b.userIdDisplay,
+                  style: _RoomInfoStyles.captionMuted(
+                    theme,
+                  ).copyWith(fontSize: 11),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          if (canUnban)
+            TextButton(
+              onPressed: () => _unban(b),
+              child: Text(
+                'UNBAN',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: scheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _memberTile(ThemeData theme, RoomDetails d, RoomMemberRow m) {
     final admin = d.currentUserIsAdmin;
-    final showMenu = !m.isSelf && (admin || m.currentUserCanKick);
+    final showMenu =
+        !m.isSelf && (admin || m.currentUserCanKick || m.currentUserCanBan);
     final scheme = theme.colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -738,6 +1039,9 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
                   case 'kick':
                     if (m.currentUserCanKick) await _kick(m);
                     break;
+                  case 'ban':
+                    if (m.currentUserCanBan) await _ban(m);
+                    break;
                   case 'mod':
                     if (admin) await _setPower(m, 50, 'Set moderator');
                     break;
@@ -754,6 +1058,11 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
                   const PopupMenuItem(
                     value: 'kick',
                     child: Text('Kick / remove'),
+                  ),
+                if (m.currentUserCanBan)
+                  const PopupMenuItem(
+                    value: 'ban',
+                    child: Text('Ban'),
                   ),
                 if (admin) ...[
                   const PopupMenuItem(
@@ -772,6 +1081,108 @@ class _RoomInfoScreenState extends State<RoomInfoScreen> {
               ],
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _RoomPermissionsSheet extends StatelessWidget {
+  const _RoomPermissionsSheet({
+    required this.sheetContext,
+    required this.theme,
+    required this.details,
+    required this.onSetInviteLevel,
+  });
+
+  final BuildContext sheetContext;
+  final ThemeData theme;
+  final RoomDetails details;
+  final Future<void> Function(int level) onSetInviteLevel;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = theme.colorScheme;
+    final r = MediaQuery.of(sheetContext).padding;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 8, 16, 8 + r.bottom),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: scheme.primary.withValues(alpha: 0.55)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 14),
+                    decoration: BoxDecoration(
+                      color: scheme.outline.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Text(
+                  'ROOM PERMISSIONS',
+                  style: _RoomInfoStyles.sectionHeader(theme),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Matrix rooms use power levels (`m.room.power_levels`). '
+                  'Here you can set the minimum power required to invite new members. '
+                  'Typical values: 0 = any member, 50 = moderators+, 100 = admins only.',
+                  style: _RoomInfoStyles.bodyMuted(theme),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Current invite ≥ ${details.powerLevelInviteRequired} · '
+                  'kick ≥ ${details.powerLevelKickRequired} · '
+                  'ban ≥ ${details.powerLevelBanRequired}',
+                  style: _RoomInfoStyles.captionMuted(theme),
+                ),
+                const SizedBox(height: 20),
+                Text('WHO CAN INVITE', style: _RoomInfoStyles.prompt(theme)),
+                const SizedBox(height: 10),
+                TerminalButton(
+                  text: 'ANY MEMBER (POWER 0)',
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    unawaited(onSetInviteLevel(0));
+                  },
+                  isPrimary: false,
+                  icon: Icons.groups_outlined,
+                ),
+                const SizedBox(height: 8),
+                TerminalButton(
+                  text: 'MODERATORS+ (50)',
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    unawaited(onSetInviteLevel(50));
+                  },
+                  isPrimary: false,
+                  icon: Icons.shield_outlined,
+                ),
+                const SizedBox(height: 8),
+                TerminalButton(
+                  text: 'ADMINS ONLY (100)',
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    unawaited(onSetInviteLevel(100));
+                  },
+                  isPrimary: false,
+                  icon: Icons.lock_outline,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1858,6 +2269,16 @@ class _RoomFileThumbnailState extends State<_RoomFileThumbnail> {
       if (b != null && b.isNotEmpty && useThumb && !_isRoomInfoRasterBytes(b)) {
         b = null;
       }
+      if (b != null && b.isNotEmpty && useThumb) {
+        const logical = 40.0;
+        final e = timelineThumbDecodeExtentPx(logical);
+        final small = await encodeRasterPngFitBox(
+          b,
+          targetWidthPx: e,
+          targetHeightPx: e,
+        );
+        if (small != null) b = small;
+      }
       if (!mounted) return;
       setState(() {
         _bytes = b;
@@ -1876,6 +2297,7 @@ class _RoomFileThumbnailState extends State<_RoomFileThumbnail> {
   Widget build(BuildContext context) {
     final scheme = widget.theme.colorScheme;
     const size = 40.0;
+    final cachePx = timelineThumbDecodeExtentPx(size, context);
     const iconSize = 20.0;
     final dim = scheme.onSurface.withValues(alpha: 0.55);
     if (widget.item.eventId.isEmpty) {
@@ -1920,6 +2342,8 @@ class _RoomFileThumbnailState extends State<_RoomFileThumbnail> {
             height: size,
             fit: BoxFit.cover,
             gaplessPlayback: true,
+            cacheWidth: cachePx,
+            cacheHeight: cachePx,
             errorBuilder: (_, __, ___) => Icon(
               _roomFileIcon(widget.item.kind),
               size: iconSize,

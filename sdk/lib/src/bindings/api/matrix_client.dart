@@ -19,6 +19,18 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // Rust type: RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MatrixClient>>
 abstract class MatrixClient implements RustOpaqueInterface {
+  /// Update `m.room.power_levels` thresholds (invite / kick / ban / defaults). Requires sufficient PL.
+  Future<void> applyRoomPowerLevelSettings({
+    required String roomId,
+    required RoomPowerLevelSettingsPatch patch,
+  });
+
+  /// True if the server already holds a key backup for this account.
+  Future<bool> backupExistsOnServer();
+
+  /// Ban a joined member (or enforce ban). Requires ban power.
+  Future<void> banRoomMember({required String roomId, required String userId});
+
   /// Cancels an in-progress [MatrixClient::send_timeline_file_with_progress] (upload / send).
   Future<void> cancelTimelineFileSend();
 
@@ -36,6 +48,9 @@ abstract class MatrixClient implements RustOpaqueInterface {
     required List<String> userIds,
   });
 
+  /// Enable secret storage and key backup; [passphrase] unlocks recovery on other devices.
+  Future<String> enableRecoveryWithPassphrase({required String passphrase});
+
   /// Fetches decrypted media bytes for a timeline message (image/video/file/audio).
   /// `event_id` may be a server event id or a **local transaction id** for pending echoes.
   /// Set [thumbnail] to request a server-generated thumbnail when available (smaller for grid UI).
@@ -50,6 +65,10 @@ abstract class MatrixClient implements RustOpaqueInterface {
 
   /// Fetch all rooms the user is in. Uses the app stored in this client (from [MatrixClient::start_sync_service]).
   Future<List<RoomUpdate>> getAllRooms();
+
+  /// Avatar MXC from the state-store cache only (no network). Empty until a successful
+  /// [get_profile_avatar_mxc] / sync has populated the cache.
+  Future<String?> getCachedProfileAvatarMxc();
 
   /// Get the current user's display name (profile).
   Future<String?> getDisplayName();
@@ -71,10 +90,19 @@ abstract class MatrixClient implements RustOpaqueInterface {
   /// Short initials label stored in global account data (for avatar fallbacks).
   Future<String?> getProfileInitials();
 
+  /// Current recovery state: `unknown` | `enabled` | `disabled` | `incomplete` (lowercase).
+  Future<String> getRecoveryState();
+
   /// Room summary, joined members (empty for DMs), and moderation flags for the current user.
   Future<RoomDetails> getRoomDetails({required String roomId});
 
   Future<List<Message>> getTimelineItemsByRoomId({required String roomId});
+
+  /// Invite a user by Matrix ID (`@localpart:server`). Requires invite power.
+  Future<void> inviteUserToRoom({
+    required String roomId,
+    required String userId,
+  });
 
   /// Whether the client has an active session.
   Future<bool> isClientAuthenticated();
@@ -108,6 +136,9 @@ abstract class MatrixClient implements RustOpaqueInterface {
     required RoomFileFilter filter,
   });
 
+  /// Canonical Matrix user id (`@localpart:server`) when logged in.
+  Future<String?> loggedInUserId();
+
   /// Log in with username and password.
   Future<bool> login({required String username, required String password});
 
@@ -120,6 +151,9 @@ abstract class MatrixClient implements RustOpaqueInterface {
   /// Stop sliding sync (e.g. when the app goes to background). Call [Self::restart_sync_service] on resume.
   Future<bool> pauseSyncService();
 
+  /// Restore secrets from the server using recovery passphrase or security key.
+  Future<void> recoverWithPassphrase({required String passphrase});
+
   /// Redact a timeline message for **everyone** (`m.room.redaction`) or abort a matching local echo.
   ///
   /// Pass [event_id] for remote echoes, or [transaction_id] for a local row (matrix-sdk-ui picks redact vs abort).
@@ -129,6 +163,9 @@ abstract class MatrixClient implements RustOpaqueInterface {
     required String transactionId,
     String? reason,
   });
+
+  /// Wait for E2EE initialization so recovery state reflects account data (call after login / sync start).
+  Future<void> refreshRecoveryState();
 
   /// Register a new account.
   Future<bool> register({
@@ -278,6 +315,12 @@ abstract class MatrixClient implements RustOpaqueInterface {
     required String eventId,
     required String transactionId,
     required String reactionKey,
+  });
+
+  /// Revoke a ban (`unban` in Matrix).
+  Future<void> unbanRoomMember({
+    required String roomId,
+    required String userId,
   });
 
   Future<void> unregisterPusher({

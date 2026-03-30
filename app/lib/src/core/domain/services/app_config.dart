@@ -3,7 +3,7 @@ class AppConfig {
   static Uri get homeserverUrl => Uri.parse(
     const String.fromEnvironment(
       'HOMESERVER',
-      defaultValue: 'https://marix.org',
+      defaultValue: 'https://matrix.org',
     ),
   );
 

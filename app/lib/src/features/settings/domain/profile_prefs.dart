@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:matrix/src/features/settings/domain/profile_local_cache.dart';
 import 'package:matrix_sdk/matrix_sdk.dart';
 
 /// Local cache of profile initials from global account data; notifies on change.
@@ -21,13 +24,21 @@ class ProfilePrefs extends ChangeNotifier {
       if (!loggedIn) {
         _initialsOverride = null;
         _ownAvatarMxc = null;
+        await ProfileLocalCache.clear();
         notifyListeners();
         return;
       }
       final v = await client.getProfileInitials();
       _initialsOverride =
           v?.trim().isEmpty == true ? null : v?.trim();
-      final mxc = await client.getProfileAvatarMxc();
+      String? mxc;
+      try {
+        final cached = await client.getCachedProfileAvatarMxc();
+        if (cached != null && cached.trim().isNotEmpty) {
+          mxc = cached.trim();
+        }
+      } catch (_) {}
+      mxc ??= await client.getProfileAvatarMxc();
       _ownAvatarMxc = mxc?.trim().isEmpty == true ? null : mxc?.trim();
     } catch (_) {
       _initialsOverride = null;
@@ -50,6 +61,7 @@ class ProfilePrefs extends ChangeNotifier {
   void clear() {
     _initialsOverride = null;
     _ownAvatarMxc = null;
+    unawaited(ProfileLocalCache.clear());
     notifyListeners();
   }
 }

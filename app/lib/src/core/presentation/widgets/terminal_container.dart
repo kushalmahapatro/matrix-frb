@@ -156,7 +156,8 @@ class TerminalScreen extends StatelessWidget {
               ),
             )
           : Container(
-              height: MediaQuery.of(context).size.height,
+              width: double.infinity,
+              height: double.infinity,
               decoration: BoxDecoration(gradient: MatrixTheme.backgroundGradient),
               child: SafeArea(
                 child: Column(
@@ -242,7 +243,11 @@ class TerminalTextField extends StatelessWidget {
   final String hint;
   final IconData icon;
   final bool isPassword;
+  /// When non-null, overrides [isPassword] for obscuring (e.g. show/hide password toggle).
+  final bool? obscureText;
   final bool enabled;
+  /// When true, the field cannot be edited but can still be focused for selection/copy.
+  final bool readOnly;
   final String? Function(String?)? validator;
   final VoidCallback? onSuffixPressed;
   final IconData? suffixIcon;
@@ -254,7 +259,9 @@ class TerminalTextField extends StatelessWidget {
     required this.hint,
     required this.icon,
     this.isPassword = false,
+    this.obscureText,
     this.enabled = true,
+    this.readOnly = false,
     this.validator,
     this.onSuffixPressed,
     this.suffixIcon,
@@ -263,6 +270,7 @@ class TerminalTextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final effectiveObscure = obscureText ?? isPassword;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -270,8 +278,9 @@ class TerminalTextField extends StatelessWidget {
         const SizedBox(height: 8),
         TextFormField(
           enabled: enabled,
+          readOnly: readOnly,
           controller: controller,
-          obscureText: isPassword,
+          obscureText: effectiveObscure,
           style: Theme.of(context).textTheme.bodyLarge,
           decoration: MatrixTheme.getInputDecoration(
             hintText: hint,

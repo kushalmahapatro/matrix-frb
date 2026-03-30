@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -5,19 +6,10 @@ import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:matrix/src/core/matrix_avatar_disk_cache.dart';
 import 'package:matrix/src/core/presentation/widgets/terminal_container.dart';
+import 'package:matrix/src/features/settings/domain/profile_local_cache.dart';
 import 'package:matrix/src/features/settings/domain/profile_prefs.dart';
+import 'package:matrix/src/features/settings/presentation/screens/profile_avatar_crop_screen.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
-
-String _mimeFromImagePath(String path) {
-  final lower = path.toLowerCase();
-  if (lower.endsWith('.png')) return 'image/png';
-  if (lower.endsWith('.webp')) return 'image/webp';
-  if (lower.endsWith('.gif')) return 'image/gif';
-  if (lower.endsWith('.heic') || lower.endsWith('.heif')) {
-    return 'image/heic';
-  }
-  return 'image/jpeg';
-}
 
 /// Decodes raster images, applies EXIF orientation into pixels, then re-encodes
 /// (JPEG for photos, PNG when the source was PNG so alpha is kept).
@@ -52,6 +44,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final _displayNameController = TextEditingController();
   final _initialsController = TextEditingController();
+  final _matrixUserIdController = TextEditingController();
   final _matrixService = MatrixService();
   final _picker = ImagePicker();
 
@@ -75,61 +68,119 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _error = null;
       _success = null;
     });
+
+    final client = _matrixService.client;
+    final disk = await ProfileLocalCache.load();
+
+    if (disk != null && !disk.isEmpty && mounted) {
+      _displayNameController.text = disk.displayName;
+      _initialsController.text = disk.initials;
+      _avatarMxc = disk.avatarMxc.isEmpty ? null : disk.avatarMxc;
+      _avatarPreviewBytes = null;
+      final uidEarly = await client.loggedInUserId();
+      if (!mounted) return;
+      _matrixUserIdController.text = uidEarly ?? '';
+      setState(() => _loading = false);
+      unawaited(_applyAvatarPreview(_avatarMxc));
+    }
+
     try {
-      final client = _matrixService.client;
+      final userId = await client.loggedInUserId();
       final name = await client.getDisplayName();
       final initials = await client.getProfileInitials();
-      final mxc = await client.getProfileAvatarMxc();
+
+      String? mxc;
+      try {
+        final cached = await client.getCachedProfileAvatarMxc();
+        if (cached != null && cached.trim().isNotEmpty) {
+          mxc = cached.trim();
+        }
+      } catch (_) {}
+      mxc ??= await client.getProfileAvatarMxc();
+      var mxcTrim = mxc?.trim();
+      if (mxcTrim != null && mxcTrim.isEmpty) mxcTrim = null;
+
       if (!mounted) return;
+
+      _matrixUserIdController.text = userId ?? '';
       _displayNameController.text = name ?? '';
       _initialsController.text = initials ?? '';
-      _avatarMxc = mxc;
-      _avatarPreviewBytes = null;
-      ProfilePrefs.instance.setLocalAvatarMxc(mxc);
+      _avatarMxc = mxcTrim;
+      ProfilePrefs.instance.setLocalAvatarMxc(mxcTrim);
+
+      await ProfileLocalCache.save(
+        displayName: _displayNameController.text,
+        initials: _initialsController.text,
+        avatarMxc: mxcTrim ?? '',
+      );
+
       setState(() => _loading = false);
-      final uri = mxc?.trim();
-      if (uri != null && uri.isNotEmpty) {
-        setState(() => _avatarLoading = true);
-        try {
-          final bytes = await MatrixAvatarDiskCache.instance.loadOrFetch(
-            uri,
-            () => client.fetchUserAvatarThumbnail(mxcUri: uri),
-          );
-          if (mounted) {
-            setState(() {
-              _avatarPreviewBytes = bytes;
-              _avatarLoading = false;
-            });
-          }
-        } catch (_) {
-          if (mounted) setState(() => _avatarLoading = false);
-        }
-      }
+
+      await _applyAvatarPreview(mxcTrim);
     } catch (e) {
-      if (mounted) {
+      if (!mounted) return;
+      if (disk == null || disk.isEmpty) {
         setState(() {
           _loading = false;
           _error = 'Failed to load profile: $e';
         });
+      } else {
+        setState(() => _loading = false);
       }
+    }
+  }
+
+  Future<void> _applyAvatarPreview(String? mxc) async {
+    final uri = mxc?.trim();
+    if (uri == null || uri.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _avatarPreviewBytes = null;
+          _avatarLoading = false;
+        });
+      }
+      return;
+    }
+    if (mounted) setState(() => _avatarLoading = true);
+    try {
+      final bytes = await MatrixAvatarDiskCache.instance.loadOrFetch(
+        uri,
+        () => _matrixService.client.fetchUserAvatarThumbnail(mxcUri: uri),
+      );
+      if (mounted) {
+        setState(() {
+          _avatarPreviewBytes = bytes;
+          _avatarLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _avatarLoading = false);
     }
   }
 
   Future<void> _pickAndUploadAvatar() async {
     final x = await _picker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 1600,
-      maxHeight: 1600,
-      imageQuality: 88,
+      maxWidth: 2048,
+      maxHeight: 2048,
+      imageQuality: 92,
     );
     if (x == null) return;
-    final path = x.path;
     final bytes = await x.readAsBytes();
     if (bytes.isEmpty) return;
 
-    final normalized = _normalizeAvatarImageBytes(bytes, path);
-    final uploadBytes = normalized ?? bytes;
-    final uploadMime = _mimeFromImagePath(path);
+    if (!mounted) return;
+    final cropped = await Navigator.of(context).push<Uint8List?>(
+      MaterialPageRoute<Uint8List?>(
+        fullscreenDialog: true,
+        builder: (ctx) => ProfileAvatarCropScreen(imageBytes: bytes),
+      ),
+    );
+    if (cropped == null || cropped.isEmpty) return;
+
+    final normalized = _normalizeAvatarImageBytes(cropped, 'crop.jpg');
+    final uploadBytes = normalized ?? cropped;
+    const uploadMime = 'image/jpeg';
 
     setState(() {
       _saving = true;
@@ -150,6 +201,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _success = 'Profile picture updated';
       });
       ProfilePrefs.instance.setLocalAvatarMxc(mxc);
+      await ProfileLocalCache.save(
+        displayName: _displayNameController.text.trim(),
+        initials: _initialsController.text.trim(),
+        avatarMxc: mxc?.trim() ?? '',
+      );
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -176,6 +232,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _success = 'Profile picture removed';
       });
       ProfilePrefs.instance.setLocalAvatarMxc(null);
+      await ProfileLocalCache.save(
+        displayName: _displayNameController.text.trim(),
+        initials: _initialsController.text.trim(),
+        avatarMxc: '',
+      );
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -203,6 +264,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         initialsRaw.isEmpty ? null : initialsRaw,
       );
       if (!mounted) return;
+      await ProfileLocalCache.save(
+        displayName: displayName,
+        initials: initialsRaw,
+        avatarMxc: _avatarMxc?.trim() ?? '',
+      );
       setState(() {
         _saving = false;
         _success = 'Profile saved';
@@ -219,6 +285,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   void dispose() {
+    _matrixUserIdController.dispose();
     _displayNameController.dispose();
     _initialsController.dispose();
     super.dispose();
@@ -240,7 +307,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 8),
                 Text(
                   'Display name and picture are shared with other Matrix users. '
-                  'Initials are stored for this client (account data) and used in your message avatars.',
+                  'Initials are stored for this client (account data) and used in your message avatars. '
+                  'This screen shows the last copy saved on this device first, then refreshes from the server; '
+                  'the Matrix SDK also keeps your avatar MXC in its local state store after sync.',
                   style: theme.textTheme.bodySmall,
                 ),
                 const SizedBox(height: 20),
@@ -324,6 +393,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
+                  TerminalTextField(
+                    controller: _matrixUserIdController,
+                    label: 'MATRIX USER ID',
+                    hint: 'Not available',
+                    icon: Icons.alternate_email,
+                    readOnly: true,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Read only — your unique account id on the homeserver.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                   TerminalTextField(
                     controller: _displayNameController,
                     label: 'DISPLAY NAME / NICKNAME',

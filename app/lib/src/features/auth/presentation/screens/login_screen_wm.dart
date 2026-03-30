@@ -9,6 +9,9 @@ import 'package:matrix/src/features/auth/domain/models/auth_state.dart';
 import 'package:matrix/src/features/settings/domain/profile_prefs.dart';
 import 'package:matrix/src/features/auth/presentation/screens/login_screen.dart';
 import 'package:matrix/src/core/logging_service.dart';
+import 'package:matrix/src/core/navigation/navigator_service.dart';
+import 'package:matrix/src/features/key_recovery/domain/key_recovery_prefs.dart';
+import 'package:matrix/src/features/key_recovery/presentation/screens/login_recovery_unlock_screen.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
 import 'package:result_dart/result_dart.dart';
 
@@ -137,6 +140,33 @@ class LoginScreenWM extends BaseWidgetModel<LoginScreen, LoginScreenModel> {
         await MatrixService().startMatrixNotificationsIfReady();
         if (!context.mounted) return;
         _authState.value = const AuthState.authenticated();
+
+        if (isRegistration) {
+          widget.navigateToPostRegistrationRecovery(context);
+          return;
+        }
+
+        try {
+          await MatrixService().client.refreshRecoveryState();
+          final recoveryState = await MatrixService().client.getRecoveryState();
+          if (!context.mounted) return;
+          final lockedOut = await KeyRecoveryPrefs.isSoftLockout();
+          if (!context.mounted) return;
+          if (recoveryState == 'incomplete' && !lockedOut) {
+            NavigatorService.pushReplacement(
+              context,
+              const LoginRecoveryUnlockScreen(),
+            );
+            return;
+          }
+        } catch (e) {
+          LoggingService.error(
+            'LOGIN_SCREEN',
+            'Recovery state check failed: $e',
+          );
+        }
+
+        if (!context.mounted) return;
         widget.navigateToChatListingScreen(context);
       } else {
         _authState.value = AuthState.error(
