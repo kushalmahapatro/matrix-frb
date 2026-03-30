@@ -140,6 +140,7 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                       onPollVote: wm.voteOnPoll,
                       onShowMessageActions: (ctx, m, o) =>
                           wm.showMessageActionsMenu(ctx, m, o),
+                      onSenderAvatarTap: wm.onSenderAvatarTap,
                     );
                   },
                   error: (errMessage) => Center(
@@ -226,7 +227,7 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(6),
@@ -234,34 +235,41 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
           color: scheme.primary.withValues(alpha: 0.1),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
                 Icons.hourglass_top_outlined,
-                size: 20,
+                size: 18,
                 color: scheme.primary,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       'INVITATION PENDING',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.labelLarge?.copyWith(
                         color: scheme.primary,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.6,
+                        fontSize: 12,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
-                      'The other person has not accepted the invite yet. '
-                      'This notice disappears when they join the room.',
+                      'Waiting for them to accept. Hides when they join.',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurface.withValues(alpha: 0.88),
+                        fontSize: 12,
+                        height: 1.3,
                       ),
                     ),
                   ],
@@ -529,6 +537,9 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
       horizontal: desktop ? 14 : 10,
       vertical: desktop ? 12 : 8,
     );
+    // Sharp corners on mobile: rounded outline reads like extra IME chrome above the keyboard.
+    final fieldBorderRadius =
+        desktop ? BorderRadius.circular(8) : BorderRadius.zero;
     return Padding(
       padding: EdgeInsets.fromLTRB(
         desktop ? 12 : 8,
@@ -569,7 +580,12 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
               child: TextField(
                 controller: wm.messageController,
                 focusNode: wm.composerFocusNode,
-                autocorrect: false,
+                autocorrect: !desktop,
+                enableSuggestions: !desktop,
+                keyboardAppearance: theme.brightness,
+                onTapOutside: (_) {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                },
                 style: theme.textTheme.bodyLarge,
                 decoration: InputDecoration(
                   hintText: wm.replyDraft.value != null
@@ -582,14 +598,14 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                   contentPadding: fieldPadding,
                   isDense: !desktop,
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(desktop ? 8 : 4),
+                    borderRadius: fieldBorderRadius,
                     borderSide: BorderSide(
                       color: theme.colorScheme.primary,
                       width: 0.5,
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(desktop ? 8 : 4),
+                    borderRadius: fieldBorderRadius,
                     borderSide: BorderSide(
                       color: theme.colorScheme.primary,
                       width: 1,
@@ -785,19 +801,18 @@ class _ReplyDraftMediaThumbState extends State<_ReplyDraftMediaThumb> {
         if (bytes != null &&
             bytes.isNotEmpty &&
             _replyThumbLooksLikeRaster(bytes)) {
+          final thumbDecode = timelineThumbImageDecodeCacheParams(
+            logicalWidth: _kReplyDraftThumb,
+            logicalHeight: _kReplyDraftThumb,
+            context: context,
+          );
           return framed(
             Image.memory(
               bytes,
               fit: BoxFit.cover,
               gaplessPlayback: true,
-              cacheWidth: timelineThumbDecodeExtentPx(
-                _kReplyDraftThumb,
-                context,
-              ),
-              cacheHeight: timelineThumbDecodeExtentPx(
-                _kReplyDraftThumb,
-                context,
-              ),
+              cacheWidth: thumbDecode.cacheWidth,
+              cacheHeight: thumbDecode.cacheHeight,
               errorBuilder: (_, __, ___) => canBlur
                   ? BlurHash(hash: bh, imageFit: BoxFit.cover)
                   : _replyDraftKindPlaceholder(d.roomMsgKind, theme),

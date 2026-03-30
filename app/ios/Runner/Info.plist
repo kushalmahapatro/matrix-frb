@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- App-wide: prefer pre–Liquid Glass system materials (e.g. keyboard chrome) on iOS 26+.
+	     See Apple: UIDesignRequiresCompatibility. May be deprecated in a future OS. -->
+	<key>UIDesignRequiresCompatibility</key>
+	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

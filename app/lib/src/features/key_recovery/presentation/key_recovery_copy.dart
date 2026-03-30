@@ -19,6 +19,14 @@ class KeyRecoveryCopy {
       'set up backup (you may not remember the exact moment; password managers and '
       'old device exports are good places to check).';
 
+  /// Short line for the home banner; full detail is in the unlock / setup flow.
+  static const bannerUnlockShort =
+      'Use your saved recovery passphrase or security key to unlock this device.';
+
+  /// Short line for the home backup banner (see [educationParagraphs] for full copy).
+  static const bannerBackupShort =
+      'Set up recovery to read encrypted history on new devices.';
+
   static const educationParagraphs = <String>[
     'Matrix encrypts your messages on this device. If you sign in on another phone '
         'or computer, or lose this device, you need a recovery secret to read your '

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:just_audio/just_audio.dart' as ja;
+import 'package:matrix/src/core/matrix_media_kit_video.dart';
 import 'package:matrix_sdk/matrix_sdk.dart'
     show RoomMessageKind, documentPreviewJson;
 import 'package:media_kit/media_kit.dart';
@@ -816,7 +817,10 @@ class _VideoViewerPage extends StatefulWidget {
 
 class _VideoViewerPageState extends State<_VideoViewerPage> {
   late final Player _player = Player();
-  late final VideoController _videoController = VideoController(_player);
+  late final VideoController _videoController = VideoController(
+    _player,
+    configuration: matrixPlaybackVideoControllerConfiguration(),
+  );
   bool _ready = false;
   String? _error;
   File? _tempVideoFile;
@@ -842,6 +846,15 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
 
   Future<void> _init() async {
     try {
+      if (!matrixBytesLookLikeVideoContainer(widget.bytes)) {
+        if (mounted) {
+          setState(
+            () => _error =
+                'This file does not look like a supported video format.',
+          );
+        }
+        return;
+      }
       final dir = await getTemporaryDirectory();
       final suffix = _videoTempSuffix(widget.title);
       final f = File(
@@ -849,10 +862,14 @@ class _VideoViewerPageState extends State<_VideoViewerPage> {
       );
       await f.writeAsBytes(widget.bytes, flush: true);
       _tempVideoFile = f;
+      await matrixAwaitVideoControllerPlatformReady(_videoController);
       final uri = Uri.file(f.path);
       await _player.open(Media(uri.toString()));
+      if (!mounted) return;
+      setState(() => _ready = true);
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
       await _player.play();
-      if (mounted) setState(() => _ready = true);
     } catch (e) {
       if (mounted) setState(() => _error = '$e');
     }

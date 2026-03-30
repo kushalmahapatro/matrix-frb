@@ -14,6 +14,8 @@ import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
 import 'package:matrix/src/core/logging_service.dart';
 import 'package:matrix/src/core/navigation/navigator_service.dart';
 import 'package:matrix/src/core/timeline_local_hidden_store.dart';
+import 'package:matrix/src/core/presentation/widgets/terminal_container.dart';
+import 'package:matrix/src/features/settings/domain/profile_prefs.dart';
 import 'package:path/path.dart' as path_lib;
 import 'package:path_provider/path_provider.dart';
 
@@ -315,6 +317,8 @@ class ConversationScreenWM
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_disposed || !context.mounted || _isInvited.value) return;
+      // Auto-focus composer only on desktop; on phones it traps the software keyboard.
+      if (!isDesktopTargetPlatform()) return;
       _composerFocusNode.requestFocus();
     });
   }
@@ -2438,6 +2442,254 @@ class ConversationScreenWM
         jumpToTimelineEventId.value = null;
         jumpToTimelineEventId.value = focus;
       });
+    }
+  }
+
+  String _effectiveSenderAvatarMxcForSheet(Message message) {
+    final uid = message.senderUserId.trim();
+    if (uid.isNotEmpty) {
+      final live = senderAvatarMxcByUserId.value[uid]?.trim() ?? '';
+      if (live.isNotEmpty) return live;
+    }
+    final t = message.senderAvatarMxc.trim();
+    if (t.isNotEmpty) return t;
+    if (message.isOwn) {
+      final o = ProfilePrefs.instance.ownAvatarMxc?.trim() ?? '';
+      if (o.isNotEmpty) return o;
+    }
+    return '';
+  }
+
+  Future<void> onSenderAvatarTap(BuildContext anchorContext, Message message) {
+    final uid = message.senderUserId.trim();
+    if (uid.isEmpty) return Future.value();
+    if (!anchorContext.mounted) return Future.value();
+    final title = message.sender.trim().isNotEmpty ? message.sender.trim() : uid;
+    return _presentSenderProfileSheet(
+      anchorContext,
+      message: message,
+      displayTitle: title,
+      showDirectMessageAction: !message.isOwn,
+    );
+  }
+
+  Future<void> _presentSenderProfileSheet(
+    BuildContext anchorContext, {
+    required Message message,
+    required String displayTitle,
+    required bool showDirectMessageAction,
+  }) async {
+    if (!anchorContext.mounted) return;
+    final theme = Theme.of(anchorContext);
+    final scheme = theme.colorScheme;
+    final uid = message.senderUserId.trim();
+    final mxc = _effectiveSenderAvatarMxcForSheet(message);
+    const avatarSize = 56.0;
+
+    Widget body(BuildContext sheetCtx) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: avatarSize,
+                height: avatarSize,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: MatrixTheme.terminalBorder.withValues(alpha: 0.9),
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: mxc.isEmpty
+                    ? ColoredBox(
+                        color: scheme.primary.withValues(alpha: 0.12),
+                        child: Center(
+                          child: Text(
+                            () {
+                              final d = displayTitle.trim();
+                              if (d.isEmpty) return '?';
+                              return d.substring(0, 1).toUpperCase();
+                            }(),
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: scheme.primary,
+                            ),
+                          ),
+                        ),
+                      )
+                    : FutureBuilder<Uint8List?>(
+                        future: fetchUserAvatarThumbnail(mxc),
+                        builder: (context, snap) {
+                          if (snap.hasData &&
+                              snap.data != null &&
+                              snap.data!.isNotEmpty) {
+                            return Image.memory(
+                              snap.data!,
+                              fit: BoxFit.cover,
+                              width: avatarSize,
+                              height: avatarSize,
+                              gaplessPlayback: true,
+                            );
+                          }
+                          return Center(
+                            child: SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: scheme.primary,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              displayTitle,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                fontFamily: MatrixTheme.fontFamily,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            SelectableText(
+              uid,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontFamily: MatrixTheme.fontFamily,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (showDirectMessageAction) ...[
+              const SizedBox(height: 20),
+              TerminalButton(
+                text: 'MESSAGE',
+                icon: Icons.chat_bubble_outline,
+                onPressed: () async {
+                  Navigator.of(sheetCtx).pop();
+                  await _openOrFocusDirectChat(
+                    otherUserId: uid,
+                    roomTitle: displayTitle,
+                  );
+                },
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
+    if (isDesktopTargetPlatform() && preferDialogOverModalSheet(anchorContext)) {
+      await showDialog<void>(
+        context: anchorContext,
+        builder: (dialogCtx) {
+          return AlertDialog(
+            backgroundColor: MatrixTheme.terminalBackground,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: const BorderSide(color: MatrixTheme.terminalBorder),
+            ),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: body(dialogCtx),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogCtx).pop(),
+                child: Text(
+                  'Close',
+                  style: TextStyle(
+                    fontFamily: MatrixTheme.fontFamily,
+                    color: scheme.primary,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: anchorContext,
+      showDragHandle: true,
+      backgroundColor: MatrixTheme.terminalBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+        side: BorderSide(color: MatrixTheme.terminalBorder),
+      ),
+      builder: body,
+    );
+  }
+
+  Future<void> _openOrFocusDirectChat({
+    required String otherUserId,
+    required String roomTitle,
+  }) async {
+    if (!context.mounted || _disposed) return;
+    final client = MatrixService().client;
+    String? roomId;
+    try {
+      roomId = await client.getExistingDmRoomId(userId: otherUserId);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not look up direct chat: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+      return;
+    }
+    if (!context.mounted || _disposed) return;
+    if (roomId == null || roomId.isEmpty) {
+      try {
+        roomId = await client.createDirectRoom(userId: otherUserId);
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not start direct chat: $e'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+        return;
+      }
+    }
+    if (!context.mounted || _disposed) return;
+    if (roomId == widget.roomId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You are already in this direct chat.')),
+      );
+      return;
+    }
+    final page = ConversationScreen(
+      roomId: roomId,
+      roomName: roomTitle,
+      status: ChatRoomStatus.joined,
+    );
+    final launcher = DesktopShellScope.maybeOf(context);
+    if (launcher != null && isDesktopTargetPlatform()) {
+      await launcher.openShellFlow<void>(
+        anchorContext: context,
+        page: page,
+        windowTitle: roomTitle,
+        preferredWindowSize: const Size(520, 720),
+      );
+    } else {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(builder: (ctx) => page),
+      );
     }
   }
 

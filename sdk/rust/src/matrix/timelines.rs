@@ -433,6 +433,11 @@ pub(crate) fn poll_state_json_from_state(poll: &PollState) -> String {
 }
 
 fn event_message_body(ev: &EventTimelineItem) -> String {
+    if ev.content().is_unable_to_decrypt() {
+        // Non-empty body so Flutter does not drop the row (see paginated_message_list:
+        // empty content + no media => SizedBox.shrink). UTD events have no `as_message()` body.
+        return "Unable to decrypt message".to_string();
+    }
     if let Some(poll) = ev.content().as_poll() {
         return poll_body_from_state(poll);
     }

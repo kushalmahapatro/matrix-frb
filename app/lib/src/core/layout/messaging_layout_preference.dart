@@ -8,7 +8,7 @@ const _kPrefsKey = 'messaging_conversation_layout';
 
 /// Room list + open chat (columns) vs stacked full-screen navigation — not bubble alignment.
 enum MessagingLayoutPreference {
-  /// Desktop + portrait phone (wide enough) → columns; else stacked navigator.
+  /// Desktop; wide-enough phone (portrait or landscape); tablets → columns when width allows.
   auto,
   split,
   /// One pane at a time (list then room, like typical mobile stacks).
@@ -78,6 +78,16 @@ AppLayoutVariant resolveMessagingLayoutVariant({
         return AppLayoutVariant.split;
       }
       if (_isHandheldPhonePortrait(mq)) {
+        if (mq.size.width < 480) return AppLayoutVariant.compact;
+        return AppLayoutVariant.split;
+      }
+      // Landscape (wider canvas) or tablet-class portrait: use split when wide enough.
+      // Without this, rotating a phone to landscape always stayed on the stacked navigator.
+      if (mq.orientation == Orientation.landscape) {
+        if (mq.size.width < 480) return AppLayoutVariant.compact;
+        return AppLayoutVariant.split;
+      }
+      if (mq.size.shortestSide >= 600) {
         if (mq.size.width < 480) return AppLayoutVariant.compact;
         return AppLayoutVariant.split;
       }

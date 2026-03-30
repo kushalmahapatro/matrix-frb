@@ -636,26 +636,31 @@ Future<String?> _tryTranscodeToMp4({
     final out = File(outMp4);
     if (!await out.exists()) return null;
     final outLen = await out.length();
-    if (outLen > 0 && outLen + 65536 < sourceLen) {
-      if (probe?.durationMs != null && probe!.durationMs! > 0 && wallMs >= 0) {
-        TranscodeCalibration.instance.recordObservation(
-          sourceDurationMs: probe.durationMs!.toInt(),
-          wallClockMs: wallMs,
-          preset: preset,
-        );
-      }
-      onVideoTranscodeProgress?.call(
-        const VideoTranscodeProgressChunk(
-          linearProgress: 1.0,
-          pastEstimate: false,
-        ),
-      );
-      return outMp4;
+    if (outLen == 0) {
+      try {
+        await out.delete();
+      } catch (_) {}
+      return null;
     }
-    try {
-      await out.delete();
-    } catch (_) {}
-    return null;
+    // Always use a successful transcode for send/playback. A previous check
+    // required the output to be ≥64 KiB smaller than the source; that discarded
+    // valid H.264/AAC outputs when compression barely shrank the file, so we
+    // fell back to the original (e.g. HEVC) and in-app playback showed black
+    // video with audio on some decoders.
+    if (probe?.durationMs != null && probe!.durationMs! > 0 && wallMs >= 0) {
+      TranscodeCalibration.instance.recordObservation(
+        sourceDurationMs: probe.durationMs!.toInt(),
+        wallClockMs: wallMs,
+        preset: preset,
+      );
+    }
+    onVideoTranscodeProgress?.call(
+      const VideoTranscodeProgressChunk(
+        linearProgress: 1.0,
+        pastEstimate: false,
+      ),
+    );
+    return outMp4;
   } catch (e, st) {
     timer?.cancel();
     sw.stop();

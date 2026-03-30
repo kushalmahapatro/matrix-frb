@@ -68,6 +68,11 @@ class TerminalScreen extends StatelessWidget {
   final bool automaticallyImplyLeading;
   final Widget? leading;
 
+  /// Passed to [Scaffold.resizeToAvoidBottomInset]. When `true` (default), the
+  /// body height shrinks when the IME is open so bottom content (e.g. composer)
+  /// stays visible above the keyboard.
+  final bool resizeToAvoidBottomInset;
+
   const TerminalScreen({
     super.key,
     required this.child,
@@ -76,6 +81,7 @@ class TerminalScreen extends StatelessWidget {
     this.showAppBar = true,
     this.automaticallyImplyLeading = true,
     this.leading,
+    this.resizeToAvoidBottomInset = true,
   });
 
   @override
@@ -114,6 +120,7 @@ class TerminalScreen extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           );
     return Scaffold(
+      resizeToAvoidBottomInset: resizeToAvoidBottomInset,
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: showAppBar
           ? AppBar(

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:matrix/src/core/matrix_media_kit_video.dart';
 import 'package:matrix/src/features/conversation/presentation/widgets/audio_message_waveform.dart';
 import 'package:matrix/src/core/video_send_media_prep.dart';
 import 'package:media/media.dart' show EncodeTimeEstimate;
@@ -890,7 +891,10 @@ class _OutgoingInlineVideo extends StatefulWidget {
 
 class _OutgoingInlineVideoState extends State<_OutgoingInlineVideo> {
   late final Player _player = Player();
-  late final VideoController _videoController = VideoController(_player);
+  late final VideoController _videoController = VideoController(
+    _player,
+    configuration: matrixPlaybackVideoControllerConfiguration(),
+  );
   bool _opened = false;
 
   @override
@@ -901,6 +905,7 @@ class _OutgoingInlineVideoState extends State<_OutgoingInlineVideo> {
 
   Future<void> _open() async {
     try {
+      await matrixAwaitVideoControllerPlatformReady(_videoController);
       await _player.open(Media(Uri.file(widget.filePath).toString()));
       if (mounted) setState(() => _opened = true);
     } catch (_) {

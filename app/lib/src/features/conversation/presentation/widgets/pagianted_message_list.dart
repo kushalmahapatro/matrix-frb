@@ -379,6 +379,7 @@ class PaginatedMessageList extends StatefulWidget {
     this.onPollVote,
     this.onShowMessageActions,
     this.onBecameAtBottom,
+    this.onSenderAvatarTap,
   });
 
   final String roomId;
@@ -429,6 +430,9 @@ class PaginatedMessageList extends StatefulWidget {
   /// ⋮ menu: reply, react, delete, … [anchorGlobal] is the ⋮ button for desktop [showMenu].
   final void Function(BuildContext context, Message message, Offset anchorGlobal)?
   onShowMessageActions;
+
+  /// Tap on the inline sender avatar (timeline header): profile / DM entry point.
+  final void Function(BuildContext context, Message message)? onSenderAvatarTap;
 
   @override
   State<PaginatedMessageList> createState() => PaginatedMessageListState();
@@ -995,6 +999,7 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
           child: CustomScrollView(
             controller: _controller,
             reverse: true,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             slivers: [
               SliverList.builder(
                 itemCount: display.length,
@@ -1060,6 +1065,7 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
                           onShowReactionReactors:
                               widget.onShowReactionReactors,
                           onPollVote: widget.onPollVote,
+                          onSenderAvatarTap: widget.onSenderAvatarTap,
                           jumpHighlighted:
                               _jumpHighlightId != null &&
                               _messageMatchesJumpTarget(
@@ -1154,6 +1160,7 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
     onShowReactionReactors,
     Future<void> Function(String pollEventId, List<String> answerIds)?
     onPollVote,
+    void Function(BuildContext context, Message message)? onSenderAvatarTap,
     bool jumpHighlighted = false,
   }) {
     Widget bubbleForMap(Map<String, String>? avatarMap) => MessageBubble(
@@ -1176,6 +1183,7 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
           onOpenMessageActions: widget.onShowMessageActions != null
               ? (ctx, anchor) => widget.onShowMessageActions!(ctx, m, anchor)
               : null,
+          onSenderAvatarTap: onSenderAvatarTap,
         );
     final Widget bubble = senderAvatarMxcByUserId != null
         ? ValueListenableBuilder<Map<String, String>>(
@@ -1281,12 +1289,14 @@ class _MessageSenderAvatar extends StatefulWidget {
     required this.initials,
     required this.isOutgoing,
     required this.loadBytes,
+    this.onTap,
   });
 
   final String mxcUri;
   final String initials;
   final bool isOutgoing;
   final Future<Uint8List?> Function(String mxc) loadBytes;
+  final VoidCallback? onTap;
 
   @override
   State<_MessageSenderAvatar> createState() => _MessageSenderAvatarState();
@@ -1352,6 +1362,25 @@ class _MessageSenderAvatarState extends State<_MessageSenderAvatar> {
         : MatrixTheme.matrixLightGreen;
     final initials = widget.initials.isNotEmpty ? widget.initials : '?';
 
+    Widget wrapInteractive(Widget child) {
+      final t = widget.onTap;
+      if (t == null) return child;
+      return MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Tooltip(
+          message: 'User info',
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: t,
+              borderRadius: BorderRadius.circular(6),
+              child: child,
+            ),
+          ),
+        ),
+      );
+    }
+
     Widget placeholder() {
       return DecoratedBox(
         decoration: BoxDecoration(
@@ -1375,17 +1404,20 @@ class _MessageSenderAvatarState extends State<_MessageSenderAvatar> {
 
     final uri = widget.mxcUri.trim();
     if (uri.isEmpty || _loadFuture == null) {
-      return SizedBox(
-        width: _kMessageAvatarSize,
-        height: _kMessageAvatarSize,
-        child: placeholder(),
+      return wrapInteractive(
+        SizedBox(
+          width: _kMessageAvatarSize,
+          height: _kMessageAvatarSize,
+          child: placeholder(),
+        ),
       );
     }
 
-    return SizedBox(
-      width: _kMessageAvatarSize,
-      height: _kMessageAvatarSize,
-      child: FutureBuilder<Uint8List?>(
+    return wrapInteractive(
+      SizedBox(
+        width: _kMessageAvatarSize,
+        height: _kMessageAvatarSize,
+        child: FutureBuilder<Uint8List?>(
         future: _loadFuture,
         builder: (context, snap) {
           if (snap.hasError) {
@@ -1393,6 +1425,11 @@ class _MessageSenderAvatarState extends State<_MessageSenderAvatar> {
           }
           final data = snap.data;
           if (data != null && data.isNotEmpty) {
+            final thumbDecode = timelineThumbImageDecodeCacheParams(
+              logicalWidth: _kMessageAvatarSize,
+              logicalHeight: _kMessageAvatarSize,
+              context: context,
+            );
             return ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: DecoratedBox(
@@ -1402,14 +1439,8 @@ class _MessageSenderAvatarState extends State<_MessageSenderAvatar> {
                   fit: BoxFit.cover,
                   width: _kMessageAvatarSize,
                   height: _kMessageAvatarSize,
-                  cacheWidth: timelineThumbDecodeExtentPx(
-                    _kMessageAvatarSize,
-                    context,
-                  ),
-                  cacheHeight: timelineThumbDecodeExtentPx(
-                    _kMessageAvatarSize,
-                    context,
-                  ),
+                  cacheWidth: thumbDecode.cacheWidth,
+                  cacheHeight: thumbDecode.cacheHeight,
                   gaplessPlayback: true,
                   errorBuilder: (_, __, ___) => placeholder(),
                 ),
@@ -1437,6 +1468,7 @@ class _MessageSenderAvatarState extends State<_MessageSenderAvatar> {
           }
           return placeholder();
         },
+        ),
       ),
     );
   }
@@ -1811,19 +1843,18 @@ class _InlineReplyTargetThumbState extends State<_InlineReplyTargetThumb> {
         if (bytes != null &&
             bytes.isNotEmpty &&
             _isTimelineRasterBytes(bytes)) {
+          final thumbDecode = timelineThumbImageDecodeCacheParams(
+            logicalWidth: _kInlineReplyThumb,
+            logicalHeight: _kInlineReplyThumb,
+            context: context,
+          );
           return framed(
             Image.memory(
               bytes,
               fit: BoxFit.cover,
               gaplessPlayback: true,
-              cacheWidth: timelineThumbDecodeExtentPx(
-                _kInlineReplyThumb,
-                context,
-              ),
-              cacheHeight: timelineThumbDecodeExtentPx(
-                _kInlineReplyThumb,
-                context,
-              ),
+              cacheWidth: thumbDecode.cacheWidth,
+              cacheHeight: thumbDecode.cacheHeight,
               errorBuilder: (_, __, ___) =>
                   _inlineReplyKindPlaceholder(widget.kind, theme),
             ),
@@ -2553,6 +2584,7 @@ class MessageBubble extends StatelessWidget {
     required this.onShowReactionReactors,
     this.onPollVote,
     this.onOpenMessageActions,
+    this.onSenderAvatarTap,
   });
 
   /// Incoming bubbles: blue accent so they read clearly against terminal-green “sent” styling.
@@ -2593,6 +2625,8 @@ class MessageBubble extends StatelessWidget {
   /// ⋮ opens reply / react / delete (sheet on mobile, [showMenu] on desktop).
   final void Function(BuildContext context, Offset anchorGlobal)?
   onOpenMessageActions;
+
+  final void Function(BuildContext context, Message message)? onSenderAvatarTap;
 
   bool get _canReactToMessage =>
       message.messageType == MessageType.message &&
@@ -2807,6 +2841,11 @@ class MessageBubble extends StatelessWidget {
       senderAvatarMxcByUserId: senderAvatarMxcByUserId,
     );
 
+    final VoidCallback? onAvatarTap =
+        onSenderAvatarTap != null && message.senderUserId.trim().isNotEmpty
+        ? () => onSenderAvatarTap!(context, message)
+        : null;
+
     final bubbleCard = Container(
         margin: EdgeInsetsDirectional.only(
           bottom: 10,
@@ -2879,6 +2918,7 @@ class MessageBubble extends StatelessWidget {
                                   ),
                                   isOutgoing: isOutgoing,
                                   loadBytes: loadSenderAvatar,
+                                  onTap: onAvatarTap,
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
@@ -2946,6 +2986,7 @@ class MessageBubble extends StatelessWidget {
                                   ),
                                   isOutgoing: isOutgoing,
                                   loadBytes: loadSenderAvatar,
+                                  onTap: onAvatarTap,
                                 ),
                               ],
                             ],
@@ -3529,194 +3570,8 @@ bool _isTimelineRasterBytes(Uint8List data) {
   return false;
 }
 
-bool _isJpegTimelineBytes(Uint8List data) =>
-    data.length >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF;
-
-int _readUint16LeBe(Uint8List b, int offset, bool littleEndian) {
-  final a = b[offset];
-  final c = b[offset + 1];
-  return littleEndian ? (a | (c << 8)) : ((a << 8) | c);
-}
-
-int _readUint32LeBe(Uint8List b, int offset, bool littleEndian) {
-  if (littleEndian) {
-    return b[offset] |
-        (b[offset + 1] << 8) |
-        (b[offset + 2] << 16) |
-        (b[offset + 3] << 24);
-  }
-  return (b[offset] << 24) |
-      (b[offset + 1] << 16) |
-      (b[offset + 2] << 8) |
-      b[offset + 3];
-}
-
-/// Reads TIFF IFD0 orientation tag (0x0112), 1–8 per JEITA EXIF spec.
-int? _readTiffOrientationIfd0(Uint8List b, int tiffStart, int tiffEnd) {
-  if (tiffStart + 8 > tiffEnd) return null;
-  final le = b[tiffStart] == 0x49 && b[tiffStart + 1] == 0x49;
-  final be = b[tiffStart] == 0x4D && b[tiffStart + 1] == 0x4D;
-  if (!le && !be) return null;
-  final ifd0Off = _readUint32LeBe(b, tiffStart + 4, le);
-  var ifd = tiffStart + ifd0Off;
-  if (ifd < tiffStart || ifd + 2 > tiffEnd) return null;
-  final n = _readUint16LeBe(b, ifd, le);
-  var p = ifd + 2;
-  for (var i = 0; i < n && p + 12 <= tiffEnd; i++) {
-    final tag = _readUint16LeBe(b, p, le);
-    final type = _readUint16LeBe(b, p + 2, le);
-    final count = _readUint32LeBe(b, p + 4, le);
-    if (tag == 0x0112 && type == 3) {
-      if (count == 1) {
-        return _readUint16LeBe(b, p + 8, le);
-      }
-      final vo = _readUint32LeBe(b, p + 8, le);
-      final vp = tiffStart + vo;
-      if (vp + 2 <= tiffEnd) {
-        return _readUint16LeBe(b, vp, le);
-      }
-      return null;
-    }
-    p += 12;
-  }
-  return null;
-}
-
-int? _tryExifOrientationFromApp1(
-  Uint8List b,
-  int payloadStart,
-  int payloadEnd,
-) {
-  if (payloadEnd - payloadStart < 6) return null;
-  if (b[payloadStart] != 0x45 ||
-      b[payloadStart + 1] != 0x78 ||
-      b[payloadStart + 2] != 0x69 ||
-      b[payloadStart + 3] != 0x66 ||
-      b[payloadStart + 4] != 0 ||
-      b[payloadStart + 5] != 0) {
-    return null;
-  }
-  final tiffStart = payloadStart + 6;
-  final o = _readTiffOrientationIfd0(b, tiffStart, payloadEnd);
-  if (o == null || o < 1 || o > 8) return null;
-  return o;
-}
-
-/// EXIF orientation 1–8 for JPEG; 1 if absent or not JPEG.
-int _jpegExifOrientation(Uint8List b) {
-  if (!_isJpegTimelineBytes(b)) return 1;
-  var i = 2;
-  while (i + 3 < b.length) {
-    if (b[i] != 0xFF) {
-      i++;
-      continue;
-    }
-    final marker = b[i + 1];
-    if (marker == 0xD9) break;
-    if (marker == 0xD8 || marker == 0x01) {
-      i += 2;
-      continue;
-    }
-    if (i + 4 > b.length) break;
-    final segLen = _readUint16LeBe(b, i + 2, false);
-    if (segLen < 2 || i + 2 + segLen > b.length) break;
-    if (marker == 0xE1) {
-      final payStart = i + 4;
-      final payEnd = i + 2 + segLen;
-      final o = _tryExifOrientationFromApp1(b, payStart, payEnd);
-      if (o != null) return o;
-    }
-    i += 2 + segLen;
-  }
-  return 1;
-}
-
-/// Decoder pixel size → logical size for layout (swap when EXIF implies 90° steps).
-Size _orientedIntrinsicForLayout(Size raw, int exifOrientation) {
-  switch (exifOrientation) {
-    case 5:
-    case 6:
-    case 7:
-    case 8:
-      return Size(raw.height, raw.width);
-    default:
-      return raw;
-  }
-}
-
-/// [RotatedBox] quarter-turns (clockwise) to correct common EXIF orientations.
-int _exifQuarterTurns(int exifOrientation) {
-  switch (exifOrientation) {
-    case 3:
-      return 2;
-    case 6:
-      return 1;
-    case 8:
-      return 3;
-    default:
-      return 0;
-  }
-}
-
-class _TimelinePreviewMeta {
-  const _TimelinePreviewMeta(this.rawSize, this.exifOrientation);
-
-  final Size rawSize;
-  final int exifOrientation;
-}
-
-/// Tiny images (e.g. 1×1 MXC placeholders) pass [_isTimelineRasterBytes] but
-/// would paint as a flat slab if stretched. Returns null for those; otherwise
-/// raw decoder size + JPEG EXIF orientation for layout and rotation.
-Future<_TimelinePreviewMeta?> _timelineImagePreviewMeta(Uint8List data) async {
-  if (data.isEmpty) return null;
-  final exif = _jpegExifOrientation(data);
-  ui.Codec? codec;
-  try {
-    final cap = kTimelineMetaDecodeMaxEdgePx;
-    codec = await ui.instantiateImageCodec(
-      data,
-      targetWidth: cap,
-      targetHeight: cap,
-    );
-    final frame = await codec.getNextFrame();
-    final w = frame.image.width;
-    final h = frame.image.height;
-    frame.image.dispose();
-    if (w < 1 || h < 1) return null;
-    final longest = w > h ? w : h;
-    if (longest < 64) return null;
-    return _TimelinePreviewMeta(Size(w.toDouble(), h.toDouble()), exif);
-  } catch (_) {
-    return null;
-  } finally {
-    codec?.dispose();
-  }
-}
-
-/// Fixed thumbnail frame when an event thumbnail is shown (remaining width → metadata).
-const double _kTimelineThumbPortraitW = 45;
-const double _kTimelineThumbPortraitH = 60;
 /// Wider slot so MSC / placeholder waveform bars are visible in the bubble.
 const double _kAudioWaveformThumbW = 76;
-const double _kTimelineThumbLandscapeW = 80;
-const double _kTimelineThumbLandscapeH = 45;
-
-/// Fixed timeline thumb frame (portrait vs landscape) from known pixel size; EXIF not applied.
-Size _timelineLoadingThumbFrameSize(int w, int h) {
-  if (w > 0 && h > 0) {
-    final oriented = _orientedIntrinsicForLayout(
-      Size(w.toDouble(), h.toDouble()),
-      1,
-    );
-    final portrait = oriented.height > oriented.width;
-    return Size(
-      portrait ? _kTimelineThumbPortraitW : _kTimelineThumbLandscapeW,
-      portrait ? _kTimelineThumbPortraitH : _kTimelineThumbLandscapeH,
-    );
-  }
-  return const Size(_kTimelineThumbPortraitW, _kTimelineThumbPortraitH);
-}
 
 bool _wantsMediaPreview(Message m) {
   final lookup = m.eventId.isNotEmpty ? m.eventId : m.transactionId;
@@ -4044,10 +3899,10 @@ Widget _timelineNoThumbnailRow({
     RoomMessageKind.poll => Icons.poll_outlined,
     _ => Icons.perm_media_outlined,
   };
-  // Same frame as portrait timeline thumbnail ([_kTimelineThumbPortraitW] × [_kTimelineThumbPortraitH]).
+  // Same frame as portrait timeline thumbnail (kTimelineThumbPortraitW × kTimelineThumbPortraitH).
   final placeholder = SizedBox(
-    width: _kTimelineThumbPortraitW,
-    height: _kTimelineThumbPortraitH,
+    width: kTimelineThumbPortraitW,
+    height: kTimelineThumbPortraitH,
     child: DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(3),
@@ -4127,7 +3982,7 @@ class _MessageMediaPreview extends StatefulWidget {
 
 class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
   Uint8List? _bytes;
-  _TimelinePreviewMeta? _previewMeta;
+  RasterPreviewMeta? _previewMeta;
   bool _loading = true;
   String? _error;
 
@@ -4184,22 +4039,23 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
       if (b != null && b.isNotEmpty && !_isTimelineRasterBytes(b)) {
         b = null;
       }
-      _TimelinePreviewMeta? meta;
+      RasterPreviewMeta? meta;
       if (b != null && b.isNotEmpty) {
-        meta = await _timelineImagePreviewMeta(b);
+        meta = await decodeRasterPreviewMeta(b);
         if (meta == null) {
           b = null;
         } else {
-          final frame = _timelineLoadingThumbFrameSize(
+          final frame = timelineThumbFrameSizeForPixels(
             widget.mediaPreviewWidth,
             widget.mediaPreviewHeight,
           );
-          final tw = timelineThumbDecodeExtentPx(frame.width);
-          final th = timelineThumbDecodeExtentPx(frame.height);
-          final small = await encodeRasterPngFitBox(
+          final longLogical =
+              frame.width >= frame.height ? frame.width : frame.height;
+          final longPx = timelineThumbDecodeExtentPx(longLogical);
+          final small = await encodeRasterPngMaxLongEdgeWithMeta(
             b,
-            targetWidthPx: tw,
-            targetHeightPx: th,
+            longPx,
+            meta,
           );
           if (small != null) b = small;
         }
@@ -4240,7 +4096,7 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
 
   /// Thumb slot while loading, or when thumbnail download failed but [mediaBlurhash] is set.
   Widget _mediaPreviewThumbBlurhashOrSpinner(ThemeData theme) {
-    final frame = _timelineLoadingThumbFrameSize(
+    final frame = timelineThumbFrameSizeForPixels(
       widget.mediaPreviewWidth,
       widget.mediaPreviewHeight,
     );
@@ -4342,7 +4198,7 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
             );
       final audioThumb = AudioMessageWaveformBars(
         samples: samples,
-        height: _kTimelineThumbPortraitH.toDouble(),
+        height: kTimelineThumbPortraitH.toDouble(),
         width: _kAudioWaveformThumbW,
         isPlaceholder: !hasRealWaveform,
       );
@@ -4421,19 +4277,19 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
   Widget _buildThumbnailWithSideInfo(
     BuildContext context,
     ThemeData theme,
-    _TimelinePreviewMeta meta,
+    RasterPreviewMeta meta,
   ) {
-    final oriented = _orientedIntrinsicForLayout(
+    final oriented = orientedIntrinsicForLayout(
       meta.rawSize,
       meta.exifOrientation,
     );
     final portrait = oriented.height > oriented.width;
-    final tw = portrait ? _kTimelineThumbPortraitW : _kTimelineThumbLandscapeW;
-    final th = portrait ? _kTimelineThumbPortraitH : _kTimelineThumbLandscapeH;
-    final cache = timelineImageCacheDimensions(
-      context,
+    final tw = portrait ? kTimelineThumbPortraitW : kTimelineThumbLandscapeW;
+    final th = portrait ? kTimelineThumbPortraitH : kTimelineThumbLandscapeH;
+    final thumbDecode = timelineThumbImageDecodeCacheParams(
       logicalWidth: tw,
       logicalHeight: th,
+      context: context,
     );
     Widget thumbDecodeError(_, Object __, StackTrace? ___) {
       if (_canUseBlurhashAsThumbnailFallback()) {
@@ -4454,14 +4310,14 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
       );
     }
 
-    final turns = _exifQuarterTurns(meta.exifOrientation);
+    final turns = exifQuarterTurns(meta.exifOrientation);
     final imageCore = turns == 0
         ? Image.memory(
             _bytes!,
             gaplessPlayback: true,
             filterQuality: FilterQuality.medium,
-            cacheWidth: cache.cacheWidth,
-            cacheHeight: cache.cacheHeight,
+            cacheWidth: thumbDecode.cacheWidth,
+            cacheHeight: thumbDecode.cacheHeight,
             errorBuilder: thumbDecodeError,
           )
         : RotatedBox(
@@ -4470,8 +4326,8 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
               _bytes!,
               gaplessPlayback: true,
               filterQuality: FilterQuality.medium,
-              cacheWidth: cache.cacheWidth,
-              cacheHeight: cache.cacheHeight,
+              cacheWidth: thumbDecode.cacheWidth,
+              cacheHeight: thumbDecode.cacheHeight,
               errorBuilder: thumbDecodeError,
             ),
           );

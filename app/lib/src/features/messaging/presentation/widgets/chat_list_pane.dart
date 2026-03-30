@@ -915,6 +915,11 @@ class _ChatListingMediaSubtitleState extends State<ChatListingMediaSubtitle> {
               ),
       );
     } else if (_bytes != null && _bytes!.isNotEmpty) {
+      final thumbDecode = timelineThumbImageDecodeCacheParams(
+        logicalWidth: _thumb,
+        logicalHeight: _thumb,
+        context: context,
+      );
       thumb = ClipRRect(
         borderRadius: BorderRadius.circular(_thumbRadius),
         child: Image.memory(
@@ -923,8 +928,8 @@ class _ChatListingMediaSubtitleState extends State<ChatListingMediaSubtitle> {
           height: _thumb,
           fit: BoxFit.cover,
           gaplessPlayback: true,
-          cacheWidth: timelineThumbDecodeExtentPx(_thumb, context),
-          cacheHeight: timelineThumbDecodeExtentPx(_thumb, context),
+          cacheWidth: thumbDecode.cacheWidth,
+          cacheHeight: thumbDecode.cacheHeight,
           errorBuilder: (_, __, ___) => _canUseSubtitleBlurhash
               ? BlurHash(hash: bh, imageFit: BoxFit.cover)
               : Icon(icon, size: 10, color: scheme.primary),

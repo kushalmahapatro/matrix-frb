@@ -2236,6 +2236,8 @@ class _RoomFileThumbnail extends StatefulWidget {
 
 class _RoomFileThumbnailState extends State<_RoomFileThumbnail> {
   Uint8List? _bytes;
+  RasterPreviewMeta? _rasterMeta;
+  Size _frameSize = const Size(kTimelineThumbPortraitW, kTimelineThumbPortraitH);
   bool _loading = true;
 
   @override
@@ -2249,6 +2251,8 @@ class _RoomFileThumbnailState extends State<_RoomFileThumbnail> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.item.eventId != widget.item.eventId ||
         oldWidget.item.kind != widget.item.kind) {
+      _frameSize = const Size(kTimelineThumbPortraitW, kTimelineThumbPortraitH);
+      _rasterMeta = null;
       _load();
     }
   }
@@ -2269,25 +2273,46 @@ class _RoomFileThumbnailState extends State<_RoomFileThumbnail> {
       if (b != null && b.isNotEmpty && useThumb && !_isRoomInfoRasterBytes(b)) {
         b = null;
       }
+      RasterPreviewMeta? meta;
+      Size frame = const Size(kTimelineThumbPortraitW, kTimelineThumbPortraitH);
       if (b != null && b.isNotEmpty && useThumb) {
-        const logical = 40.0;
-        final e = timelineThumbDecodeExtentPx(logical);
-        final small = await encodeRasterPngFitBox(
-          b,
-          targetWidthPx: e,
-          targetHeightPx: e,
-        );
-        if (small != null) b = small;
+        meta = await decodeRasterPreviewMeta(b);
+        if (meta != null) {
+          frame = timelineThumbFrameSizeFromPreviewMeta(meta);
+          final longLogical =
+              frame.width >= frame.height ? frame.width : frame.height;
+          final longPx = timelineThumbDecodeExtentPx(longLogical);
+          final small = await encodeRasterPngMaxLongEdgeWithMeta(
+            b,
+            longPx,
+            meta,
+          );
+          if (small != null) b = small;
+        } else {
+          final longPx = timelineThumbDecodeExtentPx(
+            frame.width >= frame.height ? frame.width : frame.height,
+          );
+          final small = await encodeRasterPngFitBox(
+            b,
+            targetWidthPx: longPx,
+            targetHeightPx: longPx,
+          );
+          if (small != null) b = small;
+        }
       }
       if (!mounted) return;
       setState(() {
         _bytes = b;
+        _rasterMeta = meta;
+        _frameSize = frame;
         _loading = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _bytes = null;
+        _rasterMeta = null;
+        _frameSize = const Size(kTimelineThumbPortraitW, kTimelineThumbPortraitH);
         _loading = false;
       });
     }
@@ -2296,28 +2321,35 @@ class _RoomFileThumbnailState extends State<_RoomFileThumbnail> {
   @override
   Widget build(BuildContext context) {
     final scheme = widget.theme.colorScheme;
-    const size = 40.0;
-    final cachePx = timelineThumbDecodeExtentPx(size, context);
+    final tw = _frameSize.width;
+    final th = _frameSize.height;
+    final thumbDecode = timelineThumbImageDecodeCacheParams(
+      logicalWidth: tw,
+      logicalHeight: th,
+      context: context,
+    );
     const iconSize = 20.0;
     final dim = scheme.onSurface.withValues(alpha: 0.55);
     if (widget.item.eventId.isEmpty) {
       return _thumbShell(
-        size,
+        tw,
+        th,
         scheme,
         Icon(_roomFileIcon(widget.item.kind), size: iconSize, color: dim),
       );
     }
     if (widget.item.kind == RoomMessageKind.audio) {
       return _thumbShell(
-        size,
+        tw,
+        th,
         scheme,
         Icon(Icons.audiotrack, size: iconSize, color: scheme.primary),
       );
     }
     if (_loading) {
       return SizedBox(
-        width: size,
-        height: size,
+        width: tw,
+        height: th,
         child: Center(
           child: SizedBox(
             width: 16,
@@ -2331,39 +2363,64 @@ class _RoomFileThumbnailState extends State<_RoomFileThumbnail> {
       );
     }
     if (_bytes != null && _bytes!.isNotEmpty) {
+      Widget thumbDecodeError(_, Object __, StackTrace? ___) => Icon(
+            _roomFileIcon(widget.item.kind),
+            size: iconSize,
+            color: dim,
+          );
+      final turns =
+          _rasterMeta != null ? exifQuarterTurns(_rasterMeta!.exifOrientation) : 0;
+      final imageCore = turns == 0
+          ? Image.memory(
+              _bytes!,
+              gaplessPlayback: true,
+              filterQuality: FilterQuality.medium,
+              cacheWidth: thumbDecode.cacheWidth,
+              cacheHeight: thumbDecode.cacheHeight,
+              errorBuilder: thumbDecodeError,
+            )
+          : RotatedBox(
+              quarterTurns: turns,
+              child: Image.memory(
+                _bytes!,
+                gaplessPlayback: true,
+                filterQuality: FilterQuality.medium,
+                cacheWidth: thumbDecode.cacheWidth,
+                cacheHeight: thumbDecode.cacheHeight,
+                errorBuilder: thumbDecodeError,
+              ),
+            );
       return _thumbShell(
-        size,
+        tw,
+        th,
         scheme,
         ClipRRect(
           borderRadius: BorderRadius.circular(3),
-          child: Image.memory(
-            _bytes!,
-            width: size,
-            height: size,
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-            cacheWidth: cachePx,
-            cacheHeight: cachePx,
-            errorBuilder: (_, __, ___) => Icon(
-              _roomFileIcon(widget.item.kind),
-              size: iconSize,
-              color: dim,
+          child: SizedBox(
+            width: tw,
+            height: th,
+            child: FittedBox(
+              fit: BoxFit.cover,
+              clipBehavior: Clip.hardEdge,
+              alignment: Alignment.center,
+              child: imageCore,
             ),
           ),
         ),
       );
     }
     return _thumbShell(
-      size,
+      tw,
+      th,
       scheme,
       Icon(_roomFileIcon(widget.item.kind), size: iconSize, color: dim),
     );
   }
 
-  Widget _thumbShell(double size, ColorScheme scheme, Widget child) {
+  Widget _thumbShell(double w, double h, ColorScheme scheme, Widget child) {
     return Container(
-      width: size,
-      height: size,
+      width: w,
+      height: h,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(3),
