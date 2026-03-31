@@ -134,6 +134,7 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                           (Message firstVisible, Message lastVisible) {},
                       onBecameAtBottom: wm.onTimelineScrolledToBottom,
                       jumpToEventNotifier: wm.jumpToTimelineEventId,
+                      scrollToLatestNotifier: wm.scrollTimelineToLatest,
                       isGroupRoom: !roomInfo.isDirect,
                       onToggleReaction: wm.toggleTimelineReaction,
                       onShowReactionReactors: wm.showReactionReactorsSheet,
@@ -556,10 +557,14 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
               fontWeight: FontWeight.bold,
             ),
           ),
-          IconButton(
-            icon: Icon(Icons.attach_file, color: theme.colorScheme.primary),
-            onPressed: wm.showAttachMenu,
-            tooltip: 'Attach',
+          Focus(
+            canRequestFocus: false,
+            skipTraversal: true,
+            child: IconButton(
+              icon: Icon(Icons.attach_file, color: theme.colorScheme.primary),
+              onPressed: wm.showAttachMenu,
+              tooltip: 'Attach',
+            ),
           ),
           Expanded(
             child: Focus(
@@ -622,16 +627,24 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
             valueListenable: wm.composerHasText,
             builder: (context, hasText, _) {
               if (hasText) {
-                return IconButton(
-                  icon: Icon(Icons.send, color: theme.colorScheme.primary),
-                  onPressed: wm.sendMessage,
-                  tooltip: 'Send message',
+                return Focus(
+                  canRequestFocus: false,
+                  skipTraversal: true,
+                  child: IconButton(
+                    icon: Icon(Icons.send, color: theme.colorScheme.primary),
+                    onPressed: wm.sendMessage,
+                    tooltip: 'Send message',
+                  ),
                 );
               }
-              return IconButton(
-                icon: Icon(Icons.mic_rounded, color: theme.colorScheme.primary),
-                onPressed: wm.showVoiceRecordSheet,
-                tooltip: 'Record voice message',
+              return Focus(
+                canRequestFocus: false,
+                skipTraversal: true,
+                child: IconButton(
+                  icon: Icon(Icons.mic_rounded, color: theme.colorScheme.primary),
+                  onPressed: wm.showVoiceRecordSheet,
+                  tooltip: 'Record voice message',
+                ),
               );
             },
           ),

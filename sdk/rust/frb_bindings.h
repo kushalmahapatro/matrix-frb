@@ -131,6 +131,7 @@ typedef struct wire_cst_message {
   struct wire_cst_list_prim_u_8_strict *link_previews_json;
   bool is_redacted;
   uint32_t read_receipt_count;
+  uint64_t read_receipt_latest_timestamp_ms;
 } wire_cst_message;
 
 typedef struct wire_cst_room_update {

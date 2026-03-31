@@ -4215,6 +4215,7 @@ impl SseDecode for crate::matrix::timelines::Message {
         let mut var_linkPreviewsJson = <String>::sse_decode(deserializer);
         let mut var_isRedacted = <bool>::sse_decode(deserializer);
         let mut var_readReceiptCount = <u32>::sse_decode(deserializer);
+        let mut var_readReceiptLatestTimestampMs = <u64>::sse_decode(deserializer);
         return crate::matrix::timelines::Message {
             event_id: var_eventId,
             transaction_id: var_transactionId,
@@ -4252,6 +4253,7 @@ impl SseDecode for crate::matrix::timelines::Message {
             link_previews_json: var_linkPreviewsJson,
             is_redacted: var_isRedacted,
             read_receipt_count: var_readReceiptCount,
+            read_receipt_latest_timestamp_ms: var_readReceiptLatestTimestampMs,
         };
     }
 }
@@ -5189,6 +5191,9 @@ impl flutter_rust_bridge::IntoDart for crate::matrix::timelines::Message {
             self.link_previews_json.into_into_dart().into_dart(),
             self.is_redacted.into_into_dart().into_dart(),
             self.read_receipt_count.into_into_dart().into_dart(),
+            self.read_receipt_latest_timestamp_ms
+                .into_into_dart()
+                .into_dart(),
         ]
         .into_dart()
     }
@@ -6304,6 +6309,7 @@ impl SseEncode for crate::matrix::timelines::Message {
         <String>::sse_encode(self.link_previews_json, serializer);
         <bool>::sse_encode(self.is_redacted, serializer);
         <u32>::sse_encode(self.read_receipt_count, serializer);
+        <u64>::sse_encode(self.read_receipt_latest_timestamp_ms, serializer);
     }
 }
 
@@ -7404,6 +7410,9 @@ mod io {
                 link_previews_json: self.link_previews_json.cst_decode(),
                 is_redacted: self.is_redacted.cst_decode(),
                 read_receipt_count: self.read_receipt_count.cst_decode(),
+                read_receipt_latest_timestamp_ms: self
+                    .read_receipt_latest_timestamp_ms
+                    .cst_decode(),
             }
         }
     }
@@ -7703,6 +7712,7 @@ mod io {
                 link_previews_json: core::ptr::null_mut(),
                 is_redacted: Default::default(),
                 read_receipt_count: Default::default(),
+                read_receipt_latest_timestamp_ms: Default::default(),
             }
         }
     }
@@ -9285,6 +9295,7 @@ media_cache_path: *mut wire_cst_list_prim_u_8_strict }
         link_previews_json: *mut wire_cst_list_prim_u_8_strict,
         is_redacted: bool,
         read_receipt_count: u32,
+        read_receipt_latest_timestamp_ms: u64,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -9844,8 +9855,8 @@ mod web {
                 .unwrap();
             assert_eq!(
                 self_.length(),
-                36,
-                "Expected 36 elements, got {}",
+                37,
+                "Expected 37 elements, got {}",
                 self_.length()
             );
             crate::matrix::timelines::Message {
@@ -9885,6 +9896,7 @@ mod web {
                 link_previews_json: self_.get(33).cst_decode(),
                 is_redacted: self_.get(34).cst_decode(),
                 read_receipt_count: self_.get(35).cst_decode(),
+                read_receipt_latest_timestamp_ms: self_.get(36).cst_decode(),
             }
         }
     }

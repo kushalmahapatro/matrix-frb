@@ -328,6 +328,9 @@ class ConversationScreenWM
     null,
   );
 
+  /// Increment after sending a text message so [PaginatedMessageList] scrolls to the latest tail.
+  final ValueNotifier<int> scrollTimelineToLatest = ValueNotifier<int>(0);
+
   /// Current member avatars (`mxc://…`) keyed by Matrix user id; refreshes with room meta so
   /// timeline bubbles pick up profile photo changes without re-fetching every event row.
   final ValueNotifier<Map<String, String>> senderAvatarMxcByUserId =
@@ -399,6 +402,7 @@ class ConversationScreenWM
     _markReadDebounce?.cancel();
     _fileSendProgress.dispose();
     jumpToTimelineEventId.dispose();
+    scrollTimelineToLatest.dispose();
     replyDraft.dispose();
     senderAvatarMxcByUserId.dispose();
     _disposed = true;
@@ -1252,7 +1256,12 @@ class ConversationScreenWM
       result.fold((eventId) {
         _messageController.clear();
         clearReplyDraft();
+        scrollTimelineToLatest.value = scrollTimelineToLatest.value + 1;
         // Room list is updated in Rust on send; no need to push from Flutter.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_disposed || !context.mounted) return;
+          _composerFocusNode.requestFocus();
+        });
       }, (_) {});
     } catch (e) {
       if (context.mounted) {

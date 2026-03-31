@@ -3855,8 +3855,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Message dco_decode_message(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 36)
-      throw Exception('unexpected arr length: expect 36 but see ${arr.length}');
+    if (arr.length != 37)
+      throw Exception('unexpected arr length: expect 37 but see ${arr.length}');
     return Message(
       eventId: dco_decode_String(arr[0]),
       transactionId: dco_decode_String(arr[1]),
@@ -3894,6 +3894,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       linkPreviewsJson: dco_decode_String(arr[33]),
       isRedacted: dco_decode_bool(arr[34]),
       readReceiptCount: dco_decode_u_32(arr[35]),
+      readReceiptLatestTimestampMs: dco_decode_u_64(arr[36]),
     );
   }
 
@@ -4882,6 +4883,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_linkPreviewsJson = sse_decode_String(deserializer);
     var var_isRedacted = sse_decode_bool(deserializer);
     var var_readReceiptCount = sse_decode_u_32(deserializer);
+    var var_readReceiptLatestTimestampMs = sse_decode_u_64(deserializer);
     return Message(
       eventId: var_eventId,
       transactionId: var_transactionId,
@@ -4919,6 +4921,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       linkPreviewsJson: var_linkPreviewsJson,
       isRedacted: var_isRedacted,
       readReceiptCount: var_readReceiptCount,
+      readReceiptLatestTimestampMs: var_readReceiptLatestTimestampMs,
     );
   }
 
@@ -6288,6 +6291,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.linkPreviewsJson, serializer);
     sse_encode_bool(self.isRedacted, serializer);
     sse_encode_u_32(self.readReceiptCount, serializer);
+    sse_encode_u_64(self.readReceiptLatestTimestampMs, serializer);
   }
 
   @protected

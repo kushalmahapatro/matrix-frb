@@ -1401,6 +1401,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     wireObj.link_previews_json = cst_encode_String(apiObj.linkPreviewsJson);
     wireObj.is_redacted = cst_encode_bool(apiObj.isRedacted);
     wireObj.read_receipt_count = cst_encode_u_32(apiObj.readReceiptCount);
+    wireObj.read_receipt_latest_timestamp_ms = cst_encode_u_64(
+      apiObj.readReceiptLatestTimestampMs,
+    );
   }
 
   @protected
@@ -5265,6 +5268,9 @@ final class wire_cst_message extends ffi.Struct {
 
   @ffi.Uint32()
   external int read_receipt_count;
+
+  @ffi.Uint64()
+  external int read_receipt_latest_timestamp_ms;
 }
 
 final class wire_cst_room_update extends ffi.Struct {

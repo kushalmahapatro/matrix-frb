@@ -2,6 +2,7 @@ use eyeball_im::Vector;
 use flutter_rust_bridge::frb;
 use futures::StreamExt;
 use matrix_sdk::ruma::events::poll::start::PollKind;
+use matrix_sdk::ruma::events::receipt::Receipt as RumaReadReceipt;
 use matrix_sdk::ruma::events::room::message::{
     FileMessageEventContent, MessageType as RumaMessageType,
 };
@@ -307,6 +308,8 @@ pub struct Message {
     pub is_redacted: bool,
     /// Other room members with a read receipt on this event (`m.read` / main-thread compatible). Always 0 for virtual rows and local echoes.
     pub read_receipt_count: u32,
+    /// Latest `origin_server_ts` among those read receipts (ms since Unix epoch), or 0 if unknown / none.
+    pub read_receipt_latest_timestamp_ms: u64,
 }
 
 /// Sentinel for missing index/length in MessageUpdate (codegen uses usize, not Option<usize>).
@@ -854,12 +857,22 @@ pub(crate) fn sender_display_and_avatar_from_profile(
     }
 }
 
-/// Count of read receipts on this timeline item from members other than the logged-in user.
-fn other_read_receipt_count(ev: &EventTimelineItem, own_user_id: Option<&str>) -> u32 {
-    ev.read_receipts()
-        .keys()
-        .filter(|uid| own_user_id.map(|o| o != uid.as_str()).unwrap_or(true))
-        .count() as u32
+fn receipt_timestamp_ms(r: &RumaReadReceipt) -> u64 {
+    r.ts.map(|t| u64::from(t.0)).unwrap_or(0)
+}
+
+/// Read receipts from other members on this timeline item: count and latest receipt timestamp.
+fn other_read_receipt_stats(ev: &EventTimelineItem, own_user_id: Option<&str>) -> (u32, u64) {
+    let mut count: u32 = 0;
+    let mut latest_ms: u64 = 0;
+    for (uid, receipt) in ev.read_receipts() {
+        if own_user_id.is_some_and(|o| o == uid.as_str()) {
+            continue;
+        }
+        count = count.saturating_add(1);
+        latest_ms = latest_ms.max(receipt_timestamp_ms(receipt));
+    }
+    (count, latest_ms)
 }
 
 fn send_state_fields(ev: &EventTimelineItem) -> (EventSendStateKind, String, bool) {
@@ -925,7 +938,8 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
                     (String::new(), String::new())
                 };
             let link_previews_json = event_link_previews_json(ev);
-            let read_receipt_count = other_read_receipt_count(ev, own_user_id);
+            let (read_receipt_count, read_receipt_latest_timestamp_ms) =
+                other_read_receipt_stats(ev, own_user_id);
             Message {
                 event_id,
                 transaction_id,
@@ -963,6 +977,7 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
                 link_previews_json,
                 is_redacted,
                 read_receipt_count,
+                read_receipt_latest_timestamp_ms,
             }
         }
         TimelineItemKind::Virtual(virtual_timeline_item) => {
@@ -1006,6 +1021,7 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
                     link_previews_json: "[]".to_string(),
                     is_redacted: false,
                     read_receipt_count: 0,
+                    read_receipt_latest_timestamp_ms: 0,
                 },
                 matrix_sdk_ui::timeline::VirtualTimelineItem::ReadMarker => Message {
                     event_id: "".to_string(),
@@ -1044,6 +1060,7 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
                     link_previews_json: "[]".to_string(),
                     is_redacted: false,
                     read_receipt_count: 0,
+                    read_receipt_latest_timestamp_ms: 0,
                 },
                 matrix_sdk_ui::timeline::VirtualTimelineItem::TimelineStart => Message {
                     event_id: "".to_string(),
@@ -1082,6 +1099,7 @@ pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&
                     link_previews_json: "[]".to_string(),
                     is_redacted: false,
                     read_receipt_count: 0,
+                    read_receipt_latest_timestamp_ms: 0,
                 },
             }
         }
@@ -1261,31 +1279,40 @@ pub(crate) async fn subscribe_to_timeline_list_loop(
             }
             next = diff_stream.next() => match next {
             Some(diffs) => {
-                for diff in diffs {
-                    let list = {
-                        let mut cache_guard = cache_map.lock().await;
-                        let vec = cache_guard.entry(room_id.clone()).or_insert_with(Vec::new);
-                        apply_vector_diff_to_messages(vec, diff, own);
-                        vec.clone()
-                    };
-                    let sinks_guard = sinks_map.lock().await;
-                    if let Some(sink) = sinks_guard.get(&room_id) {
-                        let _ = sink.add(list.clone());
-                    }
-                    drop(sinks_guard);
-                    // Refresh room list with last *message* row from timeline (not date divider / markers)
-                    if let Some(last_msg) = last_message_row_for_room_preview(&list) {
-                        let mut update = rooms::get_room_update_data(&room, own).await;
-                        update.message = Some(last_msg);
-                        let mut cache = room_list_cache.lock().await;
-                        rooms::merge_room_update_into_list(&mut cache, update);
-                        rooms::sort_room_list_by_activity(&mut cache);
-                        let list_to_push = cache.clone();
-                        drop(cache);
-                        let sink_guard = room_list_sink.lock().await;
-                        if let Some(ref s) = *sink_guard {
-                            let _ = s.add(list_to_push);
-                        }
+                if diffs.is_empty() {
+                    continue;
+                }
+                // Rebuild from the UI timeline after each diff batch. Incremental
+                // [apply_vector_diff_to_messages] could desync (e.g. skipped inserts), which
+                // dropped read-receipt [VectorDiff::Set] updates on the wrong index.
+                let list = {
+                    let items = timeline.items().await;
+                    let mut messages: Vec<Message> = items
+                        .iter()
+                        .map(|v| get_message_from_timeline_item(v.as_ref(), own))
+                        .collect();
+                    dedupe_stale_local_echoes(&mut messages);
+                    let mut cache_guard = cache_map.lock().await;
+                    cache_guard.insert(room_id.clone(), messages.clone());
+                    messages
+                };
+                let sinks_guard = sinks_map.lock().await;
+                if let Some(sink) = sinks_guard.get(&room_id) {
+                    let _ = sink.add(list.clone());
+                }
+                drop(sinks_guard);
+                // Refresh room list with last *message* row from timeline (not date divider / markers)
+                if let Some(last_msg) = last_message_row_for_room_preview(&list) {
+                    let mut update = rooms::get_room_update_data(&room, own).await;
+                    update.message = Some(last_msg);
+                    let mut cache = room_list_cache.lock().await;
+                    rooms::merge_room_update_into_list(&mut cache, update);
+                    rooms::sort_room_list_by_activity(&mut cache);
+                    let list_to_push = cache.clone();
+                    drop(cache);
+                    let sink_guard = room_list_sink.lock().await;
+                    if let Some(ref s) = *sink_guard {
+                        let _ = s.add(list_to_push);
                     }
                 }
             }
@@ -1370,6 +1397,7 @@ mod room_preview_tests {
             link_previews_json: "[]".to_string(),
             is_redacted: false,
             read_receipt_count: 0,
+            read_receipt_latest_timestamp_ms: 0,
         }
     }
 
@@ -1389,44 +1417,6 @@ mod room_preview_tests {
         m.is_redacted = true;
         let list = vec![m];
         assert!(last_message_row_for_room_preview(&list).is_some());
-    }
-}
-
-fn messages_same_identity(a: &Message, b: &Message) -> bool {
-    if !a.event_id.is_empty() && !b.event_id.is_empty() && a.event_id == b.event_id {
-        return true;
-    }
-    if !a.transaction_id.is_empty()
-        && !b.transaction_id.is_empty()
-        && a.transaction_id == b.transaction_id
-    {
-        return true;
-    }
-    false
-}
-
-/// Push message only if no message with the same event_id / transaction_id is already in the list.
-/// Avoids duplicates when send_message has already appended and the timeline diff also emits it.
-fn push_if_not_duplicate(vec: &mut Vec<Message>, msg: Message) {
-    let has = vec.iter().any(|m| messages_same_identity(m, &msg));
-    if !has {
-        vec.push(msg);
-    }
-}
-
-/// Insert at front only if not duplicate by identity.
-fn push_front_if_not_duplicate(vec: &mut Vec<Message>, msg: Message) {
-    let has = vec.iter().any(|m| messages_same_identity(m, &msg));
-    if !has {
-        vec.insert(0, msg);
-    }
-}
-
-/// Insert at index only if not duplicate by identity.
-fn insert_if_not_duplicate(vec: &mut Vec<Message>, index: usize, msg: Message) {
-    let has = vec.iter().any(|m| messages_same_identity(m, &msg));
-    if !has && index <= vec.len() {
-        vec.insert(index, msg);
     }
 }
 
@@ -1478,73 +1468,10 @@ pub(crate) async fn messages_from_sdk_timeline(
         .collect()
 }
 
-fn apply_vector_diff_to_messages(
-    vec: &mut Vec<Message>,
-    diff: matrix_sdk_ui::eyeball_im::VectorDiff<Arc<matrix_sdk_ui::timeline::TimelineItem>>,
-    own_user_id: Option<&str>,
-) {
-    use matrix_sdk_ui::eyeball_im::VectorDiff;
-    match diff {
-        VectorDiff::Reset { values } => {
-            *vec = values
-                .iter()
-                .map(|v| get_message_from_timeline_item(v.as_ref(), own_user_id))
-                .collect();
-        }
-        VectorDiff::Append { values } => {
-            for value in values {
-                push_if_not_duplicate(
-                    vec,
-                    get_message_from_timeline_item(value.as_ref(), own_user_id),
-                );
-            }
-        }
-        VectorDiff::Clear => vec.clear(),
-        VectorDiff::PushFront { value } => {
-            push_front_if_not_duplicate(
-                vec,
-                get_message_from_timeline_item(value.as_ref(), own_user_id),
-            );
-        }
-        VectorDiff::PushBack { value } => {
-            push_if_not_duplicate(
-                vec,
-                get_message_from_timeline_item(value.as_ref(), own_user_id),
-            );
-        }
-        VectorDiff::PopFront => {
-            if !vec.is_empty() {
-                vec.remove(0);
-            }
-        }
-        VectorDiff::PopBack => {
-            vec.pop();
-        }
-        VectorDiff::Insert { index, value } => {
-            let msg = get_message_from_timeline_item(value.as_ref(), own_user_id);
-            insert_if_not_duplicate(vec, index, msg);
-        }
-        VectorDiff::Set { index, value } => {
-            let msg = get_message_from_timeline_item(value.as_ref(), own_user_id);
-            if index < vec.len() {
-                vec[index] = msg;
-            }
-        }
-        VectorDiff::Remove { index } => {
-            if index < vec.len() {
-                vec.remove(index);
-            }
-        }
-        VectorDiff::Truncate { length } => {
-            vec.truncate(length);
-        }
-    }
-    dedupe_stale_local_echoes(vec);
-}
-
 /// Local echoes only expose [Message::transaction_id]; the remote echo has [Message::event_id] and
-/// empty txn in our bridge — so [messages_same_identity] misses the pair and the UI shows duplicates
-/// (pending spinner + delivered). Drop stale pending rows when a matching delivered echo exists.
+/// empty txn in our bridge — matching uses content/time, not ids — so the UI can briefly show
+/// duplicates (pending spinner + delivered). Drop stale pending rows when a matching delivered
+/// echo exists.
 fn ts_millis_near(a: u64, b: u64, max_delta_ms: u64) -> bool {
     if a > b {
         a - b <= max_delta_ms

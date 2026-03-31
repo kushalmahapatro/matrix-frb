@@ -1129,6 +1129,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_String(raw.linkPreviewsJson),
       cst_encode_bool(raw.isRedacted),
       cst_encode_u_32(raw.readReceiptCount),
+      cst_encode_u_64(raw.readReceiptLatestTimestampMs),
     ].jsify()!;
   }
 

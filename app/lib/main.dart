@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:matrix/firebase_options.dart';
 import 'package:matrix/src/core/desktop/desktop_conversation_window_app.dart';
 import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
 import 'package:matrix/src/core/desktop/desktop_window_args.dart';
@@ -23,8 +24,27 @@ import 'package:matrix_sdk/init.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
 
+/// Firebase Messaging requires [FirebaseMessaging.onBackgroundMessage] to be
+/// registered before [runApp]; otherwise iOS/Android may not invoke the background isolate.
+bool _needsFirebaseMessagingBeforeRunApp() =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.macOS);
+
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (_needsFirebaseMessagingBeforeRunApp()) {
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    } catch (e, st) {
+      debugPrint('Firebase early init (before runApp): $e\n$st');
+    }
+  }
 
   if (!kIsWeb && isDesktopTargetPlatform()) {
     try {
@@ -71,10 +91,11 @@ class _AppBootstrapState extends State<_AppBootstrap> {
 
       if (!kIsWeb) {
         try {
-          await Firebase.initializeApp();
-          FirebaseMessaging.onBackgroundMessage(
-            firebaseMessagingBackgroundHandler,
-          );
+          if (Firebase.apps.isEmpty) {
+            await Firebase.initializeApp(
+              options: DefaultFirebaseOptions.currentPlatform,
+            );
+          }
         } catch (e, st) {
           debugPrint('Firebase.initializeApp failed: $e\n$st');
         }

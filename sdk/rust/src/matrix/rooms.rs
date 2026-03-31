@@ -150,6 +150,7 @@ pub(crate) async fn get_room_update_data(room: &Room, own_user_id: Option<&str>)
         link_previews_json: "[]".to_string(),
         is_redacted: false,
         read_receipt_count: 0,
+        read_receipt_latest_timestamp_ms: 0,
     };
     match &last_event {
         LatestEventValue::Remote {
@@ -249,6 +250,7 @@ pub(crate) async fn get_room_update_data(room: &Room, own_user_id: Option<&str>)
                 link_previews_json,
                 is_redacted: content.is_redacted(),
                 read_receipt_count: 0,
+                read_receipt_latest_timestamp_ms: 0,
             };
         }
         LatestEventValue::None | LatestEventValue::RemoteInvite { .. } => {

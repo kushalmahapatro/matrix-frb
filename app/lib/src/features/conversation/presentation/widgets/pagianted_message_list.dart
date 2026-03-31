@@ -360,6 +360,100 @@ const List<String> kTimelinePresetReactionsMore = [
 /// can be loaded.
 typedef LoadOlderResult = (List<Message> older, bool hasMore);
 
+String _dateDividerLabel(BuildContext context, BigInt timestampMs) {
+  int ms;
+  try {
+    ms = timestampMs.toInt();
+  } catch (_) {
+    return '';
+  }
+  if (ms <= 0) return '';
+  final dt = DateTime.fromMillisecondsSinceEpoch(ms);
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final d = DateTime(dt.year, dt.month, dt.day);
+  if (d == today) return 'Today';
+  if (d == today.subtract(const Duration(days: 1))) return 'Yesterday';
+  final loc = MaterialLocalizations.of(context);
+  return loc.formatFullDate(dt);
+}
+
+class _TimelineDateDividerRow extends StatelessWidget {
+  const _TimelineDateDividerRow({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    if (label.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final lineColor = muted.withValues(alpha: 0.35);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(child: Divider(height: 1, thickness: 1, color: lineColor)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: muted,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.35,
+              ),
+            ),
+          ),
+          Expanded(child: Divider(height: 1, thickness: 1, color: lineColor)),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimelineUnreadMarkerRow extends StatelessWidget {
+  const _TimelineUnreadMarkerRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: Divider(
+              height: 1,
+              thickness: 1,
+              color: accent.withValues(alpha: 0.45),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              'NEW MESSAGES',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: accent,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Divider(
+              height: 1,
+              thickness: 1,
+              color: accent.withValues(alpha: 0.45),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class PaginatedMessageList extends StatefulWidget {
   const PaginatedMessageList({
     super.key,
@@ -373,6 +467,9 @@ class PaginatedMessageList extends StatefulWidget {
     required this.onVisibleRange, // Optional: for read receipts
     this.onOpenAttachment,
     this.jumpToEventNotifier,
+    /// Increment (e.g. after sending) to scroll to the latest messages even when
+    /// the user was scrolled up.
+    this.scrollToLatestNotifier,
     this.isGroupRoom = false,
     required this.onToggleReaction,
     required this.onShowReactionReactors,
@@ -407,6 +504,9 @@ class PaginatedMessageList extends StatefulWidget {
 
   /// When set to a non-empty event id (e.g. from room info), scrolls that bubble into view.
   final ValueNotifier<String?>? jumpToEventNotifier;
+
+  /// Bumped after a successful send so the list catches up to the latest tail.
+  final ValueNotifier<int>? scrollToLatestNotifier;
 
   /// When true, long-pressing a reaction chip opens [onShowReactionReactors]; tap still toggles.
   final bool isGroupRoom;
@@ -460,6 +560,11 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
   int _jumpRetryFrames = 0;
   int _jumpResolveGeneration = 0;
 
+  /// After the first attempt (success or “nothing to do”), we stop re-running.
+  bool _didInitialUnreadScroll = false;
+  bool _scheduledInitialUnreadFrame = false;
+  int? _lastScrollToLatestSeq;
+
   /// Event / transaction id to frame after a successful jump-to-message.
   String? _jumpHighlightId;
   Timer? _jumpHighlightTimer;
@@ -510,9 +615,65 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
     return !_controller.hasClients || _controller.position.pixels <= 20;
   }
 
+  void _onScrollToLatestNotifier() {
+    final n = widget.scrollToLatestNotifier?.value;
+    if (n == null) return;
+    if (_lastScrollToLatestSeq == n) return;
+    _lastScrollToLatestSeq = n;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollToBottom();
+    });
+  }
+
+  void _scheduleInitialUnreadScrollIfNeeded() {
+    if (_didInitialUnreadScroll) return;
+    if (!widget.initialMessages.any((m) => m.messageType == MessageType.readMarker)) {
+      return;
+    }
+    if (_scheduledInitialUnreadFrame) return;
+    _scheduledInitialUnreadFrame = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scheduledInitialUnreadFrame = false;
+      if (!mounted || _didInitialUnreadScroll) return;
+      _tryScrollToFirstUnreadAfterReadMarker();
+    });
+  }
+
+  void _tryScrollToFirstUnreadAfterReadMarker() {
+    if (_didInitialUnreadScroll) return;
+    final notifier = widget.jumpToEventNotifier;
+    final messages = widget.initialMessages;
+    final markerIndex = messages.indexWhere((m) => m.messageType == MessageType.readMarker);
+    if (markerIndex < 0) {
+      _didInitialUnreadScroll = true;
+      return;
+    }
+
+    String? targetId;
+    for (var i = markerIndex + 1; i < messages.length; i++) {
+      final m = messages[i];
+      if (!_timelineRowEligibleForJumpScroll(m)) continue;
+      if (m.eventId.isNotEmpty) {
+        targetId = m.eventId;
+        break;
+      }
+      if (m.transactionId.isNotEmpty) {
+        targetId = m.transactionId;
+        break;
+      }
+    }
+
+    _didInitialUnreadScroll = true;
+    if (notifier != null && targetId != null && targetId.isNotEmpty) {
+      PaginatedMessageListState.requestScrollToEvent(notifier, targetId);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _lastScrollToLatestSeq = widget.scrollToLatestNotifier?.value;
+    widget.scrollToLatestNotifier?.addListener(_onScrollToLatestNotifier);
     _lastTailKey = _computeTailKey();
     widget.jumpToEventNotifier?.addListener(_onJumpNotifier);
     if (widget.initialMessages.isNotEmpty) {
@@ -525,6 +686,7 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
         if (widget.initialMessages.length < 5 && _hasMore) {
           _maybeLoadOlder();
         }
+        _scheduleInitialUnreadScrollIfNeeded();
       });
     }
   }
@@ -532,6 +694,7 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
   @override
   void dispose() {
     _jumpHighlightTimer?.cancel();
+    widget.scrollToLatestNotifier?.removeListener(_onScrollToLatestNotifier);
     widget.jumpToEventNotifier?.removeListener(_onJumpNotifier);
     if (_scrollListenerAttached) {
       _controller.removeListener(_onScroll);
@@ -835,6 +998,11 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
   @override
   void didUpdateWidget(PaginatedMessageList oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollToLatestNotifier != widget.scrollToLatestNotifier) {
+      oldWidget.scrollToLatestNotifier?.removeListener(_onScrollToLatestNotifier);
+      widget.scrollToLatestNotifier?.addListener(_onScrollToLatestNotifier);
+      _lastScrollToLatestSeq = widget.scrollToLatestNotifier?.value;
+    }
     if (oldWidget.jumpToEventNotifier != widget.jumpToEventNotifier) {
       oldWidget.jumpToEventNotifier?.removeListener(_onJumpNotifier);
       widget.jumpToEventNotifier?.addListener(_onJumpNotifier);
@@ -867,6 +1035,7 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
       });
     }
     _lastTailKey = newTail;
+    _scheduleInitialUnreadScrollIfNeeded();
   }
 
   Future<void> _maybeLoadOlder() async {
@@ -1006,17 +1175,21 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
                 itemBuilder: (context, index) {
                   final message = display[index];
 
-                  // Virtual rows — no bubble. Real [MessageType.message] can have
-                  // empty [content] (e.g. image/file with no caption); those must
-                  // still build so jump-to-event GlobalKeys attach.
-                  // Redacted events also have empty body — must build so the deleted placeholder shows.
-                  if ([
-                    MessageType.dateDivider,
-                    MessageType.readMarker,
-                    MessageType.timelineStart,
-                  ].contains(message.messageType)) {
+                  // Virtual rows: date / read-marker UI; timeline start is invisible.
+                  if (message.messageType == MessageType.timelineStart) {
                     return const SizedBox.shrink();
                   }
+                  if (message.messageType == MessageType.dateDivider) {
+                    return _TimelineDateDividerRow(
+                      label: _dateDividerLabel(context, message.timestamp),
+                    );
+                  }
+                  if (message.messageType == MessageType.readMarker) {
+                    return const _TimelineUnreadMarkerRow();
+                  }
+                  // Real [MessageType.message] can have empty [content] (e.g. image/file
+                  // with no caption); those must still build so jump-to-event GlobalKeys attach.
+                  // Redacted events also have empty body — must build so the deleted placeholder shows.
                   if (message.messageType == MessageType.message &&
                       message.content.isEmpty &&
                       !_wantsMediaPreview(message) &&
@@ -1103,29 +1276,41 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
           ),
         ),
 
-        // New messages pill
-        if (_unseenNewCount > 0 && !_isAtBottom)
+        // Jump to latest (always when scrolled up; subtitle when there are new messages).
+        if (!_isAtBottom)
           Positioned(
             bottom: 12,
             left: 0,
             right: 0,
             child: Center(
-              child: GestureDetector(
-                onTap: _scrollToBottom,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                  ),
+              child: Material(
+                elevation: 2,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(22),
+                child: InkWell(
+                  onTap: _scrollToBottom,
+                  borderRadius: BorderRadius.circular(22),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
+                      horizontal: 14,
                       vertical: 8,
                     ),
-                    child: Text(
-                      '$_unseenNewCount new ${_unseenNewCount == 1 ? "message" : "messages"}',
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 22,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        if (_unseenNewCount > 0) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            '$_unseenNewCount new ${_unseenNewCount == 1 ? "message" : "messages"}',
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),
@@ -1474,6 +1659,29 @@ class _MessageSenderAvatarState extends State<_MessageSenderAvatar> {
   }
 }
 
+String _readReceiptDetailTooltip(BuildContext context, Message message) {
+  final n = message.readReceiptCount;
+  final ms = message.readReceiptLatestTimestampMs;
+  var suffix = '';
+  if (ms > BigInt.zero) {
+    try {
+      final dt = DateTime.fromMillisecondsSinceEpoch(ms.toInt());
+      final loc = MaterialLocalizations.of(context);
+      final date = loc.formatFullDate(dt);
+      final tod = loc.formatTimeOfDay(
+        TimeOfDay.fromDateTime(dt),
+        alwaysUse24HourFormat: MediaQuery.of(context).alwaysUse24HourFormat,
+      );
+      suffix = '\n$date · $tod';
+    } catch (_) {
+      suffix = '';
+    }
+  }
+  if (n > 1) return 'Read by $n members$suffix';
+  if (n == 1) return 'Read$suffix';
+  return 'Sent';
+}
+
 /// Outgoing bubbles only: local echo / server ack + aggregated `m.read` from [Message.readReceiptCount].
 bool _showOutgoingReceiptStrip(Message message, {required bool hiddenLocal}) {
   if (!message.isOwn) return false;
@@ -1515,9 +1723,11 @@ class _OutgoingReceiptStrip extends StatelessWidget {
             color: sentColor,
           );
 
+    final tooltipMessage = _readReceiptDetailTooltip(context, message);
+
     if (readCount > 1) {
       return Tooltip(
-        message: 'Read by $readCount members',
+        message: tooltipMessage,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1538,13 +1748,13 @@ class _OutgoingReceiptStrip extends StatelessWidget {
 
     if (readCount == 1) {
       return Tooltip(
-        message: 'Read',
+        message: tooltipMessage,
         child: icon,
       );
     }
 
     return Tooltip(
-      message: 'Sent',
+      message: tooltipMessage,
       child: icon,
     );
   }
@@ -3572,6 +3782,18 @@ bool _isTimelineRasterBytes(Uint8List data) {
 
 /// Wider slot so MSC / placeholder waveform bars are visible in the bubble.
 const double _kAudioWaveformThumbW = 76;
+
+/// Matches timeline rows that render a visible bubble (same rules as jump-to-event).
+bool _timelineRowEligibleForJumpScroll(Message m) {
+  if (m.messageType != MessageType.message) return false;
+  if (m.content.isEmpty &&
+      !_wantsMediaPreview(m) &&
+      !m.isRedacted &&
+      !TimelineLocalHiddenStore.isHidden(m)) {
+    return false;
+  }
+  return true;
+}
 
 bool _wantsMediaPreview(Message m) {
   final lookup = m.eventId.isNotEmpty ? m.eventId : m.transactionId;

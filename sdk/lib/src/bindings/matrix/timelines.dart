@@ -111,6 +111,9 @@ class Message {
   /// Other room members with a read receipt on this event (`m.read` / main-thread compatible). Always 0 for virtual rows and local echoes.
   final int readReceiptCount;
 
+  /// Latest `origin_server_ts` among those read receipts (ms since Unix epoch), or 0 if unknown / none.
+  final BigInt readReceiptLatestTimestampMs;
+
   const Message({
     required this.eventId,
     required this.transactionId,
@@ -148,6 +151,7 @@ class Message {
     required this.linkPreviewsJson,
     required this.isRedacted,
     required this.readReceiptCount,
+    required this.readReceiptLatestTimestampMs,
   });
 
   @override
@@ -187,7 +191,8 @@ class Message {
       pollStateJson.hashCode ^
       linkPreviewsJson.hashCode ^
       isRedacted.hashCode ^
-      readReceiptCount.hashCode;
+      readReceiptCount.hashCode ^
+      readReceiptLatestTimestampMs.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -229,7 +234,8 @@ class Message {
           pollStateJson == other.pollStateJson &&
           linkPreviewsJson == other.linkPreviewsJson &&
           isRedacted == other.isRedacted &&
-          readReceiptCount == other.readReceiptCount;
+          readReceiptCount == other.readReceiptCount &&
+          readReceiptLatestTimestampMs == other.readReceiptLatestTimestampMs;
 }
 
 /// One reaction key on a timeline message (aggregated senders from matrix-sdk-ui).
