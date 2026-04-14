@@ -1,12 +1,14 @@
+import 'dart:async';
+
 import 'package:elementary/elementary.dart';
 import 'package:flutter/material.dart';
 import 'package:matrix/src/core/navigation/navigator_service.dart';
+import 'package:matrix/src/core/permissions/permission_onboarding_navigation.dart';
 import 'package:matrix/src/core/presentation/widgets/terminal_container.dart';
 import 'package:matrix/src/features/auth/domain/models/auth_state.dart';
 import 'package:matrix/src/features/auth/presentation/screens/login_screen_wm.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
 import 'package:matrix/src/features/auth/routes/auth_route.dart';
-import 'package:matrix/src/features/chat_lisitng/presentation/screens/chat_listing_screen.dart';
 import 'package:matrix/src/features/key_recovery/presentation/screens/post_registration_key_recovery_screen.dart';
 
 LoginScreenWM loginScreenWMFactory(BuildContext context) {
@@ -23,61 +25,80 @@ class LoginScreen extends ElementaryWidget<LoginScreenWM> implements AuthRoute {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final theme = Theme.of(context);
-          final wide = constraints.maxWidth >= 840;
+          final w = constraints.maxWidth;
+          final h = constraints.maxHeight;
+          // Side-by-side needs width and enough height; otherwise a single centered
+          // column avoids stretched/pinned corners on macOS windows and phones.
+          final useSideBySide = w >= 840 && h >= 520;
           final form = Form(
             key: wm.formKey,
             child: _authFormCard(context, wm),
           );
-          if (wide) {
-            return Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: 1040,
-                  minHeight: constraints.maxHeight > 400
-                      ? constraints.maxHeight
-                      : 400,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        flex: 5,
-                        child: _loginBranding(context, theme, alignStart: true),
-                      ),
-                      const SizedBox(width: 48),
-                      Expanded(
-                        flex: 6,
-                        child: SingleChildScrollView(
-                          child: form,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }
-          return Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 440),
-                child: Column(
+
+          final horizontalPad = w >= 600 ? 40.0 : 24.0;
+          final verticalPad = h >= 600 ? 32.0 : 20.0;
+          final maxContentW = useSideBySide ? 920.0 : 440.0;
+
+          final content = useSideBySide
+              ? Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const SizedBox(height: 40),
-                    _loginBranding(context, theme, alignStart: false),
-                    const SizedBox(height: 40),
-                    form,
-                    const SizedBox(height: 48),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: _loginBranding(
+                            context,
+                            theme,
+                            alignStart: true,
+                          ),
+                        ),
+                        SizedBox(width: w >= 960 ? 56 : 40),
+                        Expanded(child: form),
+                      ],
+                    ),
+                    const SizedBox(height: 28),
                     Text(
                       'CHOOSE YOUR REALITY',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall,
                     ),
                   ],
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _loginBranding(context, theme, alignStart: false),
+                    const SizedBox(height: 32),
+                    form,
+                    const SizedBox(height: 36),
+                    Text(
+                      'CHOOSE YOUR REALITY',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                );
+
+          return ClipRect(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPad,
+                  vertical: verticalPad,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minWidth: 0,
+                    minHeight: (h - verticalPad * 2).clamp(0.0, double.infinity),
+                  ),
+                  child: Align(
+                    alignment: Alignment.center,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: maxContentW),
+                      child: content,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -207,9 +228,10 @@ class LoginScreen extends ElementaryWidget<LoginScreenWM> implements AuthRoute {
           ),
           const SizedBox(height: 30),
           _statusWidget(context, wm),
-          ValueListenableBuilder(
-            valueListenable: wm.formData,
-            builder: (context, formData, child) {
+          AnimatedBuilder(
+            animation: Listenable.merge([wm.authState, wm.formData]),
+            builder: (context, child) {
+              final formData = wm.formData.value;
               return AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
                 child: !formData.isRegistration
@@ -354,7 +376,7 @@ class LoginScreen extends ElementaryWidget<LoginScreenWM> implements AuthRoute {
 
   @override
   void navigateToChatListingScreen(BuildContext context) {
-    NavigatorService.pushReplacement(context, const ChatListingScreen());
+    unawaited(navigateHomeAfterSessionReady(context));
   }
 
   @override

@@ -1,18 +1,33 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:matrix/firebase_options.dart';
 import 'package:matrix/src/core/domain/services/app_config.dart';
 import 'package:matrix/src/core/logging_service.dart';
+import 'package:matrix/src/core/calls/matrix_call_kit_coordinator.dart';
 import 'package:matrix/src/core/matrix_app_lifecycle.dart';
+import 'package:matrix/src/core/muted_chats_store.dart';
 import 'package:matrix_sdk/matrix_sdk.dart';
 
 const String _androidChannelId = 'matrix_messages';
 const String _androidChannelName = 'Matrix';
+
+/// iOS: base64 PushKit token for Sygnal + token refresh callbacks (see [AppDelegate.swift]).
+const MethodChannel _voipMatrixPusherChannel =
+    MethodChannel('dev.inve.matrixchat/voip_matrix_pusher');
+
+const String _androidCallChannelId = 'matrix_incoming_calls';
+const String _androidCallChannelName = 'Incoming calls';
+
+/// [flutter_local_notifications] payload for taps / cold start (see [_onLocalNotificationResponse]).
+const String _incomingCallPayloadPrefix = 'matrix_call_v1:';
 
 /// Stable key so the OS stacks alerts per room (Android [groupKey], Apple [threadIdentifier]).
 String _notificationGroupKey(String roomId) {
@@ -21,11 +36,89 @@ String _notificationGroupKey(String roomId) {
   return 'matrix_room_$id';
 }
 
+/// Sygnal FCM v1 flattens event `content` as `content_*` strings ([matrix-org/sygnal](https://github.com/matrix-org/sygnal)).
+bool _fcmDataLooksLikeRtcNotification(String typeField) {
+  final t = typeField.trim().toLowerCase();
+  if (t.isEmpty) return false;
+  return t == 'm.rtc.notification' ||
+      t.endsWith('.rtc.notification') ||
+      t.contains('msc4075.rtc.notification');
+}
+
+/// `m.rtc.notification` uses `notification_type`: `ring` vs `notification` (no ring).
+bool _fcmRtcNotificationIsRing(Map<String, String> data) {
+  final flat = data['content_notification_type']?.toLowerCase();
+  if (flat == 'ring') return true;
+  if (flat == 'notification') return false;
+
+  final content = data['content'];
+  if (content != null && content.isNotEmpty) {
+    try {
+      final decoded = jsonDecode(content);
+      if (decoded is Map) {
+        final nt = decoded['notification_type']?.toString().toLowerCase();
+        if (nt == 'ring') return true;
+        if (nt == 'notification') return false;
+      }
+    } catch (_) {}
+  }
+  return true;
+}
+
+/// FCM `data` values are string-like but typed as [Object] / [dynamic] in newer SDKs.
+Map<String, String> _fcmDataAsStrings(Map<String, dynamic> data) {
+  final out = <String, String>{};
+  for (final e in data.entries) {
+    out[e.key] = e.value?.toString() ?? '';
+  }
+  return out;
+}
+
+SyncNotificationSummary? _syncSummaryFromFcmData(Map<String, String> data) {
+  final roomId = data['room_id']?.trim() ?? '';
+  if (roomId.isEmpty) return null;
+  var type = data['type']?.trim() ?? '';
+  if (type.isEmpty) {
+    type = data['content_msgtype']?.trim() ??
+        data['content_type']?.trim() ??
+        '';
+  }
+  if (!_fcmDataLooksLikeRtcNotification(type)) return null;
+
+  final ring = _fcmRtcNotificationIsRing(data);
+  final eventId = data['event_id']?.trim() ?? '';
+  final sender = data['sender']?.trim() ?? '';
+  final senderDn = data['sender_display_name']?.trim();
+  final roomName = data['room_name']?.trim();
+  final body = data['body']?.trim();
+
+  return SyncNotificationSummary(
+    roomId: roomId,
+    roomDisplayName:
+        roomName != null && roomName.isNotEmpty ? roomName : null,
+    kind: SyncNotificationKind.incomingCall,
+    senderId: sender,
+    senderDisplayName:
+        senderDn != null && senderDn.isNotEmpty ? senderDn : null,
+    bodyPreview: body != null && body.isNotEmpty
+        ? body
+        : (ring ? 'Incoming call' : 'Call'),
+    isHighlight: true,
+    isNoisy: ring,
+    eventId: eventId,
+    incomingCallRing: ring,
+  );
+}
+
 /// FCM background entrypoint (isolate). Keep logic minimal: no Matrix Rust.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-  await MatrixNotificationsCoordinator.showRemoteMessageStatic(message);
+  // Background isolate: must use the same Firebase options as the main app or FCM→APNs fails.
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await MatrixNotificationsCoordinator.showRemoteMessageStatic(
+    message,
+    fromFirebaseBackgroundHandler: true,
+  );
 }
 
 bool _isAndroid() =>
@@ -48,7 +141,9 @@ class MatrixNotificationsCoordinator {
   StreamSubscription<SyncNotificationSummary>? _syncSubscription;
   StreamSubscription<String>? _tokenRefreshSubscription;
   StreamSubscription<RemoteMessage>? _foregroundSubscription;
+  StreamSubscription<RemoteMessage>? _openedAppSubscription;
   String? _lastFcmToken;
+  String? _lastVoipSygnalPushKey;
 
   /// Monotonic id so Android does not replace every alert with the same tray slot
   /// (e.g. invites use empty [SyncNotificationSummary.eventId] → same hash as before).
@@ -73,20 +168,67 @@ class MatrixNotificationsCoordinator {
     return url.isNotEmpty && appId.isNotEmpty && _matrixPushRegisteredOk;
   }
 
-  static Future<void> showRemoteMessageStatic(RemoteMessage message) async {
-    await instance._ensureLocalPluginReady();
-    await instance._showFromRemoteMessage(message);
+  /// Last [registerPusher] outcome this session (false until a successful registration).
+  bool get isMatrixPushRegisteredOk => _matrixPushRegisteredOk;
+
+  /// Re-fetches the FCM token and calls the homeserver [registerPusher] again.
+  ///
+  /// Use after fixing Sygnal, changing push app id, or recovering from a failed registration.
+  /// No-op if [initialize] has not run (no [MatrixClient] bound).
+  Future<void> refreshMatrixPusherRegistration() async {
+    if (_client == null) return;
+    await _registerPusherWithCurrentToken();
+    await _registerVoipPusherWithCurrentKey();
   }
 
-  Future<void> _ensureLocalPluginReady() async {
+  static Future<void> showRemoteMessageStatic(
+    RemoteMessage message, {
+    bool fromFirebaseBackgroundHandler = false,
+  }) async {
+    await instance._ensureLocalPluginReady();
+    await instance._showFromRemoteMessage(
+      message,
+      fromFirebaseBackgroundHandler: fromFirebaseBackgroundHandler,
+    );
+  }
+
+  InitializationSettings _notificationInitSettings() {
     const androidInit = AndroidInitializationSettings('ic_stat_matrix');
     const darwinInit = DarwinInitializationSettings();
-    const init = InitializationSettings(
+    return const InitializationSettings(
       android: androidInit,
       iOS: darwinInit,
       macOS: darwinInit,
     );
-    await _local.initialize(init);
+  }
+
+  /// The FCM background isolate calls [_ensureLocalPluginReady] without a tap handler; that can
+  /// replace the main isolate callback. Re-bind after resume so tray / full-screen call taps work.
+  Future<void> refreshLocalNotificationTapCallbackAfterResume() async {
+    if (kIsWeb || _client == null) return;
+    if (!_isAndroid() && !_isApple()) return;
+    await _applyLocalNotificationTapCallback();
+  }
+
+  Future<void> _applyLocalNotificationTapCallback() async {
+    try {
+      await _local.initialize(
+        _notificationInitSettings(),
+        onDidReceiveNotificationResponse: _onLocalNotificationResponse,
+      );
+    } catch (e) {
+      LoggingService.info(
+        'MatrixNotifications',
+        'local notification tap callback bind failed: $e',
+      );
+    }
+  }
+
+  /// Initializes the local notifications plugin and Android channels only.
+  /// OS permission prompts (FCM / tray) run from [requestOsNotificationPermissions]
+  /// so the app can show an in-app onboarding screen first.
+  Future<void> _ensureLocalPluginReady() async {
+    await _local.initialize(_notificationInitSettings());
     if (_isAndroid()) {
       const channel = AndroidNotificationChannel(
         _androidChannelId,
@@ -94,11 +236,26 @@ class MatrixNotificationsCoordinator {
         description: 'Matrix messages and invites',
         importance: Importance.high,
       );
-      await _local
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(channel);
+      const callChannel = AndroidNotificationChannel(
+        _androidCallChannelId,
+        _androidCallChannelName,
+        description: 'Incoming Matrix calls when the app is in the background',
+        importance: Importance.max,
+        enableVibration: true,
+        playSound: true,
+      );
+      final android = _local.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      await android?.createNotificationChannel(channel);
+      await android?.createNotificationChannel(callChannel);
     }
+  }
+
+  /// User-facing notification permission (FCM/APNs, Android POST_NOTIFICATIONS,
+  /// local-notification plugin on Apple platforms). Safe to call more than once.
+  Future<void> requestOsNotificationPermissions() async {
+    if (kIsWeb) return;
+    await _ensureLocalPluginReady();
     if (defaultTargetPlatform == TargetPlatform.iOS) {
       // Separate from FCM: without this, plugin-posted alerts may not appear on iOS.
       await _local
@@ -119,26 +276,38 @@ class MatrixNotificationsCoordinator {
             sound: true,
           );
     }
+    if (_isApple()) {
+      final settings = await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      LoggingService.info(
+        'MatrixNotifications',
+        'Firebase notification permission: ${settings.authorizationStatus} '
+        '(alert=${settings.alert}, badge=${settings.badge}, sound=${settings.sound})',
+      );
+    }
+    if (_isAndroid()) {
+      final android = _local.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      await android?.requestNotificationsPermission();
+      try {
+        await android?.requestFullScreenIntentPermission();
+      } catch (e) {
+        LoggingService.info(
+          'MatrixNotifications',
+          'requestFullScreenIntentPermission: $e',
+        );
+      }
+    }
   }
 
   /// Call after [Firebase.initializeApp] and Matrix client is configured.
   Future<void> initialize({required MatrixClient client}) async {
     _client = client;
     await _ensureLocalPluginReady();
-
-    if (_isApple()) {
-      await FirebaseMessaging.instance.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-    }
-    if (_isAndroid()) {
-      await _local
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.requestNotificationsPermission();
-    }
+    await _applyLocalNotificationTapCallback();
 
     await FirebaseMessaging.instance
         .setForegroundNotificationPresentationOptions(
@@ -152,7 +321,16 @@ class MatrixNotificationsCoordinator {
       unawaited(_showFromRemoteMessage(message));
     });
 
+    await _openedAppSubscription?.cancel();
+    _openedAppSubscription =
+        FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      unawaited(_handleRemoteMessageOpenedFromBackground(message));
+    });
+
     await _registerPusherWithCurrentToken();
+    _bindIosVoipMatrixPusherChannel();
+    await _registerVoipPusherWithCurrentKey();
+
     _tokenRefreshSubscription ??=
         FirebaseMessaging.instance.onTokenRefresh.listen((token) {
       _lastFcmToken = token;
@@ -166,12 +344,84 @@ class MatrixNotificationsCoordinator {
         client.subscribeToSyncNotifications().listen((summary) {
       unawaited(_onSyncNotification(summary));
     });
+
+    MatrixCallKitCoordinator.instance.bindClient(client);
+
+    unawaited(_consumeColdStartNotificationLaunchTriggers());
+  }
+
+  void _onLocalNotificationResponse(NotificationResponse response) {
+    if (response.notificationResponseType !=
+        NotificationResponseType.selectedNotification) {
+      return;
+    }
+    if (response.payload == null) return;
+    final summary = _syncSummaryFromIncomingCallPayload(response.payload);
+    if (summary == null) return;
+    unawaited(MatrixCallKitCoordinator.instance.presentIncomingCall(summary));
+  }
+
+  Future<void> _consumeColdStartNotificationLaunchTriggers() async {
+    try {
+      final initial = await FirebaseMessaging.instance.getInitialMessage();
+      if (initial != null) {
+        await _handleRemoteMessageOpenedFromBackground(initial);
+      }
+    } catch (e) {
+      LoggingService.info('MatrixNotifications', 'getInitialMessage: $e');
+    }
+
+    try {
+      final details = await _local.getNotificationAppLaunchDetails();
+      if (details?.didNotificationLaunchApp == true) {
+        final payload = details?.notificationResponse?.payload;
+        final summary = _syncSummaryFromIncomingCallPayload(payload);
+        if (summary != null) {
+          await MatrixCallKitCoordinator.instance.presentIncomingCall(summary);
+        }
+      }
+    } catch (e) {
+      LoggingService.info(
+        'MatrixNotifications',
+        'getNotificationAppLaunchDetails: $e',
+      );
+    }
+  }
+
+  Future<void> _handleRemoteMessageOpenedFromBackground(
+    RemoteMessage message,
+  ) async {
+    final data = _fcmDataAsStrings(message.data);
+    await MutedChatsStore.instance.ensureLoaded();
+    final roomId = data['room_id'] ?? '';
+    if (roomId.isNotEmpty && MutedChatsStore.instance.isMuted(roomId)) {
+      return;
+    }
+    final incoming = _syncSummaryFromFcmData(data);
+    if (incoming == null || !incoming.incomingCallRing) return;
+    await MatrixCallKitCoordinator.instance.presentIncomingCall(incoming);
   }
 
   Future<void> _onSyncNotification(SyncNotificationSummary s) async {
-    if (MatrixAppLifecycle.isForeground) return;
-    final key = _syncSummaryDedupeKey(s);
+    await MutedChatsStore.instance.ensureLoaded();
+    if (MutedChatsStore.instance.isMuted(s.roomId)) return;
+    final key = s.eventId.isNotEmpty
+        ? 'notif:${s.eventId}'
+        : _syncSummaryDedupeKey(s);
     if (_isDuplicateWithinWindow(key)) return;
+
+    if (s.kind == SyncNotificationKind.incomingCall && s.incomingCallRing) {
+      unawaited(MatrixCallKitCoordinator.instance.presentIncomingCall(s));
+    }
+
+    if (MatrixAppLifecycle.isForeground) {
+      if (s.kind != SyncNotificationKind.incomingCall) return;
+      if (s.incomingCallRing) return;
+    } else if (s.kind == SyncNotificationKind.incomingCall &&
+        s.incomingCallRing) {
+      return;
+    }
+
     final title = s.roomDisplayName?.isNotEmpty == true
         ? s.roomDisplayName!
         : s.roomId;
@@ -180,6 +430,8 @@ class MatrixNotificationsCoordinator {
         : s.senderId;
     final body = switch (s.kind) {
       SyncNotificationKind.invite => 'Invite from $who',
+      SyncNotificationKind.incomingCall =>
+        s.bodyPreview.isNotEmpty ? s.bodyPreview : 'Call from $who',
       _ => s.bodyPreview.isNotEmpty ? s.bodyPreview : 'New activity from $who',
     };
     await _showLocal(
@@ -221,24 +473,155 @@ class MatrixNotificationsCoordinator {
     return _trayNotificationSerial;
   }
 
-  Future<void> _showFromRemoteMessage(RemoteMessage message) async {
-    final dedupeKey = (message.messageId != null && message.messageId!.isNotEmpty)
-        ? 'fcm:id:${message.messageId}'
-        : 'fcm:data:${message.data}';
+  int _stableAndroidIncomingCallNotificationId(SyncNotificationSummary s) {
+    if (s.eventId.isNotEmpty) {
+      return s.eventId.hashCode & 0x7fffffff;
+    }
+    return _nextTrayNotificationId();
+  }
+
+  String _encodeIncomingCallPayload(SyncNotificationSummary s) {
+    final map = <String, dynamic>{
+      'roomId': s.roomId,
+      'eventId': s.eventId,
+      'roomName': s.roomDisplayName ?? s.roomId,
+      'caller': s.senderDisplayName?.isNotEmpty == true
+          ? s.senderDisplayName!
+          : s.senderId,
+      'ring': s.incomingCallRing,
+    };
+    return '$_incomingCallPayloadPrefix${base64Encode(utf8.encode(jsonEncode(map)))}';
+  }
+
+  SyncNotificationSummary? _syncSummaryFromIncomingCallPayload(String? payload) {
+    if (payload == null || !payload.startsWith(_incomingCallPayloadPrefix)) {
+      return null;
+    }
+    final b64 = payload.substring(_incomingCallPayloadPrefix.length);
+    if (b64.isEmpty) return null;
+    try {
+      final raw = jsonDecode(utf8.decode(base64Decode(b64)));
+      if (raw is! Map) return null;
+      final roomId = raw['roomId']?.toString().trim() ?? '';
+      if (roomId.isEmpty) return null;
+      final eventId = raw['eventId']?.toString().trim() ?? '';
+      final roomName = raw['roomName']?.toString().trim();
+      final caller = raw['caller']?.toString().trim() ?? '';
+      final ring = raw['ring'] == true;
+      return SyncNotificationSummary(
+        roomId: roomId,
+        roomDisplayName:
+            roomName != null && roomName.isNotEmpty ? roomName : null,
+        kind: SyncNotificationKind.incomingCall,
+        senderId: caller,
+        senderDisplayName:
+            caller.isNotEmpty ? caller : null,
+        bodyPreview: ring ? 'Incoming call' : 'Call',
+        isHighlight: true,
+        isNoisy: ring,
+        eventId: eventId,
+        incomingCallRing: ring,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _showAndroidFullScreenIncomingCallFallback(
+    SyncNotificationSummary incoming,
+  ) async {
+    if (!_isAndroid() || !incoming.incomingCallRing) return;
+
+    final title = incoming.roomDisplayName?.isNotEmpty == true
+        ? incoming.roomDisplayName!
+        : incoming.roomId;
+    final who = incoming.senderDisplayName?.isNotEmpty == true
+        ? incoming.senderDisplayName!
+        : incoming.senderId;
+    final body =
+        incoming.bodyPreview.isNotEmpty ? incoming.bodyPreview : 'Call from $who';
+
+    final notificationId = _stableAndroidIncomingCallNotificationId(incoming);
+    final android = AndroidNotificationDetails(
+      _androidCallChannelId,
+      _androidCallChannelName,
+      channelDescription: 'Incoming Matrix calls when the app is in the background',
+      icon: 'ic_stat_matrix',
+      importance: Importance.max,
+      priority: Priority.max,
+      category: AndroidNotificationCategory.call,
+      fullScreenIntent: true,
+      ongoing: true,
+      autoCancel: true,
+      visibility: NotificationVisibility.public,
+      playSound: true,
+      enableVibration: true,
+    );
+    final details = NotificationDetails(android: android);
+    await _local.show(
+      notificationId,
+      title,
+      body,
+      details,
+      payload: _encodeIncomingCallPayload(incoming),
+    );
+  }
+
+  Future<void> _showFromRemoteMessage(
+    RemoteMessage message, {
+    bool fromFirebaseBackgroundHandler = false,
+  }) async {
+    final data = _fcmDataAsStrings(message.data);
+    await MutedChatsStore.instance.ensureLoaded();
+    final roomId = data['room_id'] ?? '';
+    if (roomId.isNotEmpty && MutedChatsStore.instance.isMuted(roomId)) {
+      return;
+    }
+
+    final incoming = _syncSummaryFromFcmData(data);
+    final dedupeKey = incoming != null && incoming.eventId.isNotEmpty
+        ? 'notif:${incoming.eventId}'
+        : (message.messageId != null && message.messageId!.isNotEmpty)
+            ? 'fcm:id:${message.messageId}'
+            : 'fcm:data:${message.data}';
     if (_isDuplicateWithinWindow(dedupeKey)) {
       return;
     }
+
+    if (incoming != null) {
+      if (incoming.incomingCallRing) {
+        final present =
+            MatrixCallKitCoordinator.instance.presentIncomingCall(incoming);
+        if (fromFirebaseBackgroundHandler) {
+          await present;
+          await _showAndroidFullScreenIncomingCallFallback(incoming);
+        } else {
+          unawaited(present);
+        }
+        return;
+      }
+    }
+
     final n = message.notification;
-    final data = message.data;
-    final title = n?.title ??
+    var title = n?.title ??
         data['title']?.toString() ??
         data['room_name']?.toString() ??
         'Matrix';
-    final body = n?.body ??
+    var body = n?.body ??
         data['body']?.toString() ??
         data['content']?.toString() ??
         'New notification';
-    final roomId = data['room_id']?.toString() ?? '';
+    if (incoming != null) {
+      title = incoming.roomDisplayName?.isNotEmpty == true
+          ? incoming.roomDisplayName!
+          : incoming.roomId;
+      final who = incoming.senderDisplayName?.isNotEmpty == true
+          ? incoming.senderDisplayName!
+          : incoming.senderId;
+      body = incoming.bodyPreview.isNotEmpty
+          ? incoming.bodyPreview
+          : 'Call from $who';
+    }
     await _showLocal(
       title: title,
       body: body,
@@ -279,14 +662,58 @@ class MatrixNotificationsCoordinator {
     );
   }
 
+  /// iOS: FCM registration token is not reliable until APNs has assigned a device token.
+  Future<void> _waitForApnsDeviceToken() async {
+    if (defaultTargetPlatform != TargetPlatform.iOS) return;
+    const step = Duration(milliseconds: 400);
+    const maxWait = Duration(seconds: 30);
+    final deadline = DateTime.now().add(maxWait);
+    while (DateTime.now().isBefore(deadline)) {
+      final apns = await FirebaseMessaging.instance.getAPNSToken();
+      if (apns != null && apns.isNotEmpty) {
+        LoggingService.info(
+          'MatrixNotifications',
+          'APNs token ok (len=${apns.length}), requesting FCM token…',
+        );
+        return;
+      }
+      await Future<void>.delayed(step);
+    }
+    LoggingService.info(
+      'MatrixNotifications',
+      'APNs token missing after ${maxWait.inSeconds}s — check Push capability, '
+      'signing profile, and notification permission; FCM may stay null.',
+    );
+  }
+
   Future<void> _registerPusherWithCurrentToken() async {
     final c = _client;
     if (c == null) return;
     try {
-      final token = await FirebaseMessaging.instance.getToken();
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        await _waitForApnsDeviceToken();
+      }
+      var token = await FirebaseMessaging.instance.getToken();
+      if (token == null && defaultTargetPlatform == TargetPlatform.iOS) {
+        for (var i = 0; i < 12 && token == null; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 750));
+          token = await FirebaseMessaging.instance.getToken();
+        }
+      }
       _lastFcmToken = token;
       if (token != null) {
+        final prefixLen = token.length > 24 ? 24 : token.length;
+        LoggingService.info(
+          'MatrixNotifications',
+          'FCM token acquired (len=${token.length}, prefix=${token.substring(0, prefixLen)}…), '
+          'registerPusher appId=${AppConfig.matrixPushAppId}',
+        );
         await _registerPusher(c, pushKey: token);
+      } else {
+        LoggingService.info(
+          'MatrixNotifications',
+          'FCM getToken is null — cannot register Matrix pusher on this device.',
+        );
       }
     } catch (e) {
       LoggingService.info(
@@ -296,6 +723,96 @@ class MatrixNotificationsCoordinator {
     }
   }
 
+  void _bindIosVoipMatrixPusherChannel() {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return;
+    _voipMatrixPusherChannel.setMethodCallHandler((call) async {
+      if (call.method == 'onVoipTokenUpdated') {
+        final key = call.arguments as String?;
+        if (key != null && key.isNotEmpty) {
+          final c = _client;
+          if (c != null) {
+            unawaited(_registerVoipPusher(c, pushKey: key));
+          }
+        }
+      } else if (call.method == 'onVoipTokenInvalidated') {
+        unawaited(_unregisterVoipPusher());
+      }
+    });
+  }
+
+  Future<void> _registerVoipPusherWithCurrentKey() async {
+    final c = _client;
+    if (c == null || kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) {
+      return;
+    }
+    final url = AppConfig.matrixVoipPushGatewayUrl.trim();
+    final appId = AppConfig.matrixVoipPushAppIdIos.trim();
+    if (url.isEmpty || appId.isEmpty) return;
+    try {
+      final key =
+          await _voipMatrixPusherChannel.invokeMethod('getSygnalVoipPushKey')
+              as String?;
+      if (key != null && key.isNotEmpty) {
+        await _registerVoipPusher(c, pushKey: key);
+      }
+    } catch (e) {
+      LoggingService.info(
+        'MatrixNotifications',
+        'VoIP Sygnal push key not available yet: $e',
+      );
+    }
+  }
+
+  Future<void> _registerVoipPusher(MatrixClient client, {required String pushKey}) async {
+    final url = AppConfig.matrixVoipPushGatewayUrl.trim();
+    final appId = AppConfig.matrixVoipPushAppIdIos.trim();
+    if (url.isEmpty || appId.isEmpty) {
+      return;
+    }
+    final deviceName = await _deviceDisplayName();
+    try {
+      await client.registerPusher(
+        pushKey: pushKey,
+        appId: appId,
+        url: url,
+        displayName: deviceName,
+        profileTag: '',
+        lang: WidgetsBinding.instance.platformDispatcher.locale.languageCode,
+        appDisplayName: 'Matrix Terminal VoIP',
+      );
+      _lastVoipSygnalPushKey = pushKey;
+      LoggingService.info(
+        'MatrixNotifications',
+        'registerPusher (VoIP/Sygnal) ok appId=$appId',
+      );
+    } catch (e) {
+      LoggingService.info(
+        'MatrixNotifications',
+        'registerPusher (VoIP/Sygnal) failed: $e',
+      );
+    }
+  }
+
+  Future<void> _unregisterVoipPusher() async {
+    final url = AppConfig.matrixVoipPushGatewayUrl.trim();
+    final appId = AppConfig.matrixVoipPushAppIdIos.trim();
+    final key = _lastVoipSygnalPushKey;
+    final c = _client;
+    if (c == null ||
+        key == null ||
+        url.isEmpty ||
+        appId.isEmpty) {
+      _lastVoipSygnalPushKey = null;
+      return;
+    }
+    try {
+      await c.unregisterPusher(pushKey: key, appId: appId);
+    } catch (e) {
+      LoggingService.info('MatrixNotifications', 'unregisterPusher (VoIP): $e');
+    }
+    _lastVoipSygnalPushKey = null;
+  }
+
   Future<void> _registerPusher(MatrixClient client, {required String pushKey}) async {
     final url = AppConfig.matrixPushGatewayUrl.trim();
     final appId = AppConfig.matrixPushAppId.trim();
@@ -303,7 +820,7 @@ class MatrixNotificationsCoordinator {
       _matrixPushRegisteredOk = false;
       LoggingService.info(
         'MatrixNotifications',
-        'Skipping registerPusher (set MATRIX_PUSH_GATEWAY_URL + MATRIX_PUSH_APP_ID in dart-define-from-file) — keeping sync active when minimized',
+        'Skipping registerPusher (set MATRIX_PUSH_GATEWAY_URL + MATRIX_PUSH_APP_ID_IOS / MATRIX_PUSH_APP_ID_ANDROID in dart-define-from-file) — keeping sync active when minimized',
       );
       return;
     }
@@ -354,12 +871,20 @@ class MatrixNotificationsCoordinator {
 
   /// Stop listeners and unregister pusher when logging out.
   Future<void> dispose() async {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      _voipMatrixPusherChannel.setMethodCallHandler(null);
+    }
+
     await _syncSubscription?.cancel();
     _syncSubscription = null;
     await _tokenRefreshSubscription?.cancel();
     _tokenRefreshSubscription = null;
     await _foregroundSubscription?.cancel();
     _foregroundSubscription = null;
+    await _openedAppSubscription?.cancel();
+    _openedAppSubscription = null;
+
+    await _unregisterVoipPusher();
 
     final url = AppConfig.matrixPushGatewayUrl.trim();
     final appId = AppConfig.matrixPushAppId.trim();

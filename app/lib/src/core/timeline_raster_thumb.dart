@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -83,13 +84,16 @@ Future<Uint8List?> encodeRasterPngFitBox(
 
 // --- Shared timeline / room-files thumbnail frame & raster preview meta ---
 
-/// Fixed thumbnail frame (portrait slot) — matches message bubble media row.
-const double kTimelineThumbPortraitW = 45;
-const double kTimelineThumbPortraitH = 60;
+/// Default placeholder when event has no dimensions (message bubble media row).
+const double kTimelineThumbPortraitW = 36;
+const double kTimelineThumbPortraitH = 48;
 
-/// Wider landscape slot (e.g. 16:9-ish previews).
-const double kTimelineThumbLandscapeW = 80;
-const double kTimelineThumbLandscapeH = 45;
+/// Default wide placeholder (legacy bucket; prefer [timelineThumbBoxPreservingAspect]).
+const double kTimelineThumbLandscapeW = 56;
+const double kTimelineThumbLandscapeH = 32;
+
+/// Longest logical edge for in-timeline raster thumbs (very small on-screen).
+const double kTimelineThumbMaxLongEdgeLogical = 48;
 
 /// JPEG / PNG decode size + EXIF orientation for layout and [exifQuarterTurns].
 class RasterPreviewMeta {
@@ -151,6 +155,31 @@ Size timelineThumbFrameSizeFromPreviewMeta(RasterPreviewMeta meta) {
     meta.rawSize.width.round(),
     meta.rawSize.height.round(),
     exifOrientation: meta.exifOrientation,
+  );
+}
+
+/// Preserves [oriented] aspect ratio; longest side is [maxLongEdgeLogical] (dp).
+Size timelineThumbBoxPreservingAspect(
+  Size oriented, {
+  double maxLongEdgeLogical = kTimelineThumbMaxLongEdgeLogical,
+}) {
+  var w = oriented.width;
+  var h = oriented.height;
+  if (w <= 0 || h <= 0) {
+    return const Size(kTimelineThumbPortraitW, kTimelineThumbPortraitH);
+  }
+  final long = math.max(w, h);
+  final scale = maxLongEdgeLogical / long;
+  return Size(w * scale, h * scale);
+}
+
+/// Uses event `info.w/h` (display dimensions) for blurhash / loading slot aspect.
+Size timelineThumbBoxFromEventDimensions(int width, int height) {
+  if (width <= 0 || height <= 0) {
+    return const Size(kTimelineThumbPortraitW, kTimelineThumbPortraitH);
+  }
+  return timelineThumbBoxPreservingAspect(
+    Size(width.toDouble(), height.toDouble()),
   );
 }
 
@@ -269,7 +298,8 @@ Future<RasterPreviewMeta?> decodeRasterPreviewMeta(Uint8List data) async {
     frame.image.dispose();
     if (w < 1 || h < 1) return null;
     final longest = w > h ? w : h;
-    if (longest < 64) return null;
+    // Allow small re-encoded timeline thumbs (long edge can be < 64 px).
+    if (longest < 8) return null;
     return RasterPreviewMeta(Size(w.toDouble(), h.toDouble()), exif);
   } catch (_) {
     return null;

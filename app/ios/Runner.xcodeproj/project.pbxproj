@@ -71,6 +71,7 @@
 		CEB2EC956B12DAA0A628E698 /* GoogleService-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "Runner/GoogleService-Info.plist"; sourceTree = "<group>"; };
 		E2B311C02F8A000100263BE5 /* RunnerDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RunnerDebug.entitlements; sourceTree = "<group>"; };
 		E2B311C12F8A000200263BE5 /* RunnerRelease.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RunnerRelease.entitlements; sourceTree = "<group>"; };
+		E2B311C32F8A000300263BE5 /* RunnerProfile.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RunnerProfile.entitlements; sourceTree = "<group>"; };
 		FAD7F7DFE9D6A10B388C415E /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
 		FBB6403CD63A2606A1A6AF6D /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -130,7 +131,6 @@
 			children = (
 				9740EEB11CF90186004384FC /* Flutter */,
 				97C146F01CF9000F007C117D /* Runner */,
-				97C146EF1CF9000F007C117D /* Products */,
 				331C8082294A63A400263BE5 /* RunnerTests */,
 				BCAAE209EF4F738020C2EBCC /* Pods */,
 				18DE7F7ADC7779BC32B34F93 /* Frameworks */,
@@ -161,6 +161,8 @@
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 				E2B311C02F8A000100263BE5 /* RunnerDebug.entitlements */,
 				E2B311C12F8A000200263BE5 /* RunnerRelease.entitlements */,
+				E2B311C32F8A000300263BE5 /* RunnerProfile.entitlements */,
+				97C146EF1CF9000F007C117D /* Products */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
@@ -509,7 +511,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = Runner/RunnerRelease.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Runner/RunnerProfile.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = A2PB434F66;
 				ENABLE_BITCODE = NO;

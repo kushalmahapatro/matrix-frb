@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use flutter_rust_bridge::frb;
 use matrix_sdk::deserialized_responses::TimelineEvent;
 use matrix_sdk::ruma::events::{
-    room::message::MessageType, AnySyncMessageLikeEvent, AnySyncTimelineEvent,
+    room::message::MessageType, AnySyncMessageLikeEvent, AnySyncTimelineEvent, StateEventType,
 };
 use matrix_sdk::ruma::{
     events::room::power_levels::UserPowerLevel, int, Int, RoomId, UInt, UserId,
@@ -20,6 +20,8 @@ use serde_json::json;
 
 use crate::matrix::client::format_user_id_for_display;
 use crate::matrix::timelines::RoomMessageKind;
+
+const UNSTABLE_POLL_START_EVENT_TYPE: &str = "org.matrix.msc3381.poll.start";
 
 /// Role derived from power levels (creator / admin / moderator / user).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -71,6 +73,17 @@ pub struct RoomBannedUserRow {
     pub display_name: String,
 }
 
+/// Pending invite (`invite` membership) shown in room info.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[frb]
+pub struct RoomInvitedMemberRow {
+    pub user_id: String,
+    pub user_id_display: String,
+    pub display_name: String,
+    /// Member avatar MXC URI when known (`mxc://…`); empty if unset.
+    pub avatar_url: String,
+}
+
 /// Partial update for [`m.room.power_levels`](https://spec.matrix.org/latest/client-server-api/#mroompower_levels).
 /// Only set fields you want to change; others stay unchanged on the server.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -92,6 +105,8 @@ pub struct RoomDetails {
     pub room_id: String,
     pub display_name: String,
     pub topic: String,
+    /// Room avatar MXC (`mxc://…`) from `m.room.avatar`; empty if unset.
+    pub room_avatar_url: String,
     pub is_direct: bool,
     pub is_encrypted: bool,
     pub member_count: u32,
@@ -99,6 +114,8 @@ pub struct RoomDetails {
     pub current_user_id: String,
     pub current_user_is_admin: bool,
     pub current_user_is_moderator: bool,
+    /// Whether the current user may send `m.room.avatar` per power levels + membership.
+    pub current_user_can_set_room_avatar: bool,
     /// From the current user's membership + power levels (can call invite API).
     pub current_user_can_invite: bool,
     /// From the current user's membership + power levels (can call ban / unban).
@@ -108,6 +125,14 @@ pub struct RoomDetails {
     pub power_level_kick_required: i64,
     pub power_level_ban_required: i64,
     pub banned_users: Vec<RoomBannedUserRow>,
+    /// Users with `invite` membership (not yet joined); from the local store after best-effort sync.
+    pub invited_members: Vec<RoomInvitedMemberRow>,
+    /// Distinct media attachment messages in the persisted event cache (all / sent+received).
+    pub media_index_count: u32,
+    /// Text messages in the cache whose body contains an HTTP(S) URL.
+    pub links_index_count: u32,
+    /// MSC3381 poll start events in the cache.
+    pub polls_index_count: u32,
 }
 
 /// Filter for file rows from the cached timeline.
@@ -199,6 +224,129 @@ fn current_user_can_ban_target(
     own_i >= ban_threshold && own_i > tgt_i
 }
 
+fn count_file_from_ev(
+    seen: &mut HashSet<String>,
+    media: &mut u32,
+    ev: &TimelineEvent,
+    own_id: &str,
+) {
+    let Some(item) = timeline_event_to_file_item(ev, own_id) else {
+        return;
+    };
+    if !item.event_id.is_empty() {
+        if !seen.insert(item.event_id.clone()) {
+            return;
+        }
+    }
+    *media += 1;
+}
+
+fn count_link_from_ev(
+    seen: &mut HashSet<String>,
+    links: &mut u32,
+    ev: &TimelineEvent,
+    own_id: &str,
+) {
+    let Some(item) = timeline_event_to_link_item(ev, own_id) else {
+        return;
+    };
+    if !item.event_id.is_empty() {
+        if !seen.insert(item.event_id.clone()) {
+            return;
+        }
+    }
+    *links += 1;
+}
+
+fn count_poll_from_ev(
+    seen: &mut HashSet<String>,
+    polls: &mut u32,
+    ev: &TimelineEvent,
+    own_id: &str,
+) {
+    let Some(item) = timeline_event_to_poll_item(ev, own_id) else {
+        return;
+    };
+    if !item.event_id.is_empty() {
+        if !seen.insert(item.event_id.clone()) {
+            return;
+        }
+    }
+    *polls += 1;
+}
+
+/// Single pass over the same event-cache sources as the room media / link / poll lists.
+pub async fn count_room_event_cache_indices(
+    client: &Client,
+    room_id: String,
+) -> Result<(u32, u32, u32), String> {
+    let own_id = client
+        .user_id()
+        .ok_or_else(|| "Not logged in".to_string())?
+        .as_str()
+        .to_owned();
+
+    let rid = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+    let room_id_ref: &RoomId = rid.as_ref();
+
+    let lock_state = client
+        .event_cache_store()
+        .lock()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let guard = match lock_state {
+        EventCacheStoreLockState::Clean(g) | EventCacheStoreLockState::Dirty(g) => g,
+    };
+
+    let mut seen_f: HashSet<String> = HashSet::new();
+    let mut seen_l: HashSet<String> = HashSet::new();
+    let mut seen_p: HashSet<String> = HashSet::new();
+    let mut media: u32 = 0;
+    let mut links: u32 = 0;
+    let mut polls: u32 = 0;
+
+    let chunks = guard
+        .load_all_chunks(LinkedChunkId::Room(room_id_ref))
+        .await
+        .map_err(|e| e.to_string())?;
+
+    for chunk in chunks {
+        let items = match chunk.content {
+            ChunkContent::Items(items) => items,
+            ChunkContent::Gap(_) => continue,
+        };
+        for ev in items {
+            count_file_from_ev(&mut seen_f, &mut media, &ev, &own_id);
+            count_link_from_ev(&mut seen_l, &mut links, &ev, &own_id);
+            count_poll_from_ev(&mut seen_p, &mut polls, &ev, &own_id);
+        }
+    }
+
+    let flat_msg = guard
+        .get_room_events(room_id_ref, Some("m.room.message"), None)
+        .await
+        .map_err(|e| e.to_string())?;
+    for ev in flat_msg {
+        count_file_from_ev(&mut seen_f, &mut media, &ev, &own_id);
+        count_link_from_ev(&mut seen_l, &mut links, &ev, &own_id);
+    }
+
+    let flat_poll = guard
+        .get_room_events(
+            room_id_ref,
+            Some(UNSTABLE_POLL_START_EVENT_TYPE),
+            None,
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    for ev in flat_poll {
+        count_poll_from_ev(&mut seen_p, &mut polls, &ev, &own_id);
+    }
+
+    Ok((media, links, polls))
+}
+
 /// Load room metadata and joined members (including DMs, for avatars / counts).
 pub async fn fetch_room_details(client: &Client, room_id: String) -> Result<RoomDetails, String> {
     let rid = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
@@ -209,12 +357,12 @@ pub async fn fetch_room_details(client: &Client, room_id: String) -> Result<Room
 
     let is_direct = room.is_direct().await.unwrap_or(false);
     let topic = room.topic().unwrap_or_default();
-    let display_name_raw = room
-        .cached_display_name()
-        .map(|s| s.to_string())
-        .or_else(|| room.name().map(|n| n.to_string()))
+    let has_explicit_room_name = room.name().is_some();
+
+    let room_avatar_url = room
+        .avatar_url()
+        .map(|u| u.to_string())
         .unwrap_or_default();
-    let display_name = format_user_id_for_display(&display_name_raw);
 
     let is_encrypted = room
         .latest_encryption_state()
@@ -257,11 +405,38 @@ pub async fn fetch_room_details(client: &Client, room_id: String) -> Result<Room
         RoomMemberRole::Moderator | RoomMemberRole::Administrator | RoomMemberRole::Creator
     );
 
+    // Best-effort: refresh roster from the server when the SDK thinks it is incomplete.
+    // When offline, this fails silently and we still read whatever is in the persisted store.
+    let _ = room.sync_members().await;
+
     let joined = room
-        .members(RoomMemberships::JOIN)
+        .members_no_sync(RoomMemberships::JOIN)
         .await
         .map_err(|e| e.to_string())?;
     let member_count = joined.len() as u32;
+
+    let display_name_raw = room
+        .cached_display_name()
+        .map(|s| s.to_string())
+        .or_else(|| room.name().map(|n| n.to_string()))
+        .unwrap_or_default();
+    let mut display_name = format_user_id_for_display(&display_name_raw);
+
+    // 1:1 DMs often show "2 people" until sync fills room heroes; use the other member's name.
+    if is_direct && !has_explicit_room_name && joined.len() == 2 {
+        if let Some(peer) = joined.iter().find(|m| !m.is_account_user()) {
+            let peer_dn = format_user_id_for_display(&peer.name().to_string());
+            if !peer_dn.trim().is_empty() {
+                display_name = peer_dn;
+            }
+        }
+    }
+
+    let current_user_can_set_room_avatar = joined
+        .iter()
+        .find(|m| m.is_account_user())
+        .map(|m| m.can_send_state(StateEventType::RoomAvatar))
+        .unwrap_or(false);
 
     let (current_user_can_invite, current_user_can_ban) = joined
         .iter()
@@ -269,8 +444,13 @@ pub async fn fetch_room_details(client: &Client, room_id: String) -> Result<Room
         .map(|m| (m.can_invite(), m.can_ban()))
         .unwrap_or((false, false));
 
+    let invited_sdk = room
+        .members_no_sync(RoomMemberships::INVITE)
+        .await
+        .unwrap_or_default();
+
     let banned_sdk = room
-        .members(RoomMemberships::BAN)
+        .members_no_sync(RoomMemberships::BAN)
         .await
         .unwrap_or_default();
     let mut banned_users: Vec<RoomBannedUserRow> = banned_sdk
@@ -343,10 +523,40 @@ pub async fn fetch_room_details(client: &Client, room_id: String) -> Result<Room
         })
         .collect();
 
+    let mut invited_members: Vec<RoomInvitedMemberRow> = invited_sdk
+        .into_iter()
+        .map(|m| {
+            let uid = m.user_id().to_string();
+            let display_name_raw = m
+                .display_name()
+                .map(|s| s.to_owned())
+                .unwrap_or_else(|| uid.clone());
+            RoomInvitedMemberRow {
+                user_id: uid.clone(),
+                user_id_display: format_user_id_for_display(&uid),
+                display_name: format_user_id_for_display(&display_name_raw),
+                avatar_url: m
+                    .avatar_url()
+                    .map(|u| u.to_string())
+                    .unwrap_or_default(),
+            }
+        })
+        .collect();
+    invited_members.sort_by(|a, b| a.display_name.to_lowercase().cmp(&b.display_name.to_lowercase()));
+
+    let (media_index_count, links_index_count, polls_index_count) =
+        count_room_event_cache_indices(client, room_id.clone())
+            .await
+            .unwrap_or_else(|e| {
+                tracing::warn!("count_room_event_cache_indices: {e}");
+                (0, 0, 0)
+            });
+
     Ok(RoomDetails {
         room_id: room_id.clone(),
         display_name,
         topic,
+        room_avatar_url,
         is_direct,
         is_encrypted,
         member_count,
@@ -354,12 +564,17 @@ pub async fn fetch_room_details(client: &Client, room_id: String) -> Result<Room
         current_user_id: format_user_id_for_display(&own_id),
         current_user_is_admin,
         current_user_is_moderator,
+        current_user_can_set_room_avatar,
         current_user_can_invite,
         current_user_can_ban,
         power_level_invite_required,
         power_level_kick_required,
         power_level_ban_required,
         banned_users,
+        invited_members,
+        media_index_count,
+        links_index_count,
+        polls_index_count,
     })
 }
 
@@ -534,8 +749,6 @@ fn push_file_item_if_new(
     }
     out.push(item);
 }
-
-const UNSTABLE_POLL_START_EVENT_TYPE: &str = "org.matrix.msc3381.poll.start";
 
 fn timeline_event_to_poll_item(ev: &TimelineEvent, own_id: &str) -> Option<RoomPollItem> {
     if ev.kind.is_utd() {
@@ -816,7 +1029,9 @@ pub async fn kick_room_member(
     let rid = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
     let room = client.get_room(&rid).ok_or_else(|| "Room not found".to_string())?;
     let uid = UserId::parse(&user_id).map_err(|e| e.to_string())?;
-    room.kick_user(&uid, None).await.map_err(|e| e.to_string())
+    room.kick_user(&uid, None).await.map_err(|e| e.to_string())?;
+    let _ = room.sync_members().await;
+    Ok(())
 }
 
 /// Leave, then forget the room locally (removes it from the room list after leave).
@@ -862,7 +1077,9 @@ pub async fn invite_user_to_room(
     room
         .invite_user_by_id(&uid)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    let _ = room.sync_members().await;
+    Ok(())
 }
 
 /// Ban a user (must not be a higher power than the caller).
@@ -877,7 +1094,9 @@ pub async fn ban_room_member(
     room
         .ban_user(&uid, None)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    let _ = room.sync_members().await;
+    Ok(())
 }
 
 /// Remove a ban so the user can join again (or be re-invited).
@@ -892,7 +1111,36 @@ pub async fn unban_room_member(
     room
         .unban_user(&uid, None)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    let _ = room.sync_members().await;
+    Ok(())
+}
+
+/// Upload image bytes as the room avatar (`m.room.avatar`). Caller must have permission.
+pub async fn upload_room_avatar(
+    client: &Client,
+    room_id: String,
+    mime_type: String,
+    data: Vec<u8>,
+) -> Result<(), String> {
+    let rid = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+    let room = client.get_room(&rid).ok_or_else(|| "Room not found".to_string())?;
+    let mime: mime::Mime = mime_type
+        .parse()
+        .map_err(|e| format!("Invalid mimetype: {e}"))?;
+    room
+        .upload_avatar(&mime, data, None)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Clear the room avatar (`m.room.avatar` empty state).
+pub async fn remove_room_avatar(client: &Client, room_id: String) -> Result<(), String> {
+    let rid = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+    let room = client.get_room(&rid).ok_or_else(|| "Room not found".to_string())?;
+    room.remove_avatar().await.map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 /// Apply selected `m.room.power_levels` fields (e.g. lower invite threshold so members can invite).

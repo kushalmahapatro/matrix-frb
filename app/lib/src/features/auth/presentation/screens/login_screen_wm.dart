@@ -65,6 +65,10 @@ class LoginScreenWM extends BaseWidgetModel<LoginScreen, LoginScreenModel> {
   late final TextEditingController _passwordController;
   late final TextEditingController _displayNameController;
 
+  /// Set when [dispose] starts so async [authenticate] continuations do not touch
+  /// [_authState] after it has been disposed.
+  bool _wmDisposed = false;
+
   final ValueNotifier<AuthState> _authState = ValueNotifier(
     const AuthState.initial(),
   );
@@ -80,6 +84,11 @@ class LoginScreenWM extends BaseWidgetModel<LoginScreen, LoginScreenModel> {
   ValueNotifier<AuthState> get authState => _authState;
   ValueNotifier<LoginFormData> get formData => _formData;
 
+  void _setAuthState(AuthState state) {
+    if (_wmDisposed) return;
+    _authState.value = state;
+  }
+
   @override
   void initWidgetModel() {
     super.initWidgetModel();
@@ -90,6 +99,7 @@ class LoginScreenWM extends BaseWidgetModel<LoginScreen, LoginScreenModel> {
 
   @override
   void dispose() {
+    _wmDisposed = true;
     _usernameController.dispose();
     _passwordController.dispose();
     _displayNameController.dispose();
@@ -117,10 +127,12 @@ class LoginScreenWM extends BaseWidgetModel<LoginScreen, LoginScreenModel> {
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
 
-    _authState.value = AuthState.loading(
-      message: isRegistration
-          ? 'CREATING ACCOUNT...'
-          : 'CONNECTING TO MATRIX...',
+    _setAuthState(
+      AuthState.loading(
+        message: isRegistration
+            ? 'CREATING ACCOUNT...'
+            : 'CONNECTING TO MATRIX...',
+      ),
     );
 
     try {
@@ -137,9 +149,8 @@ class LoginScreenWM extends BaseWidgetModel<LoginScreen, LoginScreenModel> {
       if (result.isSuccess() && result.getOrNull() == true) {
         await model.startSync();
         unawaited(ProfilePrefs.instance.refresh(MatrixService().client));
-        await MatrixService().startMatrixNotificationsIfReady();
         if (!context.mounted) return;
-        _authState.value = const AuthState.authenticated();
+        _setAuthState(const AuthState.authenticated());
 
         if (isRegistration) {
           widget.navigateToPostRegistrationRecovery(context);
@@ -169,8 +180,10 @@ class LoginScreenWM extends BaseWidgetModel<LoginScreen, LoginScreenModel> {
         if (!context.mounted) return;
         widget.navigateToChatListingScreen(context);
       } else {
-        _authState.value = AuthState.error(
-          message: 'AUTHENTICATION FAILED. CHECK CREDENTIALS.',
+        _setAuthState(
+          AuthState.error(
+            message: 'AUTHENTICATION FAILED. CHECK CREDENTIALS.',
+          ),
         );
         LoggingService.error(
           'LOGIN_SCREEN',
@@ -178,7 +191,7 @@ class LoginScreenWM extends BaseWidgetModel<LoginScreen, LoginScreenModel> {
         );
       }
     } catch (e) {
-      _authState.value = AuthState.error(message: 'ERROR: $e');
+      _setAuthState(AuthState.error(message: 'ERROR: $e'));
       LoggingService.error('LOGIN_SCREEN', 'Unknown error: ${e.toString()}');
     }
   }

@@ -1,7 +1,11 @@
 //! Push-rule-driven sync notifications forwarded to Dart via FRB streams.
 
 use matrix_sdk::{
-    deserialized_responses::RawAnySyncOrStrippedTimelineEvent, ruma::events::AnySyncTimelineEvent,
+    deserialized_responses::RawAnySyncOrStrippedTimelineEvent,
+    ruma::events::{
+        rtc::notification::{NotificationType, RtcNotificationEventContent},
+        AnySyncTimelineEvent, OriginalSyncMessageLikeEvent,
+    },
     Room,
 };
 use matrix_sdk_base::sync::Notification;
@@ -14,6 +18,8 @@ use super::client::format_user_id_for_display;
 pub enum SyncNotificationKind {
     Message,
     Invite,
+    /// MatrixRTC / Element Call `m.rtc.notification` (incoming call UI).
+    IncomingCall,
     Other,
 }
 
@@ -29,6 +35,48 @@ pub struct SyncNotificationSummary {
     pub is_highlight: bool,
     pub is_noisy: bool,
     pub event_id: String,
+    /// `true` when the RTC notification requests ringing (vs silent banner).
+    pub incoming_call_ring: bool,
+}
+
+/// Incoming ring from a synced timeline event (not push-rule filtered).
+///
+/// Matrix push rules often omit `m.rtc.notification`; this path still drives CallKit when sync runs.
+pub(crate) async fn summary_from_sync_rtc_notification(
+    ev: &OriginalSyncMessageLikeEvent<RtcNotificationEventContent>,
+    room: &Room,
+) -> Option<SyncNotificationSummary> {
+    let room_id = room.room_id().to_string();
+    let room_display_name = room.cached_display_name().map(|n| n.to_string());
+    let sender = ev.sender.to_string();
+    let sender_display_name = room
+        .get_member_no_sync(&ev.sender)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|m| m.display_name().map(|s| s.to_owned()));
+
+    let c = &ev.content;
+    let ring = matches!(c.notification_type, NotificationType::Ring);
+    let body_preview = if ring {
+        "Incoming call".to_owned()
+    } else {
+        "Call".to_owned()
+    };
+    let event_id = ev.event_id.to_string();
+
+    Some(SyncNotificationSummary {
+        room_id,
+        room_display_name,
+        kind: SyncNotificationKind::IncomingCall,
+        sender_id: format_user_id_for_display(&sender),
+        sender_display_name: sender_display_name.map(|s| format_user_id_for_display(&s)),
+        body_preview,
+        is_highlight: true,
+        is_noisy: ring,
+        event_id,
+        incoming_call_ring: ring,
+    })
 }
 
 pub(crate) async fn summary_from_notification(
@@ -51,24 +99,42 @@ pub(crate) async fn summary_from_notification(
                 .flatten()
                 .and_then(|m| m.display_name().map(|s| s.to_owned()));
 
-            let (kind, body_preview, event_id) = match &ev {
+            let (kind, body_preview, event_id, incoming_call_ring) = match &ev {
                 AnySyncTimelineEvent::MessageLike(ml) => {
                     let eid = ml.event_id().to_string();
-                    let body = ml
-                        .original_content()
-                        .and_then(|c| match c {
-                            AnyMessageLikeEventContent::RoomMessage(msg) => {
-                                Some(msg.body().to_owned())
-                            }
-                            _ => None,
-                        })
-                        .unwrap_or_else(|| "New message".to_owned());
-                    (SyncNotificationKind::Message, body, eid)
+                    if let Some(AnyMessageLikeEventContent::RtcNotification(c)) =
+                        ml.original_content()
+                    {
+                        let ring = matches!(c.notification_type, NotificationType::Ring);
+                        let body = if ring {
+                            "Incoming call".to_owned()
+                        } else {
+                            "Call".to_owned()
+                        };
+                        (
+                            SyncNotificationKind::IncomingCall,
+                            body,
+                            eid,
+                            ring,
+                        )
+                    } else {
+                        let body = ml
+                            .original_content()
+                            .and_then(|c| match c {
+                                AnyMessageLikeEventContent::RoomMessage(msg) => {
+                                    Some(msg.body().to_owned())
+                                }
+                                _ => None,
+                            })
+                            .unwrap_or_else(|| "New message".to_owned());
+                        (SyncNotificationKind::Message, body, eid, false)
+                    }
                 }
                 _ => (
                     SyncNotificationKind::Other,
                     "New activity".to_owned(),
                     ev.event_id().to_string(),
+                    false,
                 ),
             };
 
@@ -83,6 +149,7 @@ pub(crate) async fn summary_from_notification(
                 is_highlight,
                 is_noisy,
                 event_id,
+                incoming_call_ring,
             })
         }
         RawAnySyncOrStrippedTimelineEvent::Stripped(raw) => {
@@ -105,6 +172,7 @@ pub(crate) async fn summary_from_notification(
                 is_highlight,
                 is_noisy,
                 event_id: String::new(),
+                incoming_call_ring: false,
             })
         }
     }

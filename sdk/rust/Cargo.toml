@@ -2,14 +2,18 @@
 name = "matrix"
 version = "0.1.0"
 edition = "2021"
-
+build = "build.rs"
 rust-version = "1.93"
+
+[build-dependencies]
+# Android: retain/export `Java_livekit_org_webrtc_*` from `libwebrtc.a` in the final `libmatrix.so`.
+webrtc-sys-build = "0.3.15"
 
 [lib]
 crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
-flutter_rust_bridge = "=2.11.1"
+flutter_rust_bridge = "=2.12.0"
 
 # Matrix Rust SDK from submodule (https://github.com/kushalmahapatro/matrix-rust-sdk)
 # matrix-sdk = { path = "matrix-rust-sdk/crates/matrix-sdk" }
@@ -18,9 +22,14 @@ flutter_rust_bridge = "=2.11.1"
 # ] }
 # matrix-sdk-ui = { path = "matrix-rust-sdk/crates/matrix-sdk-ui" }
 # matrix-sdk-common = { path = "matrix-rust-sdk/crates/matrix-sdk-common" }
-matrix-sdk = { git = "https://github.com/kushalmahapatro/matrix-rust-sdk.git", branch = "feat/dart-support-1" }
+matrix-sdk = { git = "https://github.com/kushalmahapatro/matrix-rust-sdk.git", branch = "feat/dart-support-1", features = [
+  "experimental-widgets",
+] }
+# SQLCipher: use system OpenSSL on Apple/Linux (incl. iOS Simulator/device). Vendored OpenSSL is
+# Android-only — a global `bundled-sqlcipher-vendored-openssl` unifies into iOS and can corrupt
+# WebRTC/BoringSSL (DTLS cert gen crash in bssl::Vector / BN_div).
 matrix-sdk-sqlite = { git = "https://github.com/kushalmahapatro/matrix-rust-sdk.git", branch = "feat/dart-support-1", features = [
-  "bundled-sqlcipher-vendored-openssl",
+  "bundled-sqlcipher",
 ] }
 matrix-sdk-ui = { git = "https://github.com/kushalmahapatro/matrix-rust-sdk.git", branch = "feat/dart-support-1" }
 matrix-sdk-common = { git = "https://github.com/kushalmahapatro/matrix-rust-sdk.git", branch = "feat/dart-support-1" }
@@ -28,8 +37,9 @@ matrix-sdk-base = { git = "https://github.com/kushalmahapatro/matrix-rust-sdk.gi
 
 # Enables MSC4095 URL previews on `m.text` (`com.beeper.linkpreviews`); unified with matrix-sdk's ruma.
 ruma = { git = "https://github.com/ruma/ruma", rev = "2455c71ec8bd16318397865d9c6e231e792cb15e", features = [
-    "unstable-msc4095",
-    "unstable-msc3245-v1-compat",
+  "unstable-msc4075",
+  "unstable-msc4095",
+  "unstable-msc3245-v1-compat",
 ] }
 
 tracing = { version = "0.1.40", default-features = false, features = ["std"] }
@@ -41,6 +51,7 @@ serde_json = "1.0"
 regex = "1"
 anyhow = "1.0"
 url = "2.0"
+language-tags = "0.3.2"
 once_cell = "1.0"
 futures = "0.3"
 log = "0.4"
@@ -60,7 +71,9 @@ sentry = { version = "0.36.0", optional = true, default-features = false, featur
 ] }
 sentry-tracing = { version = "0.36.0", optional = true }
 imbl = "7.0.0"
-eyeball = { version = "0.8.8", default-features = false, features = ["tracing"] }
+eyeball = { version = "0.8.8", default-features = false, features = [
+  "tracing",
+] }
 eyeball-im = "0.8"
 
 mime = "0.3.17"
@@ -68,21 +81,16 @@ mime_guess = "2.0"
 sha2 = "0.10"
 hex = "0.4"
 image = { version = "0.25", default-features = false, features = [
-    "jpeg",
-    "png",
-    "webp",
-    "gif",
+  "jpeg",
+  "png",
+  "webp",
+  "gif",
 ] }
 blurhash = "0.2.3"
 extension-trait = "1.0.2"
 syn = "2.0.104"
 quote = "1.0.40"
 proc-macro2 = "1.0.95"
-# Vendored OpenSSL: embedded with the app so it works on Windows without installing OpenSSL,
-# and on all platforms without relying on system OpenSSL version or presence.
-openssl = { version = "*", default-features = false, features = ["vendored"] }
-
-
 # rhttp
 async-trait = "0.1"
 futures-util = "0.3.31"
@@ -96,7 +104,9 @@ tokio = { version = "1.48.0", default-features = false, features = [
   "time",
 ] }
 tokio-util = "0.7.17"
-calamine = { version = "0.34.0", default-features = false, features = ["dates"] }
+calamine = { version = "0.34.0", default-features = false, features = [
+  "dates",
+] }
 zip = { version = "8.3.0", default-features = false, features = ["deflate"] }
 quick-xml = { version = "0.39.2", features = ["serialize"] }
 pdf-extract = "0.10.0"
@@ -111,7 +121,10 @@ rusqlite = { version = "0.37.0", default-features = false, features = [
   "limits",
 ] }
 
-[target.'cfg(not(any(target_os = "macos", target_os = "linux")))'.dependencies]
+# Android & other non-desktop (non-iOS): SQLCipher + vendored OpenSSL for rusqlite. Android also
+# gets `matrix-sdk-sqlite` with `bundled-sqlcipher-vendored-openssl` under `[target.'cfg(target_os = "android")']`.
+# iOS is excluded: avoid a second vendored OpenSSL in the same binary as WebRTC/BoringSSL (see root comment).
+[target.'cfg(not(any(target_os = "macos", target_os = "linux", target_os = "ios")))'.dependencies]
 rusqlite = { version = "0.37.0", default-features = false, features = [
   "bundled-sqlcipher-vendored-openssl",
   "limits",
@@ -135,27 +148,23 @@ features = [
   "gzip",
 ]
 
-# macOS & Linux: SQLCipher with system OpenSSL (smaller binary, faster build).
-[target.'cfg(target_os = "macos")'.dependencies]
-# matrix-sdk-sqlite = { path = "matrix-rust-sdk/crates/matrix-sdk-sqlite", features = [
-#   "bundled-sqlcipher",
-# ] }
-matrix-sdk-sqlite = { git = "https://github.com/kushalmahapatro/matrix-rust-sdk.git", branch = "feat/dart-support-1", features = [
-  "bundled-sqlcipher",
-] }
+# macOS & Linux: root `matrix-sdk-sqlite` already uses `bundled-sqlcipher` (system OpenSSL).
 
-[target.'cfg(target_os = "linux")'.dependencies]
-matrix-sdk-sqlite = { git = "https://github.com/kushalmahapatro/matrix-rust-sdk.git", branch = "feat/dart-support-1", features = [
-  "bundled-sqlcipher",
-] } # matrix-sdk-sqlite = { path = "matrix-rust-sdk/crates/matrix-sdk-sqlite", features = [
-#   "bundled-sqlcipher",
-# ] }
-
-# Android: SQLCipher + vendored OpenSSL (from default); android_logger; rustls platform verifier init.
+# Android: SQLCipher + vendored OpenSSL (cross-compile); android_logger; rustls platform verifier init.
 [target.'cfg(target_os = "android")'.dependencies]
+matrix-sdk-sqlite = { git = "https://github.com/kushalmahapatro/matrix-rust-sdk.git", branch = "feat/dart-support-1", features = [
+  "bundled-sqlcipher-vendored-openssl",
+] }
 android_logger = "0.15.1"
 rustls-platform-verifier = { version = "0.6", default-features = false }
 jni = { version = "0.21", default-features = false }
+
+# LiveKit + libwebrtc do not support wasm32; keep off the wasm matrix build.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+livekit = { version = "0.7.36", default-features = false, features = [
+  "tokio",
+  "native-tls",
+] }
 
 [features]
 default = []
@@ -185,10 +194,5 @@ incremental = true
 
 
 [patch.crates-io]
-async-compat = { git = "https://github.com/element-hq/async-compat", rev = "5a27c8b290f1f1dcfc0c4ec22c464e38528aa591" }
-const_panic = { git = "https://github.com/jplatte/const_panic", rev = "9024a4cb3eac45c1d2d980f17aaee287b17be498" }
-# Needed to fix rotation log issue on Android (https://github.com/tokio-rs/tracing/issues/2937)
-tracing = { git = "https://github.com/tokio-rs/tracing.git", rev = "20f5b3d8ba057ca9c4ae00ad30dda3dce8a71c05" }
-tracing-core = { git = "https://github.com/tokio-rs/tracing.git", rev = "20f5b3d8ba057ca9c4ae00ad30dda3dce8a71c05" }
-tracing-subscriber = { git = "https://github.com/tokio-rs/tracing.git", rev = "20f5b3d8ba057ca9c4ae00ad30dda3dce8a71c05" }
-tracing-appender = { git = "https://github.com/tokio-rs/tracing.git", rev = "20f5b3d8ba057ca9c4ae00ad30dda3dce8a71c05" }
+# Patched webrtc-sys: android __sF fix; Android libwebrtc.a BoringSSL symbol prefix (see patches/webrtc-sys/build.rs).
+webrtc-sys = { path = "patches/webrtc-sys" }

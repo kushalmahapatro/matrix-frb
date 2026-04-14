@@ -2,37 +2,14 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
+import 'package:matrix/src/core/avatar_image_normalize.dart';
 import 'package:matrix/src/core/matrix_avatar_disk_cache.dart';
 import 'package:matrix/src/core/presentation/widgets/terminal_container.dart';
 import 'package:matrix/src/features/settings/domain/profile_local_cache.dart';
 import 'package:matrix/src/features/settings/domain/profile_prefs.dart';
 import 'package:matrix/src/features/settings/presentation/screens/profile_avatar_crop_screen.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
-
-/// Decodes raster images, applies EXIF orientation into pixels, then re-encodes
-/// (JPEG for photos, PNG when the source was PNG so alpha is kept).
-Uint8List? _normalizeAvatarImageBytes(
-  Uint8List raw,
-  String path, {
-  int jpegQuality = 88,
-}) {
-  try {
-    final decoded = img.decodeImage(raw);
-    if (decoded == null) return null;
-    final oriented = img.bakeOrientation(decoded);
-    final lower = path.toLowerCase();
-    if (lower.endsWith('.png')) {
-      return Uint8List.fromList(img.encodePng(oriented));
-    }
-    return Uint8List.fromList(
-      img.encodeJpg(oriented, quality: jpegQuality),
-    );
-  } catch (_) {
-    return null;
-  }
-}
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -178,7 +155,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     if (cropped == null || cropped.isEmpty) return;
 
-    final normalized = _normalizeAvatarImageBytes(cropped, 'crop.jpg');
+    final normalized = normalizeAvatarImageBytes(cropped, 'crop.jpg');
     final uploadBytes = normalized ?? cropped;
     const uploadMime = 'image/jpeg';
 

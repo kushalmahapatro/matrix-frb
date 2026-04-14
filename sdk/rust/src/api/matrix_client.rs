@@ -10,15 +10,16 @@ use matrix_sdk::{
             NewUnstablePollStartEventContent, UnstablePollAnswer, UnstablePollAnswers,
             UnstablePollStartContentBlock, UnstablePollStartEventContent,
         },
-        AnyMessageLikeEventContent,
+        typing::SyncTypingEvent,
+        AnyMessageLikeEventContent, AnySyncMessageLikeEvent, AnySyncTimelineEvent,
     },
     ruma::{OwnedEventId, OwnedRoomId, RoomId, UInt},
     Client,
 };
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use tokio::sync::broadcast::{self, error::RecvError};
-use tokio::sync::Mutex;
+use tokio::sync::broadcast::{self, error::RecvError, error::SendError};
+use tokio::sync::{mpsc, Mutex};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
@@ -39,8 +40,32 @@ use crate::{
         timeline_media,
         timelines::{self, Message},
         user_serach,
+        element_call,
     },
 };
+
+/// Sync notification broadcast hub. Keeps a [broadcast::Receiver] so [broadcast::Sender::send]
+/// does not fail with "no active receivers" before Dart subscribes
+/// ([MatrixClient::subscribe_to_sync_notifications]).
+struct SyncNotificationHub {
+    sender: broadcast::Sender<SyncNotificationSummary>,
+    _keepalive: broadcast::Receiver<SyncNotificationSummary>,
+}
+
+impl SyncNotificationHub {
+    fn new() -> Self {
+        let (sender, _keepalive) = broadcast::channel(256);
+        Self { sender, _keepalive }
+    }
+
+    fn sender(&self) -> broadcast::Sender<SyncNotificationSummary> {
+        self.sender.clone()
+    }
+
+    fn subscribe(&self) -> broadcast::Receiver<SyncNotificationSummary> {
+        self.sender.subscribe()
+    }
+}
 
 /// Single entry point for the Matrix client. Create via [MatrixClient::configure], then use
 /// [MatrixClient::login], [MatrixClient::register], [MatrixClient::get_all_rooms], etc.
@@ -71,7 +96,11 @@ pub struct MatrixClient {
     /// Active [CancellationToken] for [MatrixClient::send_timeline_file_with_progress] (cancel via [MatrixClient::cancel_timeline_file_send]).
     file_send_cancel: Arc<Mutex<Option<CancellationToken>>>,
     /// Broadcast hub for [MatrixClient::subscribe_to_sync_notifications]; filled when sync notification handler is registered.
-    sync_notification_tx: Arc<Mutex<Option<broadcast::Sender<SyncNotificationSummary>>>>,
+    sync_notification_hub: Arc<Mutex<Option<SyncNotificationHub>>>,
+    /// Element Call widget postMessage handle (clone used for forwarding to Dart).
+    element_call_handle: Arc<Mutex<Option<matrix_sdk::widget::WidgetDriverHandle>>>,
+    element_call_driver_join: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
+    element_call_forward_join: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
 }
 
 impl MatrixClient {
@@ -96,17 +125,21 @@ impl MatrixClient {
             file_upload_cache,
             file_upload_redaction_handler_registered: Arc::new(AtomicBool::new(false)),
             file_send_cancel: Arc::new(Mutex::new(None)),
-            sync_notification_tx: Arc::new(Mutex::new(None)),
+            sync_notification_hub: Arc::new(Mutex::new(None)),
+            element_call_handle: Arc::new(Mutex::new(None)),
+            element_call_driver_join: Arc::new(Mutex::new(None)),
+            element_call_forward_join: Arc::new(Mutex::new(None)),
         })
     }
 
     async fn ensure_sync_notification_handler(&self) -> Result<(), String> {
-        let mut hub = self.sync_notification_tx.lock().await;
-        if hub.is_some() {
+        let mut slot = self.sync_notification_hub.lock().await;
+        if slot.is_some() {
             return Ok(());
         }
-        let (tx, _rx) = broadcast::channel::<SyncNotificationSummary>(256);
-        let tx_handler = tx.clone();
+        let hub = SyncNotificationHub::new();
+        let tx_handler = hub.sender();
+        let tx_rtc = hub.sender();
         self.client
             .register_notification_handler(move |notification, room, _client| {
                 let tx = tx_handler.clone();
@@ -119,7 +152,13 @@ impl MatrixClient {
                     .await
                     {
                         Some(s) => {
-                            let _ = tx.send(s);
+                            if let Err(SendError(lost)) = tx.send(s) {
+                                tracing::warn!(
+                                    %room_id,
+                                    ?lost,
+                                    "sync notification: broadcast send failed (no receivers)"
+                                );
+                            }
                         }
                         None => {
                             tracing::trace!(
@@ -131,7 +170,57 @@ impl MatrixClient {
                 }
             })
             .await;
-        *hub = Some(tx);
+
+        // `m.rtc.notification` is often not matched by default push rules, so
+        // [register_notification_handler] never runs for callees. Use [AnySyncTimelineEvent]
+        // so both `m.rtc.notification` and `org.matrix.msc4075.rtc.notification` reach CallKit.
+        self.client
+            .add_event_handler(
+                move |ev: AnySyncTimelineEvent, room: matrix_sdk::Room| {
+                    let tx = tx_rtc.clone();
+                    async move {
+                        let AnySyncTimelineEvent::MessageLike(ml) = ev else {
+                            return;
+                        };
+                        let AnySyncMessageLikeEvent::RtcNotification(rtc) = ml else {
+                            return;
+                        };
+                        let Some(orig) = rtc.as_original() else {
+                            return;
+                        };
+                        let client = room.client();
+                        let Some(own) = client.user_id() else {
+                            return;
+                        };
+                        if orig.sender == *own {
+                            return;
+                        }
+                        match crate::matrix::sync_notifications::summary_from_sync_rtc_notification(
+                            orig, &room,
+                        )
+                        .await
+                        {
+                            Some(s) => {
+                                if let Err(SendError(lost)) = tx.send(s) {
+                                    tracing::warn!(
+                                        room_id = %room.room_id(),
+                                        ?lost,
+                                        "rtc notification: broadcast send failed (no receivers)"
+                                    );
+                                }
+                            }
+                            None => {
+                                tracing::trace!(
+                                    room_id = %room.room_id(),
+                                    "rtc notification: dropped (could not build summary)"
+                                );
+                            }
+                        }
+                    }
+                },
+            );
+
+        *slot = Some(hub);
         Ok(())
     }
 
@@ -278,6 +367,21 @@ impl MatrixClient {
             .map_err(|e| e.to_string())
     }
 
+    /// Upload bytes as this joined room's avatar (`m.room.avatar`).
+    pub async fn upload_room_avatar(
+        &self,
+        room_id: String,
+        mime_type: String,
+        data: Vec<u8>,
+    ) -> Result<(), String> {
+        room_info::upload_room_avatar(&self.client, room_id, mime_type, data).await
+    }
+
+    /// Remove the room's avatar.
+    pub async fn remove_room_avatar(&self, room_id: String) -> Result<(), String> {
+        room_info::remove_room_avatar(&self.client, room_id).await
+    }
+
     /// Short initials label stored in global account data (for avatar fallbacks).
     pub async fn get_profile_initials(&self) -> Result<Option<String>, String> {
         profile_account::get_profile_initials(&self.client).await
@@ -418,9 +522,15 @@ impl MatrixClient {
     /// Stores the App in this client; rooms/timeline/sync state use it instead of global state.
     pub async fn start_sync_service(&self) -> Result<bool, String> {
         self.ensure_sync_notification_handler().await?;
+        let rtc_tx = self
+            .sync_notification_hub
+            .lock()
+            .await
+            .as_ref()
+            .map(|h| h.sender());
         let client = self.client.clone();
         let app_mutex = self.app.clone(); // same Arc as self.app
-        let app = sync_service::start_sync_service(client).await?;
+        let app = sync_service::start_sync_service(client, rtc_tx).await?;
         *app_mutex.lock().await = Some(app); // updates self.app (shared Arc)
         file_upload_cache_redaction::register_redaction_cleanup(
             &self.client,
@@ -710,6 +820,77 @@ impl MatrixClient {
         timelines::mark_timeline_as_read(timeline_arc.as_ref()).await
     }
 
+    /// Ephemeral `m.typing` updates for this room (other members only; own user filtered).
+    ///
+    /// Uses [`Client::add_room_event_handler`] instead of [`Room::subscribe_to_typing_notifications`]
+    /// so we register even when [`Client::get_room`] is not yet populated (e.g. right after
+    /// opening a conversation). The handler still runs once sync delivers `m.typing` for this room.
+    pub async fn subscribe_to_room_typing(
+        &self,
+        room_id: String,
+        stream: StreamSink<Vec<String>>,
+    ) {
+        let room_id_parsed = match room_id.parse::<OwnedRoomId>() {
+            Ok(id) => id,
+            Err(_) => {
+                tracing::warn!("subscribe_to_room_typing: invalid room id");
+                return;
+            }
+        };
+        let own_user_id = match self.client.user_id() {
+            Some(u) => u.to_owned(),
+            None => {
+                tracing::warn!("subscribe_to_room_typing: not logged in");
+                return;
+            }
+        };
+
+        let (tx, mut rx) = mpsc::unbounded_channel::<Vec<String>>();
+        let tx_for_handler = tx;
+
+        let handle = self.client.add_room_event_handler(room_id_parsed.as_ref(), {
+            let own_user_id = own_user_id.clone();
+            move |event: SyncTypingEvent| {
+                let tx = tx_for_handler.clone();
+                let own_user_id = own_user_id.clone();
+                async move {
+                    let typing_user_ids: Vec<String> = event
+                        .content
+                        .user_ids
+                        .into_iter()
+                        .filter(|user_id| *user_id != own_user_id)
+                        .map(|u| u.to_string())
+                        .collect();
+                    let _ = tx.send(typing_user_ids);
+                }
+            }
+        });
+
+        let drop_guard = self.client.event_handler_drop_guard(handle);
+
+        tokio::spawn(async move {
+            let _keep_handler_alive = drop_guard;
+            while let Some(ids) = rx.recv().await {
+                if stream.add(ids).is_err() {
+                    break;
+                }
+            }
+        });
+    }
+
+    /// POST /typing — notify others that the composer is active (call `false` when idle / sent).
+    pub async fn send_typing_notice(&self, room_id: String, typing: bool) -> Result<(), String> {
+        let room_id_parsed = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+        let room = self
+            .client
+            .get_room(&room_id_parsed)
+            .ok_or_else(|| "Room not found".to_string())?;
+        room
+            .typing_notice(typing)
+            .await
+            .map_err(|e| e.to_string())
+    }
+
     /// Redact a timeline message for **everyone** (`m.room.redaction`) or abort a matching local echo.
     ///
     /// Pass [event_id] for remote echoes, or [transaction_id] for a local row (matrix-sdk-ui picks redact vs abort).
@@ -755,9 +936,10 @@ impl MatrixClient {
     /// so the same ciphertext/media can be resent with an updated caption without re-uploading.
     ///
     /// Plain reuse probes both MXCs on the server; E2EE reuse matches thumbnail JPEG bytes (when present)
-    /// the same way. Timeline thumbnails for **images** and **videos** must come from the app: pass a JPEG
-    /// path from the Dart `media` package as [`app_thumbnail_jpeg_path`]. PDF / office embedded thumbnails
-    /// are still extracted in Rust when Pdfium / zip paths apply. Video compression is done in the app
+    /// the same way. Timeline raster thumbnails (**images**, **videos**, and optional **documents** when
+    /// the app generates one) must come from the Dart `media` package: pass a JPEG path as
+    /// [`app_thumbnail_jpeg_path`]. Rust only loads that JPEG; it does not synthesize thumbnails from raw
+    /// file bytes on send. Video compression is done in the app
     /// before send. **Encrypted** uploads use the SDK **send queue**; a fixed transaction id correlates
     /// queue updates, and the server `event_id` from `RoomSendQueueUpdate::SentEvent` loads the message
     /// into the cache when possible.
@@ -1206,6 +1388,19 @@ impl MatrixClient {
         cancel_map.insert(room_id.clone(), cancel_token);
         drop(cancel_map);
 
+        if let Err(e) = self.ensure_sync_notification_handler().await {
+            tracing::warn!(
+                room_id = %room_id,
+                "subscribe_to_timeline_list: ensure_sync_notification_handler: {e}"
+            );
+        }
+        let rtc_notify_tx = self
+            .sync_notification_hub
+            .lock()
+            .await
+            .as_ref()
+            .map(|h| h.sender());
+
         let client = self.client.clone();
         let cache_map = self.timeline_list_cache.clone();
         let sinks_map = self.timeline_list_sinks.clone();
@@ -1226,6 +1421,7 @@ impl MatrixClient {
                 sinks_map,
                 room_list_cache,
                 room_list_sink,
+                rtc_notify_tx,
                 cancel_child,
             )
             .await;
@@ -1316,12 +1512,16 @@ impl MatrixClient {
             );
             return;
         }
-        let tx = self.sync_notification_tx.lock().await.clone();
-        let Some(tx) = tx else {
-            tracing::warn!("subscribe_to_sync_notifications: hub missing after ensure");
-            return;
+        let mut rx = {
+            let guard = self.sync_notification_hub.lock().await;
+            match guard.as_ref() {
+                Some(h) => h.subscribe(),
+                None => {
+                    tracing::warn!("subscribe_to_sync_notifications: hub missing after ensure");
+                    return;
+                }
+            }
         };
-        let mut rx = tx.subscribe();
         loop {
             match rx.recv().await {
                 Ok(msg) => {
@@ -1333,5 +1533,259 @@ impl MatrixClient {
                 Err(RecvError::Closed) => break,
             }
         }
+    }
+
+    // --- Element Call (MatrixRTC + LiveKit) ---
+
+    /// WebView URL for Element Call without starting the widget driver (new random widget id each time).
+    pub async fn element_call_webview_url(
+        &self,
+        room_id: String,
+        element_call_base_url: String,
+        widget_id: String,
+        is_direct_room: bool,
+        join_existing_call: bool,
+        voice_only: bool,
+        client_id: String,
+        language_tag: Option<String>,
+        theme: Option<String>,
+    ) -> Result<String, String> {
+        let rid = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+        let room = self
+            .client
+            .get_room(&rid)
+            .ok_or_else(|| "Room not found or not joined".to_string())?;
+        element_call::element_call_webview_url(
+            &room,
+            &element_call_base_url,
+            &widget_id,
+            is_direct_room,
+            join_existing_call,
+            voice_only,
+            &client_id,
+            language_tag.as_deref(),
+            theme.as_deref(),
+        )
+        .await
+    }
+
+    /// LiveKit `service_url` values from the homeserver `.well-known` RTC foci.
+    pub async fn rtc_foci_livekit_service_urls(&self) -> Result<Vec<String>, String> {
+        element_call::rtc_foci_livekit_service_urls(&self.client).await
+    }
+
+    /// Stop Element Call widget driver and forwarding tasks.
+    pub async fn stop_element_call_session(&self) {
+        let mut fj = self.element_call_forward_join.lock().await;
+        if let Some(j) = fj.take() {
+            j.abort();
+        }
+        let mut dj = self.element_call_driver_join.lock().await;
+        if let Some(j) = dj.take() {
+            j.abort();
+        }
+        *self.element_call_handle.lock().await = None;
+    }
+
+    /// Start Element Call: spawns [matrix_sdk::widget::WidgetDriver] and forwards JSON to [to_widget].
+    /// Returns the WebView URL to load. Call [Self::element_call_send_from_webview] with postMessage payloads from the WebView.
+    pub async fn start_element_call_session(
+        &self,
+        room_id: String,
+        element_call_base_url: String,
+        widget_id: String,
+        is_direct_room: bool,
+        join_existing_call: bool,
+        voice_only: bool,
+        client_id: String,
+        language_tag: Option<String>,
+        theme: Option<String>,
+        to_widget: StreamSink<String>,
+    ) -> Result<(), String> {
+        self.stop_element_call_session().await;
+        let uid = self
+            .client
+            .user_id()
+            .ok_or_else(|| "Not logged in".to_string())?
+            .to_string();
+        let did = self
+            .client
+            .device_id()
+            .ok_or_else(|| "Device id missing".to_string())?
+            .to_string();
+        let rid = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+        let room = self
+            .client
+            .get_room(&rid)
+            .ok_or_else(|| "Room not found or not joined".to_string())?;
+        let (dj, fj, handle) = element_call::start_element_call_widget_session(
+            room,
+            &element_call_base_url,
+            &widget_id,
+            is_direct_room,
+            join_existing_call,
+            voice_only,
+            &client_id,
+            language_tag.as_deref(),
+            theme.as_deref(),
+            &uid,
+            &did,
+            to_widget,
+        )
+        .await?;
+        *self.element_call_handle.lock().await = Some(handle);
+        *self.element_call_driver_join.lock().await = Some(dj);
+        *self.element_call_forward_join.lock().await = Some(fj);
+        Ok(())
+    }
+
+    /// Forward a postMessage JSON string from the Element Call WebView to the widget driver.
+    pub async fn element_call_send_from_webview(&self, json: String) -> bool {
+        let g = self.element_call_handle.lock().await;
+        match g.as_ref() {
+            Some(h) => h.send(json).await,
+            None => false,
+        }
+    }
+
+    /// Whether the SDK sees an active MatrixRTC room call in this room.
+    pub fn room_has_active_call(&self, room_id: String) -> Result<bool, String> {
+        let rid = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+        let room = self
+            .client
+            .get_room(&rid)
+            .ok_or_else(|| "Room not found".to_string())?;
+        Ok(room.has_active_room_call())
+    }
+
+    /// User IDs participating in the active room call (may include duplicates per device).
+    pub fn active_call_participant_ids(&self, room_id: String) -> Result<Vec<String>, String> {
+        let rid = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+        let room = self
+            .client
+            .get_room(&rid)
+            .ok_or_else(|| "Room not found".to_string())?;
+        Ok(room
+            .active_room_call_participants()
+            .into_iter()
+            .map(|u| u.to_string())
+            .collect())
+    }
+
+    /// Send `m.rtc.notification` with ring so other members get MatrixRTC / CallKit ringing.
+    pub async fn send_rtc_ring_notification(
+        &self,
+        room_id: String,
+        voice_only: bool,
+    ) -> Result<String, String> {
+        use matrix_sdk::ruma::events::{
+            Mentions,
+            rtc::notification::{CallIntent, NotificationType, RtcNotificationEventContent},
+        };
+        use matrix_sdk::ruma::{MilliSecondsSinceUnixEpoch, RoomId};
+        use std::time::Duration;
+
+        let rid = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+        let room = self
+            .client
+            .get_room(&rid)
+            .ok_or_else(|| "Room not found or not joined".to_string())?;
+
+        let mut content = RtcNotificationEventContent::new(
+            MilliSecondsSinceUnixEpoch::now(),
+            Duration::from_secs(90),
+            NotificationType::Ring,
+        );
+        content.mentions = Some(Mentions::with_room_mention());
+        content.call_intent = Some(if voice_only {
+            CallIntent::Audio
+        } else {
+            CallIntent::Video
+        });
+
+        let res = room.send(content).await.map_err(|e| e.to_string())?;
+        Ok(res.response.event_id.to_string())
+    }
+
+    /// Subscribe to `m.rtc.decline` for the given notification event. First decline pushes the
+    /// decliner user id to the returned stream. Call [Self::end_call_decline_watcher_for_rtc_notification]
+    /// when the call ends to drop the SDK handler.
+    pub async fn start_call_decline_watcher(
+        &self,
+        room_id: String,
+        rtc_notification_event_id: String,
+        sink: StreamSink<String>,
+    ) -> Result<(), String> {
+        use matrix_sdk::ruma::{EventId, RoomId};
+
+        let rid = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+        let room = self
+            .client
+            .get_room(&rid)
+            .ok_or_else(|| "Room not found or not joined".to_string())?;
+        let eid = EventId::parse(rtc_notification_event_id.clone()).map_err(|e| e.to_string())?;
+        let (guard, mut rx) = room.subscribe_to_call_decline_events(&eid);
+        let key = crate::matrix::call_decline_watch::watch_key(&room_id, &rtc_notification_event_id);
+        crate::matrix::call_decline_watch::register(key.clone(), guard);
+        // Use the same Tokio runtime as the rest of the bridge (`init_platform`). Plain
+        // `tokio::spawn` can attach to the wrong / missing runtime in FFI contexts and has
+        // been observed to crash (SIGSEGV on `tokio-rt-worker`) when combined with
+        // `StreamSink::add` on Android.
+        let Some(rt) = crate::logger::platform::GLOBAL_RUNTIME.get() else {
+            crate::matrix::call_decline_watch::unregister_key(&key);
+            return Err("Native Tokio runtime not initialized (call init_platform first).".to_owned());
+        };
+        rt.spawn(async move {
+            let mut decliner: Option<String> = None;
+            loop {
+                match rx.recv().await {
+                    Ok(uid) => {
+                        decliner = Some(uid.to_string());
+                        break;
+                    }
+                    Err(RecvError::Lagged(_)) => continue,
+                    Err(RecvError::Closed) => break,
+                }
+            }
+            crate::matrix::call_decline_watch::unregister_key(&key);
+            if let Some(d) = decliner {
+                let _ = sink.add(d);
+            }
+        });
+        Ok(())
+    }
+
+    pub fn end_call_decline_watcher_for_rtc_notification(
+        room_id: String,
+        rtc_notification_event_id: String,
+    ) {
+        let key =
+            crate::matrix::call_decline_watch::watch_key(&room_id, &rtc_notification_event_id);
+        crate::matrix::call_decline_watch::unregister_key(&key);
+    }
+
+    /// Decline an incoming MatrixRTC call (`m.rtc.notification` target).
+    pub async fn decline_rtc_call(
+        &self,
+        room_id: String,
+        rtc_notification_event_id: String,
+    ) -> Result<(), String> {
+        use matrix_sdk::ruma::EventId;
+
+        let rid = RoomId::parse(&room_id).map_err(|e| e.to_string())?;
+        let room = self
+            .client
+            .get_room(&rid)
+            .ok_or_else(|| "Room not found or not joined".to_string())?;
+        let eid = EventId::parse(rtc_notification_event_id).map_err(|e| e.to_string())?;
+        let content = room
+            .make_decline_call_event(&eid)
+            .await
+            .map_err(|e| e.to_string())?;
+        room.send_queue()
+            .send(content.into())
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(())
     }
 }

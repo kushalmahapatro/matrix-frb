@@ -29,6 +29,11 @@ pub(crate) async fn register(
 ) -> Result<bool, String> {
     info!("Attempting to register user: {}", username);
 
+    if client.session().is_some() {
+        info!("Skipping register: client already holds a session");
+        return Ok(true);
+    }
+
     info!("Attempting Matrix authentication...");
     let mut auth = AuthData::Dummy(Dummy::new());
 
@@ -57,12 +62,13 @@ pub(crate) async fn register(
 
     let AuthSession::Matrix(session) = session else {
         error!("Unexpected OAuth 2.0 session");
-        panic!("Unexpected OAuth 2.0 session")
+        return Err("Unexpected OAuth 2.0 session".to_string());
     };
 
     let path = Path::new(session_path);
     let session_path = path.join(SESSION_JSON);
-    let serialized_session = serde_json::to_string(&session).unwrap();
+    let serialized_session =
+        serde_json::to_string(&session).map_err(|e| e.to_string())?;
     let _ = std::fs::write(session_path, serialized_session);
 
     info!("Registration completed successfully for user: {}", username);
@@ -88,12 +94,18 @@ pub(crate) async fn login(
 ) -> Result<bool, String> {
     info!("Attempting to login user: {}", username);
 
+    if client.session().is_some() {
+        info!("Skipping password login: client already holds a session (e.g. restored from session.json)");
+        return Ok(true);
+    }
+
     info!("Attempting Matrix authentication...");
 
     client
         .matrix_auth()
         .login_username(&username, &password)
         .initial_device_display_name("Matrix Flutter App ")
+        .request_refresh_token()
         .await
         .map_err(|e| {
             error!("Login failed: {}", e);
@@ -109,12 +121,13 @@ pub(crate) async fn login(
 
     let AuthSession::Matrix(session) = session else {
         error!("Unexpected OAuth 2.0 session");
-        panic!("Unexpected OAuth 2.0 session")
+        return Err("Unexpected OAuth 2.0 session".to_string());
     };
 
     let path = Path::new(session_path);
     let session_path = path.join(SESSION_JSON);
-    let serialized_session = serde_json::to_string(&session).unwrap();
+    let serialized_session =
+        serde_json::to_string(&session).map_err(|e| e.to_string())?;
     let _ = std::fs::write(session_path, serialized_session);
 
     info!("Login completed successfully for user: {}", username);

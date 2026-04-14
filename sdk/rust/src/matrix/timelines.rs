@@ -3,23 +3,26 @@ use flutter_rust_bridge::frb;
 use futures::StreamExt;
 use matrix_sdk::ruma::events::poll::start::PollKind;
 use matrix_sdk::ruma::events::receipt::Receipt as RumaReadReceipt;
+use matrix_sdk::ruma::events::room::member::Change as MemberProfileFieldChange;
 use matrix_sdk::ruma::events::room::message::{
     FileMessageEventContent, MessageType as RumaMessageType,
 };
 use matrix_sdk::ruma::events::room::ThumbnailInfo;
 use matrix_sdk::ruma::UInt;
 use matrix_sdk::ruma::{OwnedEventId, OwnedRoomId};
-use matrix_sdk::Client;
+use matrix_sdk::{Client, Room};
 use matrix_sdk_ui::timeline::{
-    EmbeddedEvent, EventSendState, EventTimelineItem, Message as SdkUiRoomMessage, PollState,
-    Profile, RoomExt, TimelineDetails, TimelineFocus, TimelineItem, TimelineItemKind,
+    EmbeddedEvent, EventSendState, EventTimelineItem, MemberProfileChange, Message as SdkUiRoomMessage,
+    MembershipChange as UiMembershipChange, PollState, Profile, RoomExt, RoomMembershipChange,
+    TimelineDetails, TimelineFocus, TimelineItem, TimelineItemContent, TimelineItemKind,
     TimelineReadReceiptTracking,
 };
 use matrix_sdk_ui::Timeline as SdkTimeline;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::Mutex as StdMutex;
+use tokio::sync::broadcast;
 use tokio::sync::Mutex as AsyncMutex;
 use tokio::sync::OnceCell;
 use tokio::task::JoinHandle;
@@ -28,6 +31,7 @@ use tokio_util::sync::CancellationToken;
 use crate::frb_generated::StreamSink;
 use crate::matrix::client::format_user_id_for_display;
 use crate::matrix::rooms;
+use crate::matrix::sync_notifications::{SyncNotificationKind, SyncNotificationSummary};
 use tracing::{debug, error};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -47,6 +51,10 @@ pub enum MessageType {
     DateDivider,
     ReadMarker,
     TimelineStart,
+    /// `m.room.member` join/leave/invite/etc. (human-readable [Message::content]).
+    MembershipChange,
+    /// Display name / avatar change for a joined member.
+    ProfileChange,
 }
 
 /// Classification of an `m.room.message` (for media previews). Non-message timeline rows use [RoomMessageKind::Other].
@@ -60,6 +68,8 @@ pub enum RoomMessageKind {
     Audio,
     /// MSC3381 unstable poll (`org.matrix.msc3381.poll.start`).
     Poll,
+    /// MatrixRTC `m.rtc.notification` or legacy `m.call.invite` in the timeline.
+    Call,
     Other,
 }
 
@@ -893,10 +903,308 @@ fn send_state_fields(ev: &EventTimelineItem) -> (EventSendStateKind, String, boo
     }
 }
 
+fn member_subject_label(mc: &RoomMembershipChange) -> String {
+    mc.display_name()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(|| format_user_id_for_display(mc.user_id().as_str()))
+}
+
+fn actor_label(ev: &EventTimelineItem) -> String {
+    let sender_user_id = ev.sender().to_string();
+    sender_display_and_avatar_from_profile(&sender_user_id, ev.sender_profile()).0
+}
+
+fn format_membership_change_notice(mc: &RoomMembershipChange, ev: &EventTimelineItem) -> String {
+    let subject = member_subject_label(mc);
+    let actor = actor_label(ev);
+    let sender = ev.sender().as_str();
+    let affected = mc.user_id().as_str();
+
+    match mc.change() {
+        None => format!("{subject} membership was updated"),
+        Some(UiMembershipChange::None) | Some(UiMembershipChange::Error) => {
+            format!("{subject} membership was updated")
+        }
+        Some(UiMembershipChange::Joined) => format!("{subject} joined the room"),
+        Some(UiMembershipChange::Left) => format!("{subject} left the room"),
+        Some(UiMembershipChange::Banned) => {
+            if sender != affected {
+                format!("{actor} banned {subject}")
+            } else {
+                format!("{subject} was banned")
+            }
+        },
+        Some(UiMembershipChange::Unbanned) => {
+            if sender != affected {
+                format!("{actor} unbanned {subject}")
+            } else {
+                format!("{subject} was unbanned")
+            }
+        },
+        Some(UiMembershipChange::Kicked) => {
+            if sender != affected {
+                format!("{actor} removed {subject} from the room")
+            } else {
+                format!("{subject} left the room")
+            }
+        },
+        Some(UiMembershipChange::Invited) => {
+            if sender != affected {
+                format!("{actor} invited {subject}")
+            } else {
+                format!("{subject} was invited")
+            }
+        },
+        Some(UiMembershipChange::KickedAndBanned) => {
+            if sender != affected {
+                format!("{actor} removed and banned {subject}")
+            } else {
+                format!("{subject} was removed and banned")
+            }
+        },
+        Some(UiMembershipChange::InvitationAccepted) => format!("{subject} accepted the invite"),
+        Some(UiMembershipChange::InvitationRejected) => format!("{subject} declined the invite"),
+        Some(UiMembershipChange::InvitationRevoked) => format!("{subject}'s invite was revoked"),
+        Some(UiMembershipChange::Knocked) => format!("{subject} asked to join"),
+        Some(UiMembershipChange::KnockAccepted) => format!("{subject} was allowed to join"),
+        Some(UiMembershipChange::KnockRetracted) => format!("{subject} withdrew their join request"),
+        Some(UiMembershipChange::KnockDenied) => format!("{subject}'s join request was denied"),
+        Some(UiMembershipChange::NotImplemented) => format!("{subject} membership was updated"),
+    }
+}
+
+fn describe_displayname_change(
+    ch: &MemberProfileFieldChange<Option<String>>,
+    user: &str,
+) -> Option<String> {
+    match (&ch.old, &ch.new) {
+        (_, Some(new)) if new.is_empty() => None,
+        (None, Some(new)) => Some(format!("{user} set their display name to {new}")),
+        (Some(old), Some(new)) if old != new => {
+            if new.is_empty() {
+                Some(format!("{user} removed their display name (was {old})"))
+            } else {
+                Some(format!(
+                    "{user} changed their display name from {old} to {new}"
+                ))
+            }
+        }
+        (Some(old), None) => Some(format!("{user} removed their display name (was {old})")),
+        _ => None,
+    }
+}
+
+fn format_profile_change_notice(pc: &MemberProfileChange) -> String {
+    let user = format_user_id_for_display(pc.user_id().as_str());
+    let mut parts: Vec<String> = Vec::new();
+    if let Some(ch) = pc.displayname_change() {
+        if let Some(line) = describe_displayname_change(ch, &user) {
+            parts.push(line);
+        }
+    }
+    if pc.avatar_url_change().is_some() {
+        parts.push(format!("{user} updated their profile picture"));
+    }
+    if parts.is_empty() {
+        format!("{user} updated their profile")
+    } else {
+        parts.join(" • ")
+    }
+}
+
+fn parse_rtc_notification_ring(ev: &EventTimelineItem) -> Option<bool> {
+    let raw = ev.latest_json()?;
+    let v: serde_json::Value = serde_json::from_str(raw.json().get()).ok()?;
+    let content = v.get("content")?;
+    let nt = content.get("notification_type")?.as_str()?;
+    if nt.eq_ignore_ascii_case("ring") {
+        Some(true)
+    } else if nt.eq_ignore_ascii_case("notification") {
+        Some(false)
+    } else {
+        None
+    }
+}
+
+fn matrix_rtc_call_display_body(ev: &EventTimelineItem, own_user_id: Option<&str>) -> String {
+    let is_own = own_user_id.is_some_and(|o| o == ev.sender().as_str());
+    let is_ring = parse_rtc_notification_ring(ev).unwrap_or(true);
+    match (is_own, is_ring) {
+        (true, true) => "Outgoing call".to_string(),
+        (true, false) => "Call".to_string(),
+        (false, true) => "Incoming call".to_string(),
+        (false, false) => "Call".to_string(),
+    }
+}
+
+fn matrix_call_invite_display_body(ev: &EventTimelineItem, own_user_id: Option<&str>) -> String {
+    let is_own = own_user_id.is_some_and(|o| o == ev.sender().as_str());
+    if is_own {
+        "Outgoing call".to_string()
+    } else {
+        "Incoming call".to_string()
+    }
+}
+
+/// Timeline row for `m.rtc.notification` / `m.call.invite` (non-empty body, [RoomMessageKind::Call] for UI).
+fn event_as_matrix_call_row(
+    ev: &EventTimelineItem,
+    own_user_id: Option<&str>,
+    body: String,
+) -> Message {
+    let (send_state, send_error, send_recoverable) = send_state_fields(ev);
+    let is_redacted = ev.content().is_redacted();
+    let event_id = ev.event_id().map(|id| id.to_string()).unwrap_or_default();
+    let transaction_id = ev
+        .transaction_id()
+        .map(|t| t.to_string())
+        .unwrap_or_default();
+    let sender_user_id = ev.sender().to_string();
+    let (sender, sender_avatar_mxc) =
+        sender_display_and_avatar_from_profile(&sender_user_id, ev.sender_profile());
+    let is_own = own_user_id.is_some_and(|o| o == sender_user_id.as_str());
+    let timestamp = u64::from(ev.timestamp().0);
+    let (read_receipt_count, read_receipt_latest_timestamp_ms) =
+        other_read_receipt_stats(ev, own_user_id);
+    Message {
+        event_id,
+        transaction_id,
+        sender,
+        sender_user_id,
+        sender_avatar_mxc,
+        content: body,
+        timestamp,
+        message_type: MessageType::Message,
+        room_msg_kind: RoomMessageKind::Call,
+        send_state,
+        send_error,
+        send_recoverable,
+        is_own,
+        media_mimetype: String::new(),
+        media_size_bytes: 0,
+        media_blurhash: String::new(),
+        media_preview_width: 0,
+        media_preview_height: 0,
+        audio_duration_ms: 0,
+        audio_waveform: vec![],
+        in_reply_to_event_id: String::new(),
+        in_reply_to_sender: String::new(),
+        in_reply_to_preview: String::new(),
+        in_reply_to_room_msg_kind: RoomMessageKind::Other,
+        in_reply_to_media_mimetype: String::new(),
+        in_reply_to_media_size_bytes: 0,
+        in_reply_to_media_blurhash: String::new(),
+        in_reply_to_media_preview_width: 0,
+        in_reply_to_media_preview_height: 0,
+        in_reply_to_parent_redacted: false,
+        reactions: vec![],
+        poll_options_json: String::new(),
+        poll_state_json: String::new(),
+        link_previews_json: "[]".to_string(),
+        is_redacted,
+        read_receipt_count,
+        read_receipt_latest_timestamp_ms,
+    }
+}
+
+fn event_as_system_row(
+    ev: &EventTimelineItem,
+    own_user_id: Option<&str>,
+    content: String,
+    message_type: MessageType,
+) -> Message {
+    let (send_state, send_error, send_recoverable) = send_state_fields(ev);
+    let is_redacted = ev.content().is_redacted();
+    let event_id = ev.event_id().map(|id| id.to_string()).unwrap_or_default();
+    let transaction_id = ev
+        .transaction_id()
+        .map(|t| t.to_string())
+        .unwrap_or_default();
+    let sender_user_id = ev.sender().to_string();
+    let (sender, sender_avatar_mxc) =
+        sender_display_and_avatar_from_profile(&sender_user_id, ev.sender_profile());
+    let is_own = own_user_id.is_some_and(|o| o == sender_user_id.as_str());
+    let timestamp = u64::from(ev.timestamp().0);
+    let (read_receipt_count, read_receipt_latest_timestamp_ms) =
+        other_read_receipt_stats(ev, own_user_id);
+    Message {
+        event_id,
+        transaction_id,
+        sender,
+        sender_user_id,
+        sender_avatar_mxc,
+        content,
+        timestamp,
+        message_type,
+        room_msg_kind: RoomMessageKind::Other,
+        send_state,
+        send_error,
+        send_recoverable,
+        is_own,
+        media_mimetype: String::new(),
+        media_size_bytes: 0,
+        media_blurhash: String::new(),
+        media_preview_width: 0,
+        media_preview_height: 0,
+        audio_duration_ms: 0,
+        audio_waveform: vec![],
+        in_reply_to_event_id: String::new(),
+        in_reply_to_sender: String::new(),
+        in_reply_to_preview: String::new(),
+        in_reply_to_room_msg_kind: RoomMessageKind::Other,
+        in_reply_to_media_mimetype: String::new(),
+        in_reply_to_media_size_bytes: 0,
+        in_reply_to_media_blurhash: String::new(),
+        in_reply_to_media_preview_width: 0,
+        in_reply_to_media_preview_height: 0,
+        in_reply_to_parent_redacted: false,
+        reactions: vec![],
+        poll_options_json: String::new(),
+        poll_state_json: String::new(),
+        link_previews_json: "[]".to_string(),
+        is_redacted,
+        read_receipt_count,
+        read_receipt_latest_timestamp_ms,
+    }
+}
+
 #[frb(ignore)]
 pub fn get_message_from_timeline_item(item: &TimelineItem, own_user_id: Option<&str>) -> Message {
     match item.kind() {
         TimelineItemKind::Event(ev) => {
+            match ev.content() {
+                TimelineItemContent::MembershipChange(mc) => {
+                    return event_as_system_row(
+                        ev,
+                        own_user_id,
+                        format_membership_change_notice(mc, ev),
+                        MessageType::MembershipChange,
+                    );
+                }
+                TimelineItemContent::ProfileChange(pc) => {
+                    return event_as_system_row(
+                        ev,
+                        own_user_id,
+                        format_profile_change_notice(pc),
+                        MessageType::ProfileChange,
+                    );
+                }
+                TimelineItemContent::RtcNotification => {
+                    return event_as_matrix_call_row(
+                        ev,
+                        own_user_id,
+                        matrix_rtc_call_display_body(ev, own_user_id),
+                    );
+                }
+                TimelineItemContent::CallInvite => {
+                    return event_as_matrix_call_row(
+                        ev,
+                        own_user_id,
+                        matrix_call_invite_display_body(ev, own_user_id),
+                    );
+                }
+                _ => {}
+            }
             let (send_state, send_error, send_recoverable) = send_state_fields(ev);
             let is_redacted = ev.content().is_redacted();
             let event_id = ev.event_id().map(|id| id.to_string()).unwrap_or_default();
@@ -1200,6 +1508,51 @@ pub(crate) async fn retry_send_by_transaction_id(
     Err("No failed local message with that transaction id".to_string())
 }
 
+/// `true` when a timeline [Message] is a peer MatrixRTC **ring** row (sliding-sync notification path).
+pub(crate) fn timeline_message_is_peer_incoming_call_ring(m: &Message) -> bool {
+    !m.is_own
+        && m.room_msg_kind == RoomMessageKind::Call
+        && m.content.trim() == "Incoming call"
+        && !m.event_id.trim().is_empty()
+}
+
+/// MatrixRTC ring row on the UI timeline (sliding sync), when sync may not hit [Client::add_event_handler].
+pub(crate) fn summary_from_timeline_incoming_call_ring(
+    room: &Room,
+    message: &Message,
+) -> Option<SyncNotificationSummary> {
+    if !timeline_message_is_peer_incoming_call_ring(message) {
+        return None;
+    }
+    let event_id = message.event_id.trim();
+    let room_id = room.room_id().to_string();
+    let room_display_name = room.cached_display_name().map(|n| n.to_string());
+    let sender_raw = message.sender_user_id.trim();
+    let sender_id = if sender_raw.is_empty() {
+        "Unknown".to_owned()
+    } else {
+        format_user_id_for_display(sender_raw)
+    };
+    let sender_display_name = if message.sender.trim().is_empty() {
+        None
+    } else {
+        Some(message.sender.clone())
+    };
+
+    Some(SyncNotificationSummary {
+        room_id,
+        room_display_name,
+        kind: SyncNotificationKind::IncomingCall,
+        sender_id,
+        sender_display_name,
+        body_preview: "Incoming call".to_owned(),
+        is_highlight: true,
+        is_noisy: true,
+        event_id: event_id.to_owned(),
+        incoming_call_ring: true,
+    })
+}
+
 /// Runs the timeline diff stream for the room; applies each diff to the room's cache and pushes full list.
 /// When timeline list updates, also updates the room list with the last message so the listing shows it.
 /// Stops when [cancel] is triggered (e.g. when the client re-subscribes for this room).
@@ -1216,6 +1569,7 @@ pub(crate) async fn subscribe_to_timeline_list_loop(
     sinks_map: Arc<AsyncMutex<HashMap<String, Arc<StreamSink<Vec<Message>>>>>>,
     room_list_cache: Arc<AsyncMutex<Vec<rooms::RoomUpdate>>>,
     room_list_sink: Arc<AsyncMutex<Option<Arc<StreamSink<Vec<rooms::RoomUpdate>>>>>>,
+    rtc_notify_tx: Option<broadcast::Sender<SyncNotificationSummary>>,
     cancel: CancellationToken,
 ) {
     let room_id_parsed: OwnedRoomId = match room_id.parse() {
@@ -1286,12 +1640,42 @@ pub(crate) async fn subscribe_to_timeline_list_loop(
                 // [apply_vector_diff_to_messages] could desync (e.g. skipped inserts), which
                 // dropped read-receipt [VectorDiff::Set] updates on the wrong index.
                 let list = {
+                    let prev_event_ids: HashSet<String> = {
+                        let cache_guard = cache_map.lock().await;
+                        cache_guard
+                            .get(&room_id)
+                            .map(|prev| {
+                                prev.iter()
+                                    .filter_map(|m| {
+                                        let e = m.event_id.trim();
+                                        if e.is_empty() {
+                                            None
+                                        } else {
+                                            Some(e.to_owned())
+                                        }
+                                    })
+                                    .collect()
+                            })
+                            .unwrap_or_default()
+                    };
                     let items = timeline.items().await;
                     let mut messages: Vec<Message> = items
                         .iter()
                         .map(|v| get_message_from_timeline_item(v.as_ref(), own))
                         .collect();
                     dedupe_stale_local_echoes(&mut messages);
+                    if let Some(ref tx) = rtc_notify_tx {
+                        for m in &messages {
+                            let eid = m.event_id.trim();
+                            if eid.is_empty() || prev_event_ids.contains(eid) {
+                                continue;
+                            }
+                            if let Some(summary) = summary_from_timeline_incoming_call_ring(&room, m)
+                            {
+                                let _ = tx.send(summary);
+                            }
+                        }
+                    }
                     let mut cache_guard = cache_map.lock().await;
                     cache_guard.insert(room_id.clone(), messages.clone());
                     messages
@@ -1327,12 +1711,15 @@ pub(crate) async fn subscribe_to_timeline_list_loop(
 
 /// True when this row is suitable for the chat list subtitle (real message / poll / media / redacted).
 ///
-/// Timeline [`get_message_from_timeline_item`] tags every `TimelineItemKind::Event` as
-/// [`MessageType::Message`], including `m.room.member` and other state events. Those have
-/// [`RoomMessageKind::Other`] and empty body — skip them so the listing shows the previous chat line.
+/// Skips virtual rows and system rows ([`MessageType::MembershipChange`], [`MessageType::ProfileChange`]).
+/// Other non-message `TimelineItemKind::Event` items still map to [`MessageType::Message`] with
+/// [`RoomMessageKind::Other`] and empty body — skip those so the listing shows the previous chat line.
 pub(crate) fn is_usable_room_list_preview_message(m: &Message) -> bool {
     if !matches!(m.message_type, MessageType::Message) {
         return false;
+    }
+    if m.room_msg_kind == RoomMessageKind::Call {
+        return !m.is_redacted;
     }
     if m.is_redacted {
         return true;
@@ -1418,15 +1805,122 @@ mod room_preview_tests {
         let list = vec![m];
         assert!(last_message_row_for_room_preview(&list).is_some());
     }
+
+    #[test]
+    fn preview_prefers_matrix_call_row() {
+        let list = vec![
+            sample(RoomMessageKind::Text, "hi"),
+            sample(RoomMessageKind::Call, "Incoming call"),
+        ];
+        let last = last_message_row_for_room_preview(&list);
+        assert_eq!(last.map(|m| m.content), Some("Incoming call".to_string()));
+    }
 }
 
-/// Send a public read receipt for the latest timeline event (and clear local unread when the SDK allows).
+#[cfg(test)]
+mod incoming_call_timeline_tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    fn base_message() -> Message {
+        Message {
+            event_id: "$rtc1:example.org".to_string(),
+            transaction_id: String::new(),
+            sender: "Alice".to_string(),
+            sender_user_id: "@alice:example.org".to_string(),
+            sender_avatar_mxc: String::new(),
+            content: "Incoming call".to_string(),
+            timestamp: 1,
+            message_type: MessageType::Message,
+            room_msg_kind: RoomMessageKind::Call,
+            send_state: EventSendStateKind::Delivered,
+            send_error: String::new(),
+            send_recoverable: false,
+            is_own: false,
+            media_mimetype: String::new(),
+            media_size_bytes: 0,
+            media_blurhash: String::new(),
+            media_preview_width: 0,
+            media_preview_height: 0,
+            audio_duration_ms: 0,
+            audio_waveform: vec![],
+            in_reply_to_event_id: String::new(),
+            in_reply_to_sender: String::new(),
+            in_reply_to_preview: String::new(),
+            in_reply_to_room_msg_kind: RoomMessageKind::Other,
+            in_reply_to_media_mimetype: String::new(),
+            in_reply_to_media_size_bytes: 0,
+            in_reply_to_media_blurhash: String::new(),
+            in_reply_to_media_preview_width: 0,
+            in_reply_to_media_preview_height: 0,
+            in_reply_to_parent_redacted: false,
+            reactions: vec![],
+            poll_options_json: String::new(),
+            poll_state_json: String::new(),
+            link_previews_json: "[]".to_string(),
+            is_redacted: false,
+            read_receipt_count: 0,
+            read_receipt_latest_timestamp_ms: 0,
+        }
+    }
+
+    #[test]
+    fn peer_incoming_call_ring_matches_sliding_sync_row() {
+        assert!(timeline_message_is_peer_incoming_call_ring(&base_message()));
+    }
+
+    #[test]
+    fn own_call_row_is_not_incoming_ring() {
+        let mut m = base_message();
+        m.is_own = true;
+        assert!(!timeline_message_is_peer_incoming_call_ring(&m));
+    }
+
+    #[test]
+    fn silent_call_body_is_not_ring() {
+        let mut m = base_message();
+        m.content = "Call".to_string();
+        assert!(!timeline_message_is_peer_incoming_call_ring(&m));
+    }
+
+    #[test]
+    fn empty_event_id_is_not_ring() {
+        let mut m = base_message();
+        m.event_id = String::new();
+        assert!(!timeline_message_is_peer_incoming_call_ring(&m));
+    }
+
+    /// Mirrors the timeline-list loop: only rows whose event id was **not** in the previous cache
+    /// should be considered for RTC notify (avoids ringing on history replay).
+    #[test]
+    fn only_new_event_ids_would_emit_rtc_path() {
+        let prev: HashSet<String> = HashSet::from([base_message().event_id.clone()]);
+        let m = base_message();
+        let eid = m.event_id.trim();
+        let is_new = !eid.is_empty() && !prev.contains(eid);
+        assert!(!is_new);
+
+        let mut m2 = m.clone();
+        m2.event_id = "$newevt:example.org".to_string();
+        let e2 = m2.event_id.trim();
+        assert!(timeline_message_is_peer_incoming_call_ring(&m2));
+        assert!(!prev.contains(e2));
+    }
+}
+
+/// Send read receipts for the latest timeline event (public + private) so other clients
+/// (e.g. Element in encrypted rooms) and our own read-marker state stay aligned.
 pub(crate) async fn mark_timeline_as_read(timeline: &SdkTimeline) -> Result<bool, String> {
     use matrix_sdk::ruma::api::client::receipt::create_receipt::v3::ReceiptType;
-    timeline
+    let mut any = timeline
         .mark_as_read(ReceiptType::Read)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    match timeline.mark_as_read(ReceiptType::ReadPrivate).await {
+        Ok(v) => any |= v,
+        Err(e) => tracing::debug!(error = %e, "optional ReadPrivate receipt skipped"),
+    }
+    Ok(any)
 }
 
 /// Clone the shared UI timeline for a room (same instance as the sync listen_task).

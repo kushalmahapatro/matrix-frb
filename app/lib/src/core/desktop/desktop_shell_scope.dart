@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 /// Opens full-screen flows (create chat, settings, room info): desktop dialog
 /// when [preferDialogOverModalSheet], otherwise [Navigator.push].
 abstract class DesktopShellLauncher {
+  /// Nested stack for compact shell UIs (e.g. phone home). Default: none.
+  NavigatorState? get nestedShellNavigator => null;
+
   Future<T?> openShellFlow<T extends Object?>({
     required BuildContext anchorContext,
     required Widget page,

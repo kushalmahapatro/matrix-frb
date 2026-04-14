@@ -75,6 +75,7 @@ class MessagingRoomListModel extends ElementaryModel {
               status: ChatRoomStatus.values.firstWhere(
                 (status) => status.name == room.updateType.name,
               ),
+              avatarUrl: room.avatarUrl,
               lastPreview: room.message,
             ),
           )
@@ -115,7 +116,18 @@ class MessagingRoomListModel extends ElementaryModel {
       status: ChatRoomStatus.values.firstWhere(
         (status) => status.name == roomUpdate.updateType.name,
       ),
+      avatarUrl: roomUpdate.avatarUrl,
       lastPreview: roomUpdate.message,
     );
+  }
+
+  Future<Uint8List?> loadRoomAvatarThumbnail(String mxcUri) async {
+    final t = mxcUri.trim();
+    if (t.isEmpty) return null;
+    try {
+      return await _matrixService.client.fetchUserAvatarThumbnail(mxcUri: t);
+    } catch (_) {
+      return null;
+    }
   }
 }

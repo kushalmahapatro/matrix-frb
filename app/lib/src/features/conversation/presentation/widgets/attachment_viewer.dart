@@ -100,6 +100,7 @@ class AttachmentViewer {
         return _ViewerKind.unknown;
       case RoomMessageKind.text:
       case RoomMessageKind.poll:
+      case RoomMessageKind.call:
       case RoomMessageKind.other:
         return _ViewerKind.unknown;
     }

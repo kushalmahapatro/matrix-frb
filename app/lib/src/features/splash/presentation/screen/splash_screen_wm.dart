@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:elementary/elementary.dart';
+import 'package:matrix/src/core/calls/call_history_store.dart';
 import 'package:matrix/src/core/domain/services/app_config.dart';
+import 'package:matrix/src/core/logging_service.dart';
 import 'package:matrix/src/core/file_path_service.dart';
 import 'package:matrix/src/core/state_management/base_state_widget_model.dart';
 import 'package:matrix/src/features/settings/domain/profile_prefs.dart';
@@ -35,6 +37,17 @@ class SplashScreenModel extends ElementaryModel {
 class SplashScreenWM extends BaseWidgetModel<SplashScreen, SplashScreenModel> {
   SplashScreenWM(super.model);
 
+  Future<void> _startSyncInBackground() async {
+    try {
+      await model.startSync();
+    } catch (e) {
+      LoggingService.info(
+        'SplashScreen',
+        'startSync failed (will retry when online): $e',
+      );
+    }
+  }
+
   @override
   void initWidgetModel() {
     _init();
@@ -54,9 +67,11 @@ class SplashScreenWM extends BaseWidgetModel<SplashScreen, SplashScreenModel> {
     final userLoggedIn = await model.isUserLoggedIn();
     userLoggedIn.fold((success) async {
       if (success) {
-        await model.startSync();
+        // Do not block the transition on sync — it can wait for network and
+        // makes splash → home feel hung. Sync continues in the background.
+        unawaited(_startSyncInBackground());
         unawaited(ProfilePrefs.instance.refresh(MatrixService().client));
-        await MatrixService().startMatrixNotificationsIfReady();
+        unawaited(CallHistoryStore.instance.ensureLoaded());
         if (context.mounted) {
           widget.navigateToChatScreen(context);
         }

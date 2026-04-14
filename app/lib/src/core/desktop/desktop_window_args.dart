@@ -8,6 +8,8 @@ import 'package:matrix/src/features/chat_lisitng/domain/models/chat_state.dart';
 abstract final class DesktopWindowArgs {
   static const String typeKey = 't';
   static const String typeConversation = 'conversation';
+  static const String typeIncomingCall = 'incoming_call';
+  static const String typeOngoingCall = 'ongoing_call';
 
   /// True when this engine should run the normal app shell.
   static bool isMainWindow(String raw) {
@@ -63,6 +65,91 @@ abstract final class DesktopWindowArgs {
       isDarkMode: dark,
     );
   }
+
+  /// Second-engine incoming MatrixRTC ring (no Matrix init in child — UI + RPC only).
+  static String encodeIncomingCall({
+    required String roomId,
+    required String rtcEventId,
+    required String roomName,
+    required String callerLabel,
+    String? callKitId,
+    required bool isDarkMode,
+  }) {
+    return jsonEncode({
+      typeKey: typeIncomingCall,
+      'roomId': roomId,
+      'rtcEventId': rtcEventId,
+      'roomName': roomName,
+      'callerLabel': callerLabel,
+      if (callKitId != null && callKitId.isNotEmpty) 'callKitId': callKitId,
+      'dark': isDarkMode,
+    });
+  }
+
+  static DesktopIncomingCallWindowArgs? tryParseIncomingCall(String raw) {
+    final m = _tryDecode(raw);
+    if (m == null || m[typeKey] != typeIncomingCall) return null;
+    final roomId = m['roomId'] as String?;
+    final rtcEventId = m['rtcEventId'] as String?;
+    final roomName = m['roomName'] as String?;
+    final callerLabel = m['callerLabel'] as String?;
+    if (roomId == null ||
+        rtcEventId == null ||
+        roomName == null ||
+        callerLabel == null) {
+      return null;
+    }
+    final dark = m['dark'] as bool? ?? true;
+    final ck = m['callKitId'] as String?;
+    return DesktopIncomingCallWindowArgs(
+      roomId: roomId,
+      rtcEventId: rtcEventId,
+      roomName: roomName,
+      callerLabel: callerLabel,
+      callKitId: ck,
+      isDarkMode: dark,
+    );
+  }
+
+  /// Second-engine ongoing call chrome (controls + status); LiveKit stays on main.
+  static String encodeOngoingCall({
+    required bool isDarkMode,
+    required bool voiceOnly,
+    required bool preferVideoCallUi,
+    required String title,
+    required String roomId,
+    required String callInstanceId,
+  }) {
+    return jsonEncode({
+      typeKey: typeOngoingCall,
+      'dark': isDarkMode,
+      'voiceOnly': voiceOnly,
+      'preferVideoCallUi': preferVideoCallUi,
+      'title': title,
+      'roomId': roomId,
+      'callInstanceId': callInstanceId,
+    });
+  }
+
+  static DesktopOngoingCallWindowArgs? tryParseOngoingCall(String raw) {
+    final m = _tryDecode(raw);
+    if (m == null || m[typeKey] != typeOngoingCall) return null;
+    final title = m['title'] as String?;
+    if (title == null) return null;
+    final dark = m['dark'] as bool? ?? true;
+    final voiceOnly = m['voiceOnly'] as bool? ?? false;
+    final preferVideo = m['preferVideoCallUi'] as bool? ?? false;
+    final roomId = m['roomId'] as String? ?? '';
+    final callInstanceId = m['callInstanceId'] as String? ?? '';
+    return DesktopOngoingCallWindowArgs(
+      title: title,
+      isDarkMode: dark,
+      voiceOnly: voiceOnly,
+      preferVideoCallUi: preferVideo,
+      roomId: roomId,
+      callInstanceId: callInstanceId,
+    );
+  }
 }
 
 class DesktopConversationWindowArgs {
@@ -76,5 +163,45 @@ class DesktopConversationWindowArgs {
   final String roomId;
   final String roomName;
   final ChatRoomStatus status;
+  final bool isDarkMode;
+}
+
+class DesktopOngoingCallWindowArgs {
+  const DesktopOngoingCallWindowArgs({
+    required this.title,
+    required this.isDarkMode,
+    required this.voiceOnly,
+    required this.preferVideoCallUi,
+    required this.roomId,
+    required this.callInstanceId,
+  });
+
+  final String title;
+  final bool isDarkMode;
+  final bool voiceOnly;
+  final bool preferVideoCallUi;
+
+  /// Matrix room id for this call (logical window identity with [callInstanceId]).
+  final String roomId;
+
+  /// Stable per [NativeLiveKitCallSession] (room + history id); not the OS window UUID.
+  final String callInstanceId;
+}
+
+class DesktopIncomingCallWindowArgs {
+  const DesktopIncomingCallWindowArgs({
+    required this.roomId,
+    required this.rtcEventId,
+    required this.roomName,
+    required this.callerLabel,
+    this.callKitId,
+    required this.isDarkMode,
+  });
+
+  final String roomId;
+  final String rtcEventId;
+  final String roomName;
+  final String callerLabel;
+  final String? callKitId;
   final bool isDarkMode;
 }

@@ -1,13 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_blurhash/flutter_blurhash.dart';
 import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
+import 'package:matrix/src/core/muted_chats_store.dart';
 import 'package:matrix/src/core/timeline_local_hidden_store.dart';
 import 'package:matrix/src/core/timeline_raster_thumb.dart';
 import 'package:matrix/src/core/presentation/widgets/terminal_container.dart';
+import 'package:matrix/src/core/matrix_avatar_disk_cache.dart';
+import 'package:matrix/src/core/presentation/widgets/typing_dots_indicator.dart';
 import 'package:matrix/src/features/chat_lisitng/domain/models/chat_state.dart';
+import 'package:matrix/src/theme/matrix_theme.dart';
 import 'package:matrix_sdk/matrix_sdk.dart';
 import 'package:path/path.dart' as p;
 
@@ -30,6 +36,93 @@ List<Chat> filteredChatsForListing(
         return element.isArchivedForListing;
     }
   }).toList();
+}
+
+int _chatActivityCompareDesc(Chat a, Chat b) {
+  final ta = a.lastActivity?.millisecondsSinceEpoch ?? 0;
+  final tb = b.lastActivity?.millisecondsSinceEpoch ?? 0;
+  return tb.compareTo(ta);
+}
+
+/// Invites first (for [ChatType.all]), then others; each block sorted by recent activity.
+List<Chat> orderedChatsForListing(
+  List<Chat> rooms,
+  ChatType selectedChatType,
+) {
+  final filtered = filteredChatsForListing(rooms, selectedChatType);
+  if (selectedChatType != ChatType.all) {
+    filtered.sort(_chatActivityCompareDesc);
+    return filtered;
+  }
+  final invites =
+      filtered.where((c) => c.status == ChatRoomStatus.invited).toList();
+  final rest =
+      filtered.where((c) => c.status != ChatRoomStatus.invited).toList();
+  invites.sort(_chatActivityCompareDesc);
+  rest.sort(_chatActivityCompareDesc);
+  return [...invites, ...rest];
+}
+
+List<Chat> filterChatsBySearchQuery(List<Chat> ordered, String query) {
+  final t = query.trim().toLowerCase();
+  if (t.isEmpty) return ordered;
+  return ordered.where((c) {
+    return c.name.toLowerCase().contains(t) ||
+        c.lastMessage.toLowerCase().contains(t) ||
+        c.id.toLowerCase().contains(t);
+  }).toList();
+}
+
+/// One row in the room list: section title or a chat tile.
+class ChatListRow {
+  ChatListRow._({this.sectionTitle, this.chat})
+    : assert(
+        (sectionTitle != null) != (chat != null),
+        'Exactly one of sectionTitle or chat',
+      );
+
+  factory ChatListRow.section(String title) =>
+      ChatListRow._(sectionTitle: title);
+
+  factory ChatListRow.chatTile(Chat c) => ChatListRow._(chat: c);
+
+  final String? sectionTitle;
+  final Chat? chat;
+}
+
+List<ChatListRow> chatListRowsForDisplay(
+  List<Chat> orderedFiltered,
+  ChatType selectedChatType,
+) {
+  final out = <ChatListRow>[];
+  if (selectedChatType != ChatType.all) {
+    for (final c in orderedFiltered) {
+      out.add(ChatListRow.chatTile(c));
+    }
+    return out;
+  }
+  var i = 0;
+  while (i < orderedFiltered.length &&
+      orderedFiltered[i].status == ChatRoomStatus.invited) {
+    if (i == 0) {
+      out.add(ChatListRow.section('Room invites'));
+    }
+    out.add(ChatListRow.chatTile(orderedFiltered[i]));
+    i++;
+  }
+  if (i < orderedFiltered.length) {
+    if (i > 0) {
+      out.add(ChatListRow.section('Chats'));
+    }
+    for (; i < orderedFiltered.length; i++) {
+      out.add(ChatListRow.chatTile(orderedFiltered[i]));
+    }
+  }
+  return out;
+}
+
+List<Chat> chatsOnlyFromRows(List<ChatListRow> rows) {
+  return rows.where((r) => r.chat != null).map((r) => r.chat!).toList();
 }
 
 KeyEventResult _handleRoomListKeyNavigation({
@@ -90,6 +183,7 @@ class ChatListPane extends StatelessWidget {
     required this.onRoomTap,
     required this.onRoomDoubleTap,
     required this.loadListingThumbnail,
+    required this.loadRoomAvatarThumbnail,
     required this.onStartChatPressed,
     this.selectedRoomId,
 
@@ -102,23 +196,35 @@ class ChatListPane extends StatelessWidget {
     /// Desktop: arrow keys / space — separate from [selectedRoomId] highlight.
     this.listFocusNode,
     this.keyboardFocusedRoomId,
+    this.typingByRoomId = const {},
+    this.onRoomLongPress,
+    this.searchQuery = '',
   });
 
   final List<Chat> rooms;
 
+  /// Typing user ids per room id (from [MatrixService.roomListTypingUserIds]).
+  final Map<String, List<String>> typingByRoomId;
+
   /// Room open in split pane / last selected (for highlight).
   final String? selectedRoomId;
+  /// Filters [orderedChatsForListing] by name, last preview line, or room id.
+  final String searchQuery;
   final ChatType selectedChatType;
   final ValueChanged<ChatType> onChatTypeSelected;
   final ValueChanged<Chat> onRoomTap;
   final ValueChanged<Chat> onRoomDoubleTap;
   final Future<Uint8List?> Function(String roomId, Message message)
   loadListingThumbnail;
+  final Future<Uint8List?> Function(String mxcUri) loadRoomAvatarThumbnail;
   final VoidCallback onStartChatPressed;
   final void Function(Chat chat, Offset globalPosition)? onRoomSecondaryPointer;
   final ValueChanged<Chat>? onRoomMiddleClick;
   final FocusNode? listFocusNode;
   final ValueNotifier<String?>? keyboardFocusedRoomId;
+
+  /// Mobile / touch: long-press on a row (e.g. mute / room options).
+  final ValueChanged<Chat>? onRoomLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -152,7 +258,9 @@ class ChatListPane extends StatelessWidget {
       );
     }
 
-    final filteredRooms = filteredChatsForListing(rooms, selectedChatType);
+    final ordered = orderedChatsForListing(rooms, selectedChatType);
+    final filteredRooms = filterChatsBySearchQuery(ordered, searchQuery);
+    final rows = chatListRowsForDisplay(filteredRooms, selectedChatType);
 
     final listPadding = isDesktopTargetPlatform()
         ? const EdgeInsets.fromLTRB(8, 6, 8, 10)
@@ -169,7 +277,9 @@ class ChatListPane extends StatelessWidget {
           child: _buildRoomListScrollable(
             context: context,
             listPadding: listPadding,
-            filteredRooms: filteredRooms,
+            rows: rows,
+            keyboardChats: chatsOnlyFromRows(rows),
+            typingByRoomId: typingByRoomId,
           ),
         ),
       ],
@@ -179,52 +289,109 @@ class ChatListPane extends StatelessWidget {
   Widget _buildRoomListScrollable({
     required BuildContext context,
     required EdgeInsets listPadding,
-    required List<Chat> filteredRooms,
+    required List<ChatListRow> rows,
+    required List<Chat> keyboardChats,
+    required Map<String, List<String>> typingByRoomId,
   }) {
-    Widget listForFocus(String? keyboardFocusId) {
-      return ListView.builder(
-        padding: listPadding,
-        itemCount: filteredRooms.length,
-        itemBuilder: (context, index) {
-          final room = filteredRooms[index];
-          return ChatListRoomTile(
-            chat: room,
-            isSelected: selectedRoomId != null && room.id == selectedRoomId,
-            isKeyboardFocused:
-                keyboardFocusId != null && room.id == keyboardFocusId,
-            loadListingThumbnail: loadListingThumbnail,
-            onTap: () => onRoomTap(room),
-            onDoubleTap: () => onRoomDoubleTap(room),
-            onSecondaryPointer: onRoomSecondaryPointer != null
-                ? (pos) => onRoomSecondaryPointer!(room, pos)
-                : null,
-            onMiddleClick: onRoomMiddleClick != null
-                ? () => onRoomMiddleClick!(room)
-                : null,
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: MutedChatsStore.instance.ids,
+      builder: (context, mutedIds, _) {
+        Widget listForFocus(String? keyboardFocusId) {
+          return ListView.builder(
+            padding: listPadding,
+            itemCount: rows.length,
+            itemBuilder: (context, index) {
+              final row = rows[index];
+              if (row.sectionTitle != null) {
+                final theme = Theme.of(context);
+                final scheme = theme.colorScheme;
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: scheme.primary.withValues(alpha: 0.45),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.mail_outline,
+                          size: 18,
+                          color: scheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            row.sectionTitle!.toUpperCase(),
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: scheme.primary,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+              final room = row.chat!;
+              final muted = mutedIds.contains(room.id);
+              return ChatListRoomTile(
+                chat: room,
+                displayUnreadCount: muted ? 0 : room.unreadCount,
+                isChatMuted: muted,
+                typingUserIds: typingByRoomId[room.id] ?? const [],
+                isSelected: selectedRoomId != null && room.id == selectedRoomId,
+                isKeyboardFocused:
+                    keyboardFocusId != null && room.id == keyboardFocusId,
+                loadListingThumbnail: loadListingThumbnail,
+                loadRoomAvatarThumbnail: loadRoomAvatarThumbnail,
+                onTap: () => onRoomTap(room),
+                onDoubleTap: () => onRoomDoubleTap(room),
+                onSecondaryPointer: onRoomSecondaryPointer != null
+                    ? (pos) => onRoomSecondaryPointer!(room, pos)
+                    : null,
+                onMiddleClick: onRoomMiddleClick != null
+                    ? () => onRoomMiddleClick!(room)
+                    : null,
+                onLongPress: onRoomLongPress != null
+                    ? () => onRoomLongPress!(room)
+                    : null,
+              );
+            },
           );
-        },
-      );
-    }
+        }
 
-    final node = listFocusNode;
-    final knob = keyboardFocusedRoomId;
-    if (isDesktopTargetPlatform() && node != null && knob != null) {
-      return Focus(
-        focusNode: node,
-        onKeyEvent: (n, event) => _handleRoomListKeyNavigation(
-          event: event,
-          filtered: filteredRooms,
-          keyboardFocusedRoomId: knob,
-          onActivateFocusedRoom: onRoomTap,
-        ),
-        child: ValueListenableBuilder<String?>(
-          valueListenable: knob,
-          builder: (context, focusId, _) => listForFocus(focusId),
-        ),
-      );
-    }
+        final node = listFocusNode;
+        final knob = keyboardFocusedRoomId;
+        if (isDesktopTargetPlatform() && node != null && knob != null) {
+          return Focus(
+            focusNode: node,
+            onKeyEvent: (n, event) => _handleRoomListKeyNavigation(
+              event: event,
+              filtered: keyboardChats,
+              keyboardFocusedRoomId: knob,
+              onActivateFocusedRoom: onRoomTap,
+            ),
+            child: ValueListenableBuilder<String?>(
+              valueListenable: knob,
+              builder: (context, focusId, _) => listForFocus(focusId),
+            ),
+          );
+        }
 
-    return listForFocus(null);
+        return listForFocus(null);
+      },
+    );
   }
 }
 
@@ -272,49 +439,89 @@ class ChatListFilterBar extends StatelessWidget {
 
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final desktop = isDesktopTargetPlatform();
     return SizedBox(
-      height: 40,
+      height: desktop ? 40 : 44,
       child: ListView(
         scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: desktop ? 4 : 8),
         children: ChatType.values.map((type) {
-          return InkWell(
-            onTap: () => onChatTypeSelected(type),
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: type == selectedChatType
-                  ? BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: scheme.primary, width: 2),
-                      ),
-                    )
-                  : null,
-              child: Row(
-                children: [
-                  Text(
-                    type.name.toUpperCase(),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+          final selected = type == selectedChatType;
+          return Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => onChatTypeSelected(type),
+                borderRadius: BorderRadius.circular(4),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: selected
+                          ? MatrixTheme.matrixAccent.withValues(alpha: 0.85)
+                          : MatrixTheme.matrixGreen.withValues(alpha: 0.28),
+                      width: selected ? 1.5 : 1,
                     ),
+                    color: selected
+                        ? MatrixTheme.matrixGreen.withValues(alpha: 0.12)
+                        : MatrixTheme.terminalBlack.withValues(alpha: 0.25),
+                    boxShadow: selected
+                        ? [
+                            BoxShadow(
+                              color: MatrixTheme.matrixGreen.withValues(
+                                alpha: 0.2,
+                              ),
+                              blurRadius: 10,
+                            ),
+                          ]
+                        : null,
                   ),
-                  Container(
-                    height: 16,
-                    width: 16,
-                    alignment: Alignment.center,
-                    margin: const EdgeInsetsDirectional.only(start: 8),
-                    decoration: BoxDecoration(
-                      color: scheme.primary,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      getCount(type),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onPrimary,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                  child: Row(
+                    children: [
+                      Text(
+                        type.name.toUpperCase(),
+                        style: MatrixTheme.labelStyle.copyWith(
+                          fontSize: 11,
+                          letterSpacing: 0.8,
+                          color: selected
+                              ? MatrixTheme.matrixLightGreen
+                              : scheme.onSurface.withValues(alpha: 0.78),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      Container(
+                        height: 18,
+                        constraints: const BoxConstraints(minWidth: 18),
+                        padding: const EdgeInsets.symmetric(horizontal: 5),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? MatrixTheme.matrixAccent.withValues(alpha: 0.35)
+                              : scheme.primary.withValues(alpha: 0.55),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: MatrixTheme.matrixGreen.withValues(
+                              alpha: selected ? 0.5 : 0.25,
+                            ),
+                          ),
+                        ),
+                        child: Text(
+                          getCount(type),
+                          style: MatrixTheme.captionStyle.copyWith(
+                            color: MatrixTheme.terminalBlack,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           );
@@ -324,30 +531,161 @@ class ChatListFilterBar extends StatelessWidget {
   }
 }
 
+class _ChatListRoomLeadingAvatar extends StatefulWidget {
+  const _ChatListRoomLeadingAvatar({
+    required this.chat,
+    required this.scheme,
+    required this.isInvited,
+    required this.loadRoomAvatarThumbnail,
+  });
+
+  final Chat chat;
+  final ColorScheme scheme;
+  final bool isInvited;
+  final Future<Uint8List?> Function(String mxcUri) loadRoomAvatarThumbnail;
+
+  @override
+  State<_ChatListRoomLeadingAvatar> createState() =>
+      _ChatListRoomLeadingAvatarState();
+}
+
+class _ChatListRoomLeadingAvatarState extends State<_ChatListRoomLeadingAvatar> {
+  Uint8List? _bytes;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_maybeLoad());
+  }
+
+  @override
+  void didUpdateWidget(covariant _ChatListRoomLeadingAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.chat.avatarUrl != widget.chat.avatarUrl ||
+        oldWidget.chat.isDirect != widget.chat.isDirect) {
+      _bytes = null;
+      unawaited(_maybeLoad());
+    }
+  }
+
+  Future<void> _maybeLoad() async {
+    final mxc = widget.chat.avatarUrl?.trim() ?? '';
+    if (widget.chat.isDirect || mxc.isEmpty) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    if (_loading) return;
+    if (mounted) setState(() => _loading = true);
+    final b = await MatrixAvatarDiskCache.instance.loadOrFetch(
+      mxc,
+      () async {
+        final x = await widget.loadRoomAvatarThumbnail(mxc);
+        return x ?? Uint8List(0);
+      },
+    );
+    if (!mounted) return;
+    setState(() {
+      _bytes = b;
+      _loading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = widget.scheme;
+    final isInvited = widget.isInvited;
+    final mxc = widget.chat.avatarUrl?.trim() ?? '';
+    final usePhoto = !widget.chat.isDirect &&
+        mxc.isNotEmpty &&
+        _bytes != null &&
+        _bytes!.isNotEmpty;
+
+    final border = BoxDecoration(
+      border: Border.all(
+        color: scheme.primary,
+        width: isInvited ? 2 : 1,
+      ),
+      borderRadius: BorderRadius.circular(4),
+    );
+
+    if (usePhoto) {
+      return Container(
+        width: 40,
+        height: 40,
+        decoration: border,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: Image.memory(
+            _bytes!,
+            width: 40,
+            height: 40,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: border,
+      child: _loading && mxc.isNotEmpty && !widget.chat.isDirect
+          ? Center(
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  color: scheme.primary,
+                ),
+              ),
+            )
+          : Icon(
+              widget.chat.isDirect ? Icons.person : Icons.group,
+              color: scheme.primary,
+              size: 20,
+            ),
+    );
+  }
+}
+
 class ChatListRoomTile extends StatelessWidget {
   const ChatListRoomTile({
     super.key,
     required this.chat,
+    required this.displayUnreadCount,
+    this.isChatMuted = false,
+    this.typingUserIds = const [],
     required this.isSelected,
     this.isKeyboardFocused = false,
     required this.loadListingThumbnail,
+    required this.loadRoomAvatarThumbnail,
     required this.onTap,
     required this.onDoubleTap,
     this.onSecondaryPointer,
     this.onMiddleClick,
+    this.onLongPress,
   });
 
   final Chat chat;
+  /// May be zero when the room is muted even if [Chat.unreadCount] from sync is non-zero.
+  final int displayUnreadCount;
+  final bool isChatMuted;
+  final List<String> typingUserIds;
   final bool isSelected;
 
   /// Keyboard row highlight (desktop); distinct from [isSelected].
   final bool isKeyboardFocused;
   final Future<Uint8List?> Function(String roomId, Message message)
   loadListingThumbnail;
+  final Future<Uint8List?> Function(String mxcUri) loadRoomAvatarThumbnail;
   final VoidCallback onTap;
   final VoidCallback onDoubleTap;
   final ValueChanged<Offset>? onSecondaryPointer;
   final VoidCallback? onMiddleClick;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -391,23 +729,14 @@ class ChatListRoomTile extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           onDoubleTap: onDoubleTap,
+          onLongPress: onLongPress,
           child: Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: scheme.primary,
-                    width: isInvited ? 2 : 1,
-                  ),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Icon(
-                  chat.isDirect ? Icons.person : Icons.group,
-                  color: scheme.primary,
-                  size: 20,
-                ),
+              _ChatListRoomLeadingAvatar(
+                chat: chat,
+                scheme: scheme,
+                isInvited: isInvited,
+                loadRoomAvatarThumbnail: loadRoomAvatarThumbnail,
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -449,11 +778,42 @@ class ChatListRoomTile extends StatelessWidget {
                               ),
                             ),
                           ),
+                        ] else if (isChatMuted) ...[
+                          const SizedBox(width: 6),
+                          Icon(
+                            Icons.notifications_off_outlined,
+                            size: 16,
+                            color: scheme.onSurface.withValues(alpha: 0.55),
+                          ),
                         ],
                       ],
                     ),
                     const SizedBox(height: 4),
-                    if (chat.lastPreview != null &&
+                    if (typingUserIds.isNotEmpty) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          TypingDotsIndicator(
+                            color: scheme.primary.withValues(alpha: 0.88),
+                            dotSize: 4,
+                            spacing: 3,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              typingUserIdsShortLabel(typingUserIds),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontSize: 11,
+                                color: scheme.primary.withValues(alpha: 0.9),
+                                fontStyle: FontStyle.italic,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else if (chat.lastPreview != null &&
                         chat.lastPreview!.isRedacted)
                       ChatListingDeletedSubtitle(
                         textStyle: theme.textTheme.bodySmall?.copyWith(
@@ -503,7 +863,7 @@ class ChatListRoomTile extends StatelessWidget {
                         style: theme.textTheme.bodySmall,
                       ),
                     ),
-                  if (chat.unreadCount > 0)
+                  if (displayUnreadCount > 0)
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -514,7 +874,7 @@ class ChatListRoomTile extends StatelessWidget {
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(
-                        chat.unreadCount.toString(),
+                        displayUnreadCount.toString(),
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: scheme.onPrimary,
@@ -626,6 +986,7 @@ bool _chatListingShowsMediaRow(Message m) {
       return true;
     case RoomMessageKind.text:
     case RoomMessageKind.poll:
+    case RoomMessageKind.call:
     case RoomMessageKind.other:
       return false;
   }
@@ -710,6 +1071,7 @@ String _chatListingTypeLabel(Message m) {
     RoomMessageKind.audio => 'Audio',
     RoomMessageKind.file => ext.isNotEmpty ? ext.toUpperCase() : 'File',
     RoomMessageKind.poll => 'Poll',
+    RoomMessageKind.call => 'Call',
     _ => 'Attachment',
   };
 }
@@ -729,6 +1091,8 @@ IconData _chatListingKindIcon(RoomMessageKind k) {
       return Icons.attach_file_outlined;
     case RoomMessageKind.poll:
       return Icons.poll_outlined;
+    case RoomMessageKind.call:
+      return Icons.call_outlined;
   }
 }
 

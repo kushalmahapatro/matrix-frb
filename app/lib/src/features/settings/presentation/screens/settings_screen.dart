@@ -1,6 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:matrix/src/core/domain/services/app_config.dart';
+import 'package:matrix/src/core/notifications/matrix_notifications_coordinator.dart';
 import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
 import 'package:matrix/src/core/layout/conversation_message_style_preference.dart';
 import 'package:matrix/src/core/layout/messaging_layout_preference.dart';
@@ -14,6 +17,58 @@ import 'package:matrix/src/features/key_recovery/presentation/screens/login_reco
 import 'package:matrix/src/features/key_recovery/presentation/screens/setup_key_recovery_screen.dart';
 import 'package:matrix/src/features/settings/presentation/screens/profile_screen.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
+
+String _notificationsSettingsSubtitle() {
+  final mobile = !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.android);
+  if (!mobile) {
+    return 'Configure notification settings';
+  }
+  if (!AppConfig.isMatrixPushConfigPresent) {
+    return 'This build has no Matrix push URL or app id — rebuild the IPA with '
+        '`flutter build ipa --dart-define-from-file=…` (TestFlight will not register a pusher).';
+  }
+  return 'Matrix push is configured (app id ${AppConfig.matrixPushAppId}). Tap to re-register '
+      'with the server.';
+}
+
+Future<void> _onNotificationsSettingsTap(BuildContext context) async {
+  final mobile = !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.android);
+  if (!mobile) return;
+  if (!AppConfig.isMatrixPushConfigPresent) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'This build was not compiled with Matrix push defines — reinstall is not enough; '
+          'rebuild the app with --dart-define-from-file.',
+        ),
+      ),
+    );
+    return;
+  }
+  final messenger = ScaffoldMessenger.of(context);
+  messenger.showSnackBar(
+    const SnackBar(content: Text('Re-registering push with the homeserver…')),
+  );
+  await MatrixNotificationsCoordinator.instance.requestOsNotificationPermissions();
+  final ok = await MatrixService().refreshMatrixPushRegistration();
+  if (!context.mounted) return;
+  messenger.hideCurrentSnackBar();
+  messenger.showSnackBar(
+    SnackBar(
+      content: Text(
+        ok
+            ? 'Push registration updated. You should receive notifications again.'
+            : 'Push registration did not succeed. Check device logs (MatrixNotifications) or try '
+                'logging out and back in.',
+      ),
+    ),
+  );
+}
 
 Widget _settingsListTile({
   required BuildContext context,
@@ -326,8 +381,10 @@ class SettingsScreen extends StatelessWidget {
                       context: context,
                       icon: Icons.notifications,
                       title: 'Notifications',
-                      subtitle: 'Configure notification settings',
-                      onTap: () {},
+                      subtitle: _notificationsSettingsSubtitle(),
+                      onTap: () => unawaited(
+                        _onNotificationsSettingsTap(context),
+                      ),
                     ),
                     _settingsListTile(
                       context: context,
@@ -440,9 +497,12 @@ class SettingsScreen extends StatelessWidget {
 
   void _showLogoutDialog(BuildContext context) {
     final theme = Theme.of(context);
+    // Use the screen context after the dialog is popped — the dialog [BuildContext] unmounts.
+    final parentContext = context;
+    final messenger = ScaffoldMessenger.of(context);
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: theme.colorScheme.surfaceContainerHighest,
         title: Text('LOGOUT', style: theme.textTheme.titleLarge),
         content: Text(
@@ -452,19 +512,35 @@ class SettingsScreen extends StatelessWidget {
         actions: [
           TerminalButton(
             text: 'CANCEL',
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             isPrimary: false,
           ),
           const SizedBox(width: 8),
           TerminalButton(
             text: 'LOGOUT',
-            onPressed: () {
-              Navigator.of(context).pop();
-              ProfilePrefs.instance.clear();
-              unawaited(KeyRecoveryPrefs.clearBannerDontShowAgain());
-              Navigator.of(
-                context,
-              ).pushNamedAndRemoveUntil('/', (route) => false);
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              messenger.showSnackBar(
+                const SnackBar(content: Text('Signing out…')),
+              );
+              final out = await MatrixService().signOut();
+              if (!parentContext.mounted) return;
+              messenger.hideCurrentSnackBar();
+              out.fold(
+                (_) {
+                  ProfilePrefs.instance.clear();
+                  unawaited(KeyRecoveryPrefs.clearBannerDontShowAgain());
+                  Navigator.of(parentContext).pushNamedAndRemoveUntil(
+                    '/',
+                    (route) => false,
+                  );
+                },
+                (failure) {
+                  messenger.showSnackBar(
+                    SnackBar(content: Text('Logout failed: $failure')),
+                  );
+                },
+              );
             },
           ),
         ],

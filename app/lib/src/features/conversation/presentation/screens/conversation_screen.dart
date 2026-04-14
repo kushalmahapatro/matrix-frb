@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:elementary/elementary.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:matrix/src/core/presentation/widgets/typing_dots_indicator.dart';
 import 'package:matrix/src/core/timeline_raster_thumb.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_blurhash/flutter_blurhash.dart';
@@ -15,6 +19,7 @@ import 'package:matrix/src/features/conversation/presentation/screens/conversati
 import 'package:matrix/src/features/conversation/presentation/widgets/pagianted_message_list.dart';
 import 'package:matrix/src/features/conversation/routes/conversation_routes.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
+import 'package:matrix/src/theme/matrix_theme.dart';
 import 'package:matrix_sdk/matrix_sdk.dart'
     show FileSendPhase, FileSendProgress, Message, RoomMessageKind;
 
@@ -45,38 +50,354 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
 
   @override
   Widget build(ConversationScreenWM wm) {
-    return TerminalScreen(
-      title: isDesktopTargetPlatform() ? roomName : roomName.toUpperCase(),
-      automaticallyImplyLeading: implyLeading,
-      actions: [
-        ValueListenableBuilder<ConversationState>(
-          valueListenable: wm.roomState,
-          builder: (context, state, _) {
-            final showPoll = state.maybeWhen(
-              loaded: (_, ri) => !ri.isDirect,
-              orElse: () => false,
-            );
-            if (!showPoll) return const SizedBox.shrink();
-            return IconButton(
-              icon: const Icon(Icons.poll_outlined),
-              onPressed: wm.showCreatePollDialog,
-              tooltip: 'Poll',
-            );
+    return ValueListenableBuilder<ConversationState>(
+      valueListenable: wm.roomState,
+      builder: (context, state, _) {
+        final resolvedTitle = state.maybeWhen(
+          loaded: (_, ri) {
+            final n = ri.name.trim();
+            return n.isNotEmpty ? n : roomName;
           },
-        ),
-        IconButton(
-          icon: const Icon(Icons.info_outline),
-          onPressed: wm.showRoomInfo,
-          tooltip: 'Room Info',
-        ),
-      ],
-      child: Column(
-        children: [
+          orElse: () => roomName,
+        );
+        final title = isDesktopTargetPlatform()
+            ? resolvedTitle
+            : resolvedTitle.toUpperCase();
+        return TerminalScreen(
+          title: title,
+          automaticallyImplyLeading: implyLeading,
+          actions: [
+            if (status == ChatRoomStatus.joined)
+              IconButton(
+                icon: const Icon(Icons.call_outlined),
+                tooltip: 'Call',
+                onPressed: wm.showCallOptions,
+              ),
+            ValueListenableBuilder<ConversationState>(
+              valueListenable: wm.roomState,
+              builder: (context, state, _) {
+                final showPoll = state.maybeWhen(
+                  loaded: (_, ri) => !ri.isDirect,
+                  orElse: () => false,
+                );
+                if (!showPoll) return const SizedBox.shrink();
+                return IconButton(
+                  icon: const Icon(Icons.poll_outlined),
+                  onPressed: wm.showCreatePollDialog,
+                  tooltip: 'Poll',
+                );
+              },
+            ),
+            if (status == ChatRoomStatus.joined)
+              ValueListenableBuilder<bool>(
+                valueListenable: wm.timelineSearchOpen,
+                builder: (context, open, _) {
+                  return IconButton(
+                    icon: Icon(open ? Icons.close : Icons.search),
+                    tooltip: open ? 'Close search' : 'Search in conversation',
+                    onPressed: wm.toggleTimelineSearch,
+                  );
+                },
+              ),
+            IconButton(
+              icon: const Icon(Icons.info_outline),
+              onPressed: wm.showRoomInfo,
+              tooltip: 'Room Info',
+            ),
+          ],
+          child: Column(
+            children: [
           ValueListenableBuilder<bool>(
             valueListenable: wm.showPendingOutgoingInvite,
             builder: (context, pending, _) {
               if (!pending) return const SizedBox.shrink();
               return _pendingOutgoingInviteBanner(context);
+            },
+          ),
+          ValueListenableBuilder<bool>(
+            valueListenable: wm.timelineSearchOpen,
+            builder: (context, open, _) {
+              if (!open || status != ChatRoomStatus.joined) {
+                return const SizedBox.shrink();
+              }
+              final scheme = Theme.of(context).colorScheme;
+              final theme = Theme.of(context);
+              final desktop = isDesktopTargetPlatform();
+              return ListenableBuilder(
+                listenable: Listenable.merge([
+                  wm.timelineSearchController,
+                  wm.timelineSearchUiRevision,
+                ]),
+                builder: (context, _) {
+                  final n = wm.timelineSearchMatchCount;
+                  final cur = wm.timelineSearchCurrentDisplayIndex;
+                  final q = wm.timelineSearchController.text.trim();
+                  final hasQuery = q.isNotEmpty;
+                  final showNoMatch = hasQuery &&
+                      (n == 0 || wm.timelineSearchHadJumpToHitFailure);
+                  final canUp =
+                      !showNoMatch && wm.timelineSearchCanGoTowardHistory;
+                  final canDown =
+                      !showNoMatch && wm.timelineSearchCanGoTowardLatest;
+                  final radius = BorderRadius.circular(18);
+                  final mono = theme.textTheme.labelMedium?.copyWith(
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  );
+                  final fieldBorder = OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                      color: desktop
+                          ? scheme.outlineVariant.withValues(alpha: 0.65)
+                          : MatrixTheme.matrixAccent.withValues(alpha: 0.35),
+                    ),
+                  );
+                  final fieldFocused = OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                      color: desktop
+                          ? scheme.primary
+                          : MatrixTheme.matrixAccent,
+                      width: 1.5,
+                    ),
+                  );
+                  final fieldFill = desktop
+                      ? scheme.surface.withValues(alpha: 0.9)
+                      : Colors.white.withValues(alpha: 0.04);
+                  final hintColor = desktop
+                      ? scheme.onSurfaceVariant.withValues(alpha: 0.75)
+                      : MatrixTheme.matrixDarkGreen.withValues(alpha: 0.85);
+                  final inputColor = desktop
+                      ? scheme.onSurface
+                      : MatrixTheme.matrixLightGreen;
+                  final statusColor = showNoMatch
+                      ? (desktop
+                          ? scheme.error.withValues(alpha: 0.9)
+                          : MatrixTheme.warningOrange.withValues(alpha: 0.95))
+                      : (desktop
+                          ? scheme.onSurfaceVariant
+                          : MatrixTheme.matrixAccent.withValues(alpha: 0.88));
+                  final statusText = !hasQuery
+                      ? 'Live highlight'
+                      : showNoMatch
+                          ? 'No match found'
+                          : 'Match $cur / $n';
+
+                  return Padding(
+                    padding: EdgeInsets.fromLTRB(desktop ? 10 : 12, 8, desktop ? 10 : 12, 6),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: radius,
+                        border: Border.all(
+                          width: 1,
+                          color: desktop
+                              ? scheme.outlineVariant.withValues(alpha: 0.5)
+                              : MatrixTheme.matrixAccent.withValues(alpha: 0.42),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (desktop ? scheme.primary : MatrixTheme.matrixAccent)
+                                .withValues(alpha: desktop ? 0.07 : 0.14),
+                            blurRadius: desktop ? 18 : 22,
+                            spreadRadius: -2,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                        gradient: desktop
+                            ? null
+                            : LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  MatrixTheme.terminalBlack.withValues(alpha: 0.78),
+                                  MatrixTheme.terminalBackground.withValues(alpha: 0.9),
+                                ],
+                              ),
+                        color: desktop
+                            ? scheme.surfaceContainerLow.withValues(alpha: 0.94)
+                            : null,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: wm.timelineSearchController,
+                                    textInputAction: TextInputAction.search,
+                                    cursorColor: desktop
+                                        ? scheme.primary
+                                        : MatrixTheme.matrixAccent,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: inputColor,
+                                      height: 1.25,
+                                    ),
+                                    decoration: InputDecoration(
+                                      hintText: 'Search conversation',
+                                      hintStyle: theme.textTheme.bodyMedium
+                                          ?.copyWith(color: hintColor),
+                                      prefixIcon: Icon(
+                                        Icons.search_rounded,
+                                        size: 22,
+                                        color: desktop
+                                            ? scheme.primary
+                                            : MatrixTheme.matrixAccent
+                                                .withValues(alpha: 0.85),
+                                      ),
+                                      suffixIcon: hasQuery
+                                          ? IconButton(
+                                              tooltip: 'Clear',
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              icon: Icon(
+                                                Icons.close_rounded,
+                                                size: 20,
+                                                color: hintColor,
+                                              ),
+                                              onPressed: () {
+                                                wm.timelineSearchController
+                                                    .clear();
+                                              },
+                                            )
+                                          : null,
+                                      filled: true,
+                                      fillColor: fieldFill,
+                                      isDense: true,
+                                      border: fieldBorder,
+                                      enabledBorder: fieldBorder,
+                                      focusedBorder: fieldFocused,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 10,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Tooltip(
+                                  message:
+                                      'Jump to the first message on a chosen date',
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: () => unawaited(
+                                        wm.openTimelineSearchDateJump(
+                                          context,
+                                        ),
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Container(
+                                        width: 44,
+                                        height: 44,
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: desktop
+                                                ? scheme.outlineVariant
+                                                    .withValues(alpha: 0.7)
+                                                : MatrixTheme.matrixAccent
+                                                    .withValues(alpha: 0.4),
+                                          ),
+                                          color: desktop
+                                              ? scheme.surfaceContainerHighest
+                                                  .withValues(alpha: 0.5)
+                                              : Colors.white
+                                                  .withValues(alpha: 0.05),
+                                        ),
+                                        child: Icon(
+                                          Icons.event_rounded,
+                                          size: 22,
+                                          color: desktop
+                                              ? scheme.primary
+                                              : MatrixTheme.matrixAccent,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.radar_rounded,
+                                  size: 16,
+                                  color: statusColor.withValues(alpha: 0.85),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    statusText,
+                                    style: mono?.copyWith(
+                                      color: statusColor,
+                                      letterSpacing: 0.3,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: desktop
+                                          ? scheme.outlineVariant
+                                              .withValues(alpha: 0.55)
+                                          : MatrixTheme.matrixAccent
+                                              .withValues(alpha: 0.28),
+                                    ),
+                                    color: desktop
+                                        ? scheme.surface.withValues(alpha: 0.65)
+                                        : Colors.white.withValues(alpha: 0.04),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      _searchNavIcon(
+                                        tooltip:
+                                            'Older match (earlier in history)',
+                                        icon: Icons.keyboard_arrow_up_rounded,
+                                        enabled: canUp,
+                                        onPressed: wm.timelineSearchTowardHistory,
+                                        scheme: scheme,
+                                        desktop: desktop,
+                                      ),
+                                      Container(
+                                        width: 1,
+                                        height: 22,
+                                        color: desktop
+                                            ? scheme.outlineVariant
+                                                .withValues(alpha: 0.45)
+                                            : MatrixTheme.matrixAccent
+                                                .withValues(alpha: 0.2),
+                                      ),
+                                      _searchNavIcon(
+                                        tooltip: 'Newer match (toward latest)',
+                                        icon:
+                                            Icons.keyboard_arrow_down_rounded,
+                                        enabled: canDown,
+                                        onPressed: wm.timelineSearchTowardLatest,
+                                        scheme: scheme,
+                                        desktop: desktop,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
             },
           ),
           // Messages list
@@ -86,10 +407,16 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
               listenable: Listenable.merge([
                 wm.roomState,
                 TimelineLocalHiddenStore.revision,
+                wm.timelineSearchOpen,
+                wm.timelineSearchController,
+                wm.timelineSearchUiRevision,
               ]),
               builder: (context, child) {
                 final state = wm.roomState.value;
                 final theme = Theme.of(context);
+                final searchHighlight = wm.timelineSearchOpen.value
+                    ? wm.timelineSearchController.text.trim()
+                    : '';
                 return state.when(
                   waitingForInvite: () => Center(
                     child: Text(
@@ -133,6 +460,7 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                       onVisibleRange:
                           (Message firstVisible, Message lastVisible) {},
                       onBecameAtBottom: wm.onTimelineScrolledToBottom,
+                      onLeftNewestEdge: wm.onTimelineLeftNewestEdge,
                       jumpToEventNotifier: wm.jumpToTimelineEventId,
                       scrollToLatestNotifier: wm.scrollTimelineToLatest,
                       isGroupRoom: !roomInfo.isDirect,
@@ -142,6 +470,10 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                       onShowMessageActions: (ctx, m, o) =>
                           wm.showMessageActionsMenu(ctx, m, o),
                       onSenderAvatarTap: wm.onSenderAvatarTap,
+                      timelineSearchHighlightQuery:
+                          searchHighlight.isEmpty ? null : searchHighlight,
+                      onProgrammaticJumpFailure:
+                          wm.handleProgrammaticJumpFailureForTimelineSearch,
                     );
                   },
                   error: (errMessage) => Center(
@@ -209,6 +541,49 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
                           children: [
                             if (draft != null)
                               _replyDraftBanner(context, wm, draft),
+                            ValueListenableBuilder<List<String>>(
+                              valueListenable: wm.roomTypingUserIds,
+                              builder: (context, typingIds, _) {
+                                if (typingIds.isEmpty) {
+                                  return const SizedBox.shrink();
+                                }
+                                final theme = Theme.of(context);
+                                final accent = theme.colorScheme.primary
+                                    .withValues(alpha: 0.92);
+                                return Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    12,
+                                    0,
+                                    12,
+                                    6,
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      TypingDotsIndicator(
+                                        color: accent,
+                                        dotSize: 5,
+                                        spacing: 4,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          wm.typingIndicatorLabel(typingIds),
+                                          maxLines: 3,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                            color: accent,
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                             _buildMessageInput(context, wm),
                           ],
                         );
@@ -219,8 +594,10 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
               }
             },
           ),
-        ],
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -396,6 +773,7 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
       RoomMessageKind.file => true,
       RoomMessageKind.text => false,
       RoomMessageKind.poll => false,
+      RoomMessageKind.call => false,
       RoomMessageKind.other => false,
     };
   }
@@ -541,15 +919,19 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
     // Sharp corners on mobile: rounded outline reads like extra IME chrome above the keyboard.
     final fieldBorderRadius =
         desktop ? BorderRadius.circular(8) : BorderRadius.zero;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        desktop ? 12 : 8,
-        8,
-        desktop ? 12 : 8,
-        desktop ? 14 : 10,
-      ),
-      child: Row(
-        children: [
+    // [TextFieldTapRegion] + same [groupId] as [TextField] so taps on send/attach are not
+    // "outside" the field — [onTapOutside] would otherwise dismiss the keyboard.
+    return TextFieldTapRegion(
+      groupId: EditableText,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          desktop ? 12 : 8,
+          8,
+          desktop ? 12 : 8,
+          desktop ? 14 : 10,
+        ),
+        child: Row(
+          children: [
           Text(
             '> ',
             style: theme.textTheme.bodyLarge?.copyWith(
@@ -585,9 +967,11 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
               child: TextField(
                 controller: wm.messageController,
                 focusNode: wm.composerFocusNode,
+                groupId: EditableText,
                 autocorrect: !desktop,
                 enableSuggestions: !desktop,
                 keyboardAppearance: theme.brightness,
+                onChanged: wm.onComposerTextChanged,
                 onTapOutside: (_) {
                   FocusManager.instance.primaryFocus?.unfocus();
                 },
@@ -626,29 +1010,27 @@ class ConversationScreen extends ElementaryWidget<ConversationScreenWM>
           ValueListenableBuilder<bool>(
             valueListenable: wm.composerHasText,
             builder: (context, hasText, _) {
-              if (hasText) {
-                return Focus(
+              // Single non-focusable control so swapping send/mic does not steal TextField focus
+              // (avoids keyboard dismiss + reopen when sending).
+              return Material(
+                color: Colors.transparent,
+                child: InkWell(
                   canRequestFocus: false,
-                  skipTraversal: true,
-                  child: IconButton(
-                    icon: Icon(Icons.send, color: theme.colorScheme.primary),
-                    onPressed: wm.sendMessage,
-                    tooltip: 'Send message',
+                  onTap: hasText ? wm.sendMessage : wm.showVoiceRecordSheet,
+                  borderRadius: BorderRadius.circular(22),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Icon(
+                      hasText ? Icons.send : Icons.mic_rounded,
+                      color: theme.colorScheme.primary,
+                    ),
                   ),
-                );
-              }
-              return Focus(
-                canRequestFocus: false,
-                skipTraversal: true,
-                child: IconButton(
-                  icon: Icon(Icons.mic_rounded, color: theme.colorScheme.primary),
-                  onPressed: wm.showVoiceRecordSheet,
-                  tooltip: 'Record voice message',
                 ),
               );
             },
           ),
         ],
+        ),
       ),
     );
   }
@@ -874,6 +1256,32 @@ bool _replyThumbLooksLikeRaster(Uint8List data) {
     return true;
   }
   return false;
+}
+
+Widget _searchNavIcon({
+  required String tooltip,
+  required IconData icon,
+  required bool enabled,
+  required VoidCallback onPressed,
+  required ColorScheme scheme,
+  required bool desktop,
+}) {
+  final color = enabled
+      ? (desktop ? scheme.primary : MatrixTheme.matrixAccent)
+      : (desktop
+          ? scheme.onSurfaceVariant.withValues(alpha: 0.32)
+          : MatrixTheme.matrixDarkGreen.withValues(alpha: 0.42));
+  return IconButton(
+    tooltip: tooltip,
+    onPressed: enabled ? onPressed : null,
+    visualDensity: VisualDensity.compact,
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+    constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+    style: IconButton.styleFrom(
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    ),
+    icon: Icon(icon, size: 22, color: color),
+  );
 }
 
 Widget _replyDraftKindPlaceholder(RoomMessageKind kind, ThemeData theme) {

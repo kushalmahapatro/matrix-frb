@@ -1,9 +1,12 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use tracing::{error, warn};
 
 use crate::frb_generated::StreamSink;
 use crate::matrix::client::format_user_id_for_display;
 use crate::matrix::rooms::{ExtraRoomInfo, RoomInfos, RoomList, Rooms};
-use crate::matrix::timelines::{Timeline, Timelines};
+use crate::matrix::sync_notifications::SyncNotificationSummary;
+use crate::matrix::timelines::{self, Timeline, Timelines};
 use eyeball_im::Vector;
 use flutter_rust_bridge::frb;
 use futures::{pin_mut, StreamExt};
@@ -14,6 +17,7 @@ use matrix_sdk_ui::sync_service::{State as MatrixSyncState, SyncService};
 use matrix_sdk_ui::timeline::{RoomExt, TimelineFocus, TimelineReadReceiptTracking};
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::sync::Mutex as StdMutex;
 use tokio::spawn;
 use tokio::sync::broadcast;
 
@@ -61,9 +65,10 @@ impl App {
     /// Build the App (rooms, room_list, listen_task). Caller must call
     /// `app.sync_service.start().await` so the sync loop runs without blocking.
     async fn new(
-        _client: Client,
+        client: Client,
         sync_service: Arc<SyncService>,
         all_rooms: SlidingSyncRoomList,
+        rtc_notify_tx: Option<broadcast::Sender<SyncNotificationSummary>>,
     ) -> Result<Self, ()> {
         let rooms = Rooms::default();
         let room_infos = RoomInfos::default();
@@ -73,11 +78,13 @@ impl App {
         let refresh_tx = room_list_refresh.clone();
 
         let _listen_task = spawn(Self::listen_task(
+            client,
             rooms.clone(),
             room_infos.clone(),
             timelines.clone(),
             all_rooms,
             refresh_tx,
+            rtc_notify_tx,
         ));
 
         let room_list = RoomList::new(rooms, room_infos);
@@ -92,11 +99,13 @@ impl App {
 
     /// Sliding Sync room list + timelines (same pipeline as matrix-rust-sdk multiverse).
     async fn listen_task(
+        client: Client,
         rooms: Rooms,
         room_infos: RoomInfos,
         timelines: Timelines,
         all_rooms: SlidingSyncRoomList,
         room_list_refresh: broadcast::Sender<()>,
+        rtc_notify_tx: Option<broadcast::Sender<SyncNotificationSummary>>,
     ) {
         let (stream, entries_controller) = all_rooms.entries_with_dynamic_adapters(50_000);
         entries_controller.set_filter(Box::new(new_filter_non_left()));
@@ -162,17 +171,80 @@ impl App {
 
                 let (items, stream): (Vector<Arc<matrix_sdk_ui::timeline::TimelineItem>>, _) =
                     timeline.subscribe().await;
-                let items = Arc::new(std::sync::Mutex::new(items));
+                let items = Arc::new(StdMutex::new(items));
 
                 let i = items.clone();
+                let client_for_timeline = client.clone();
+                let room_id_owned = room.room_id().to_owned();
+                let rtc_tx = rtc_notify_tx.clone();
+                let own_user_id = client.user_id().map(|u| u.to_string());
                 let timeline_task = spawn(async move {
+                    // Ignore rings older than this when the timeline hydrates (backfill).
+                    const STALE_RING_MS: u64 = 120_000;
+
+                    fn now_ms() -> u64 {
+                        SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .map(|d| d.as_millis() as u64)
+                            .unwrap_or(0)
+                    }
+
                     pin_mut!(stream);
                     let items = i;
-                    while let Some(diffs) = stream.next().await {
-                        let mut items = items.lock().unwrap();
+                    let mut seen_ring_event_ids: HashSet<String> = HashSet::new();
 
-                        for diff in diffs {
-                            diff.apply(&mut *items);
+                    while let Some(diffs) = stream.next().await {
+                        {
+                            let mut items = items.lock().unwrap();
+                            for diff in diffs {
+                                diff.apply(&mut *items);
+                            }
+                        }
+
+                        let Some(ref tx) = rtc_tx else {
+                            continue;
+                        };
+                        let Some(room) = client_for_timeline.get_room(room_id_owned.as_ref()) else {
+                            continue;
+                        };
+                        let own = own_user_id.as_deref();
+                        let now = now_ms();
+
+                        let ring_messages: Vec<_> = {
+                            let guard = items.lock().unwrap();
+                            guard
+                                .iter()
+                                .map(|v| {
+                                    timelines::get_message_from_timeline_item(v.as_ref(), own)
+                                })
+                                .filter(|m| {
+                                    timelines::timeline_message_is_peer_incoming_call_ring(m)
+                                })
+                                .collect()
+                        };
+
+                        for m in ring_messages {
+                            let eid = m.event_id.trim().to_string();
+                            if eid.is_empty() {
+                                continue;
+                            }
+                            if seen_ring_event_ids.contains(&eid) {
+                                continue;
+                            }
+
+                            let stale = m.timestamp == 0
+                                || now.saturating_sub(m.timestamp) > STALE_RING_MS;
+                            if stale {
+                                seen_ring_event_ids.insert(eid);
+                                continue;
+                            }
+
+                            if let Some(summary) =
+                                timelines::summary_from_timeline_incoming_call_ring(&room, &m)
+                            {
+                                let _ = tx.send(summary);
+                            }
+                            seen_ring_event_ids.insert(eid);
                         }
                     }
                 });
@@ -198,7 +270,10 @@ impl App {
     }
 }
 
-pub(crate) async fn start_sync_service(client: Client) -> Result<Arc<App>, String> {
+pub(crate) async fn start_sync_service(
+    client: Client,
+    rtc_notify_tx: Option<broadcast::Sender<SyncNotificationSummary>>,
+) -> Result<Arc<App>, String> {
     match SyncService::builder(client.clone()).build().await {
         Ok(sync) => {
             let sync = Arc::new(sync);
@@ -214,7 +289,7 @@ pub(crate) async fn start_sync_service(client: Client) -> Result<Arc<App>, Strin
                 .subscribe()
                 .map_err(|e| format!("event_cache.subscribe: {e}"))?;
 
-            let app = App::new(client.clone(), sync.clone(), all_rooms)
+            let app = App::new(client.clone(), sync.clone(), all_rooms, rtc_notify_tx)
                 .await
                 .map_err(|_| "Failed to create App".to_string())?;
             let app = Arc::new(app);

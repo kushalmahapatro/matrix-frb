@@ -1,5 +1,9 @@
-//! File upload dedup store in a dedicated SQLCipher DB (`app/app_db.sqlite3`).
-//! Uses the same passphrase (or none) as [crate::matrix::client::ClientConfig] for Matrix sqlite stores.
+//! File upload dedup store under `session_path/app/`.
+//!
+//! - **Non-iOS**: SQLCipher database `app_db.sqlite3` (same passphrase style as Matrix sqlite stores).
+//! - **iOS**: JSON file `file_upload_cache.json` (unencrypted; app sandbox only). Avoids opening a
+//!   second SQLCipher/OpenSSL stack that has crashed in `kdf_pbkdf2_derive` on Simulator when
+//!   `native-tls`/OpenSSL and SQLCipher both link OpenSSL.
 //!
 //! ## `file_upload_cache`
 //! One row per **SHA-256 of plaintext file bytes** (same file from different temp paths shares a row).
@@ -20,21 +24,29 @@
 //! optional `thumbnail_info`, so clients can inspect MXC + encryption material without parsing the
 //! full `e2ee_msgtype_json`.
 //!
-//! On iOS, the file is typically `Documents/app/app_db.sqlite3` under [ClientConfig::session_path].
+//! On iOS, the file is typically `Documents/app/file_upload_cache.json` under [ClientConfig::session_path].
 
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
+#[cfg(not(target_os = "ios"))]
+use std::sync::Mutex;
+#[cfg(not(target_os = "ios"))]
 use rusqlite::{params, OptionalExtension};
-use tracing;
+
+use serde::{Deserialize, Serialize};
 
 /// Directory under the session path holding the app database file.
 const APP_STORE_DIR: &str = "app";
-/// Encrypted app database filename (separate from crypto/state/event_cache stores).
+/// Encrypted app database filename (separate from crypto/state/event_cache stores). Non-iOS only.
+#[cfg(not(target_os = "ios"))]
 const APP_DB_FILE: &str = "app_db.sqlite3";
+/// iOS: unencrypted JSON cache (distinct name from `app_db.sqlite3` legacy file).
+#[cfg(target_os = "ios")]
+const APP_CACHE_JSON: &str = "file_upload_cache.json";
 
 /// Stored thumbnail metadata (for event `info` when reusing a cached MXC).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CachedThumbnail {
     pub mxc: String,
     pub width: u64,
@@ -46,7 +58,7 @@ pub struct CachedThumbnail {
     pub content_sha256_hex: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CachedEntry {
     pub sha256_hex: String,
     /// Plain MXC URI; empty string means no plain-room cache for this hash.
@@ -62,10 +74,114 @@ pub struct CachedEntry {
     pub event_id: Option<String>,
 }
 
+// ─── iOS: JSON file backend (no rusqlite / SQLCipher in this crate) ─────────
+
+#[cfg(target_os = "ios")]
+use std::collections::HashMap;
+#[cfg(target_os = "ios")]
+use tokio::sync::RwLock;
+
+#[cfg(target_os = "ios")]
+pub struct FileUploadCache {
+    path: PathBuf,
+    map: Arc<RwLock<HashMap<String, CachedEntry>>>,
+}
+
+#[cfg(target_os = "ios")]
+impl FileUploadCache {
+    /// Open or create the JSON cache under `session_path/app/file_upload_cache.json`.
+    /// `passphrase` is ignored on iOS (sandbox-only dedup cache).
+    pub async fn open(
+        session_path: impl AsRef<Path>,
+        _passphrase: Option<&str>,
+    ) -> Result<Self, String> {
+        let session_path = session_path.as_ref().to_path_buf();
+        let app_dir = session_path.join(APP_STORE_DIR);
+        tokio::fs::create_dir_all(&app_dir)
+            .await
+            .map_err(|e| e.to_string())?;
+        let path = app_dir.join(APP_CACHE_JSON);
+
+        let map: HashMap<String, CachedEntry> =
+            if tokio::fs::try_exists(&path).await.map_err(|e| e.to_string())? {
+                let bytes = tokio::fs::read(&path).await.map_err(|e| e.to_string())?;
+                serde_json::from_slice(&bytes).unwrap_or_default()
+            } else {
+                HashMap::new()
+            };
+
+        Ok(Self {
+            path,
+            map: Arc::new(RwLock::new(map)),
+        })
+    }
+
+    async fn save_map(path: &Path, map: &HashMap<String, CachedEntry>) -> Result<(), String> {
+        let data = serde_json::to_vec(map).map_err(|e| e.to_string())?;
+        let mut tmp = path.as_os_str().to_os_string();
+        tmp.push(".tmp");
+        let tmp_path = PathBuf::from(tmp);
+        tokio::fs::write(&tmp_path, &data)
+            .await
+            .map_err(|e| e.to_string())?;
+        tokio::fs::rename(&tmp_path, path)
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub async fn get_by_sha256(&self, sha256_hex: &str) -> Option<CachedEntry> {
+        let g = self.map.read().await;
+        g.get(sha256_hex).cloned()
+    }
+
+    pub async fn put_merging_prior(&self, incoming: CachedEntry) -> Result<(), String> {
+        let prior = self.get_by_sha256(&incoming.sha256_hex).await;
+        let merged = merge_cached_entry(prior, incoming);
+        self.put(merged).await
+    }
+
+    pub async fn put(&self, entry: CachedEntry) -> Result<(), String> {
+        let mut g = self.map.write().await;
+        let key = entry.sha256_hex.clone();
+        g.insert(key, entry);
+        let snapshot = g.clone();
+        drop(g);
+        Self::save_map(&self.path, &snapshot).await
+    }
+
+    pub async fn remove_by_sha256(&self, sha256_hex: &str) -> Result<(), String> {
+        let mut g = self.map.write().await;
+        g.remove(sha256_hex);
+        let snapshot = g.clone();
+        drop(g);
+        Self::save_map(&self.path, &snapshot).await
+    }
+
+    pub async fn remove_by_event_id(&self, event_id: &str) -> Result<(), String> {
+        let mut g = self.map.write().await;
+        let keys: Vec<String> = g
+            .iter()
+            .filter(|(_, e)| e.event_id.as_deref() == Some(event_id))
+            .map(|(k, _)| k.clone())
+            .collect();
+        for k in keys {
+            g.remove(&k);
+        }
+        let snapshot = g.clone();
+        drop(g);
+        Self::save_map(&self.path, &snapshot).await
+    }
+}
+
+// ─── Non-iOS: SQLCipher via rusqlite ─────────────────────────────────────────
+
+#[cfg(not(target_os = "ios"))]
 pub struct FileUploadCache {
     conn: Arc<Mutex<rusqlite::Connection>>,
 }
 
+#[cfg(not(target_os = "ios"))]
 impl FileUploadCache {
     /// Open or create the app SQLCipher database under `session_path/app/app_db.sqlite3`.
     /// `passphrase` must match the one used for Matrix `crypto` / `state` / `event_cache` stores.
@@ -81,9 +197,7 @@ impl FileUploadCache {
         let db_path = app_dir.join(APP_DB_FILE);
         let passphrase = passphrase.map(str::to_string);
 
-        tokio::task::spawn_blocking(move || Self::open_sync(db_path, passphrase.as_deref()))
-            .await
-            .map_err(|e| e.to_string())?
+        tokio::task::block_in_place(|| Self::open_sync(db_path, passphrase.as_deref()))
     }
 
     fn create_table_v2(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
@@ -214,7 +328,6 @@ impl FileUploadCache {
         Ok(())
     }
 
-    /// Legacy schema used `path` as PK; migrate to `sha256_hex` PK (one row per file content).
     fn migrate_path_pk_to_sha256(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
         conn.execute_batch(
             r#"
@@ -378,8 +491,6 @@ impl FileUploadCache {
         .ok()?
     }
 
-    /// Merge `incoming` with any existing row: preserves `e2ee_msgtype_json` when the incoming
-    /// payload omits it, and preserves plain `file_mxc` / thumbnail when incoming `file_mxc` is empty.
     pub async fn put_merging_prior(&self, incoming: CachedEntry) -> Result<(), String> {
         let prior = self.get_by_sha256(&incoming.sha256_hex).await;
         let merged = merge_cached_entry(prior, incoming);
@@ -419,7 +530,6 @@ impl FileUploadCache {
         .map_err(|e| e.to_string())?
     }
 
-    /// Drop any row whose last plain-send `event_id` matches (message was redacted).
     pub async fn remove_by_event_id(&self, event_id: &str) -> Result<(), String> {
         let conn = Arc::clone(&self.conn);
         let event_id = event_id.to_string();

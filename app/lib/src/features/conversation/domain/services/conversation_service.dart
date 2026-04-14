@@ -17,7 +17,8 @@ import 'package:matrix_sdk/matrix_sdk.dart'
         RoomLinkItem,
         RoomPollItem,
         RoomPowerLevelSettingsPatch,
-        RoomUpdate;
+        RoomUpdate,
+        UserSearchResult;
 import 'package:result_dart/result_dart.dart';
 
 class ConversationService {
@@ -44,6 +45,11 @@ class ConversationService {
     return matrixService.client.subscribeToTimelineList(roomId: roomId);
   }
 
+  /// One room update per sync cycle (joined/left/invited, etc.); use to refresh room info when state changes.
+  Stream<RoomUpdate> subscribeToAllRoomUpdates() {
+    return matrixService.client.subscribeToAllRoomUpdates();
+  }
+
   /// Public read receipt on the latest timeline event; updates SDK unread counts for the room.
   Future<void> markTimelineAsRead(String roomId) async {
     try {
@@ -56,6 +62,27 @@ class ConversationService {
   /// Sliding Sync: subscribe this room for full required state + latest events (multiverse / Element).
   Future<void> roomListSubscribeToRooms(String roomId) async {
     await matrixService.client.roomListSubscribeToRooms(roomId: roomId);
+  }
+
+  /// Other members currently typing (`m.typing`); own user is omitted by the SDK.
+  Stream<List<String>> subscribeToRoomTyping(String roomId) {
+    return matrixService.client.subscribeToRoomTyping(roomId: roomId);
+  }
+
+  /// Homeserver user directory search (`POST /user_directory/search`).
+  Future<Result<UserSearchResult>> searchUsers({required String query}) async {
+    try {
+      final r = await matrixService.client.searchUsers(query: query);
+      return Success(r);
+    } catch (e) {
+      return Failure(Exception('$e'));
+    }
+  }
+
+  Future<void> sendTypingNotice(String roomId, bool typing) async {
+    try {
+      await matrixService.client.sendTypingNotice(roomId: roomId, typing: typing);
+    } catch (_) {}
   }
 
   /// One [getRoomDetails] round-trip for header state and member avatars (avoid duplicate Rust work).
@@ -74,7 +101,9 @@ class ConversationService {
             topic: d.topic,
             memberCount: d.memberCount,
             isDirect: d.isDirect,
-            avatarUrl: null,
+            avatarUrl: d.roomAvatarUrl.trim().isEmpty
+                ? null
+                : d.roomAvatarUrl.trim(),
           ),
           details: d,
         ),
@@ -342,8 +371,8 @@ class ConversationService {
     }
   }
 
-  /// Sends a local file on the timeline. Image/video thumbnails come from the `media` package
-  /// ([AppTimelineSendPrep]); plain rooms reuse MXC by path+hash.
+  /// Sends a local file on the timeline. Raster thumbnails (image / video / optional document)
+  /// come from the `media` package ([AppTimelineSendPrep]); plain rooms reuse MXC by path+hash.
   Future<Result<String>> sendTimelineFile({
     required String roomId,
     required String filePath,
@@ -484,6 +513,32 @@ class ConversationService {
     try {
       final d = await matrixService.client.getRoomDetails(roomId: roomId);
       return Success(d);
+    } catch (e) {
+      return Failure(Exception('$e'));
+    }
+  }
+
+  Future<Result<Unit>> uploadRoomAvatar({
+    required String roomId,
+    required String mimeType,
+    required List<int> data,
+  }) async {
+    try {
+      await matrixService.client.uploadRoomAvatar(
+        roomId: roomId,
+        mimeType: mimeType,
+        data: data,
+      );
+      return const Success(unit);
+    } catch (e) {
+      return Failure(Exception('$e'));
+    }
+  }
+
+  Future<Result<Unit>> removeRoomAvatar({required String roomId}) async {
+    try {
+      await matrixService.client.removeRoomAvatar(roomId: roomId);
+      return const Success(unit);
     } catch (e) {
       return Failure(Exception('$e'));
     }

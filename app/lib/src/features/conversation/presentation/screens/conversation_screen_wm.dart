@@ -9,12 +9,16 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:matrix/src/core/desktop/desktop_camera_flow.dart';
 import 'package:matrix/src/core/desktop/desktop_esc_scope.dart';
+import 'package:matrix/src/core/calls/matrix_call_launcher.dart';
 import 'package:matrix/src/core/desktop/desktop_shell_scope.dart';
 import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
+import 'package:matrix/src/core/permissions/app_runtime_permissions.dart';
 import 'package:matrix/src/core/logging_service.dart';
 import 'package:matrix/src/core/navigation/navigator_service.dart';
+import 'package:matrix/src/core/muted_chats_store.dart';
 import 'package:matrix/src/core/timeline_local_hidden_store.dart';
 import 'package:matrix/src/core/presentation/widgets/terminal_container.dart';
+import 'package:matrix/src/core/presentation/widgets/typing_dots_indicator.dart';
 import 'package:matrix/src/features/settings/domain/profile_prefs.dart';
 import 'package:path/path.dart' as path_lib;
 import 'package:path_provider/path_provider.dart';
@@ -28,11 +32,17 @@ import 'package:matrix/src/features/conversation/domain/services/conversation_se
 import 'package:matrix/src/core/video_send_media_prep.dart';
 import 'package:matrix/src/features/conversation/presentation/screens/conversation_screen.dart';
 import 'package:matrix/src/features/conversation/presentation/screens/media_outgoing_send_screen.dart';
+import 'package:matrix/src/core/network/network_availability.dart';
 import 'package:matrix/src/features/conversation/presentation/screens/room_info_screen.dart';
 import 'package:matrix/src/features/conversation/presentation/widgets/attachment_viewer.dart';
 import 'package:matrix/src/features/conversation/presentation/widgets/voice_record_sheet.dart';
+import 'package:matrix/src/features/conversation/presentation/widgets/forward_message_helpers.dart';
+import 'package:matrix/src/features/conversation/presentation/widgets/forward_message_room_picker.dart';
 import 'package:matrix/src/features/conversation/presentation/widgets/pagianted_message_list.dart'
-    show openTimelineQuickReactionPicker;
+    show
+        openTimelineQuickReactionPicker,
+        PaginatedMessageListState;
+import 'package:provider/provider.dart';
 import 'package:matrix_sdk/matrix_sdk.dart'
     show
         EventSendStateKind,
@@ -257,6 +267,14 @@ class ConversationScreenModel extends ElementaryModel {
   Future<void> markTimelineAsRead(String roomId) {
     return conversationService.markTimelineAsRead(roomId);
   }
+
+  Stream<List<String>> subscribeToRoomTyping(String roomId) {
+    return conversationService.subscribeToRoomTyping(roomId);
+  }
+
+  Future<void> sendTypingNotice(String roomId, bool typing) {
+    return conversationService.sendTypingNotice(roomId, typing);
+  }
 }
 
 class ConversationScreenWM
@@ -331,19 +349,97 @@ class ConversationScreenWM
   /// Increment after sending a text message so [PaginatedMessageList] scrolls to the latest tail.
   final ValueNotifier<int> scrollTimelineToLatest = ValueNotifier<int>(0);
 
+  /// In-timeline search (toolbar + match navigation).
+  final ValueNotifier<bool> timelineSearchOpen = ValueNotifier<bool>(false);
+  final TextEditingController timelineSearchController =
+      TextEditingController();
+  /// Bumps when match list or index changes so the count label rebuilds.
+  final ValueNotifier<int> timelineSearchUiRevision = ValueNotifier<int>(0);
+  List<String> _timelineSearchHitIds = <String>[];
+  int _timelineSearchIndex = 0;
+  /// Set when a scroll-to-hit fails (e.g. row filtered from the list); cleared on new query / nav.
+  bool _timelineSearchJumpFailedNoVisibleMatch = false;
+  /// Only [handleProgrammaticJumpFailureForTimelineSearch] suppresses snack bars when this is true.
+  bool _lastTimelineScrollJumpWasFromSearchHits = false;
+
+  int get timelineSearchMatchCount => _timelineSearchHitIds.length;
+
+  /// Scroll-to-hit failed (e.g. row not built in the timeline list).
+  bool get timelineSearchHadJumpToHitFailure =>
+      _timelineSearchJumpFailedNoVisibleMatch;
+
+  /// When in-conversation search is active, route jump failures to inline UI instead of a snack bar.
+  bool handleProgrammaticJumpFailureForTimelineSearch(String _) {
+    final fromSearchHits = _lastTimelineScrollJumpWasFromSearchHits;
+    _lastTimelineScrollJumpWasFromSearchHits = false;
+    if (!fromSearchHits) return false;
+    if (!timelineSearchOpen.value) return false;
+    if (timelineSearchController.text.trim().isEmpty) return false;
+    _timelineSearchJumpFailedNoVisibleMatch = true;
+    timelineSearchUiRevision.value++;
+    return true;
+  }
+
+  void _requestTimelineJumpForSearchHit(String id) {
+    if (id.isEmpty) return;
+    _lastTimelineScrollJumpWasFromSearchHits = true;
+    PaginatedMessageListState.requestScrollToEvent(jumpToTimelineEventId, id);
+  }
+
+  void _onJumpTimelineEventIdChanged() {
+    if (jumpToTimelineEventId.value != null) return;
+    // [PaginatedMessageListState.requestScrollToEvent] may set null then re-set
+    // the same id on the next microtask; only clear after that settles.
+    scheduleMicrotask(() {
+      if (jumpToTimelineEventId.value == null) {
+        _lastTimelineScrollJumpWasFromSearchHits = false;
+      }
+    });
+  }
+
+  /// 1-based index for UI (0 when no matches).
+  int get timelineSearchCurrentDisplayIndex =>
+      _timelineSearchHitIds.isEmpty ? 0 : _timelineSearchIndex + 1;
+
+  /// Search hit list is newest-first: index 0 = latest. ↑ moves to older matches.
+  bool get timelineSearchCanGoTowardHistory =>
+      _timelineSearchHitIds.length > 1 &&
+      _timelineSearchIndex < _timelineSearchHitIds.length - 1;
+
+  /// ↓ moves toward the newest loaded match.
+  bool get timelineSearchCanGoTowardLatest =>
+      _timelineSearchHitIds.length > 1 && _timelineSearchIndex > 0;
+
   /// Current member avatars (`mxc://…`) keyed by Matrix user id; refreshes with room meta so
   /// timeline bubbles pick up profile photo changes without re-fetching every event row.
   final ValueNotifier<Map<String, String>> senderAvatarMxcByUserId =
       ValueNotifier<Map<String, String>>(<String, String>{});
 
+  /// Display names for typing indicator (from room member list).
+  final ValueNotifier<Map<String, String>> memberDisplayNamesByUserId =
+      ValueNotifier<Map<String, String>>(<String, String>{});
+
+  /// Other members with an active `m.typing` notice.
+  final ValueNotifier<List<String>> roomTypingUserIds =
+      ValueNotifier<List<String>>([]);
+
   /// Debounces [markTimelineAsRead] so scroll / timeline bursts do not spam the homeserver.
   Timer? _markReadDebounce;
+  bool _markReadFlushPending = false;
+
+  /// Decrypted thumbnail prefetch: warm Rust/media cache when the timeline updates.
+  final Set<String> _timelineThumbnailPrefetchIds = <String>{};
 
   /// Message the user is replying to (e.g. from ⋮ menu); cleared after send or cancel.
   final ValueNotifier<Message?> replyDraft = ValueNotifier<Message?>(null);
 
   // Stream management: full message list from Rust
   StreamSubscription<List<Message>>? _timelineListSubscription;
+  StreamSubscription<List<String>>? _typingSubscription;
+  Timer? _typingIdleTimer;
+  /// Syncs [roomTypingUserIds] from [MatrixService.roomListTypingUserIds] (staleness + list).
+  VoidCallback? _matrixTypingFromServiceFn;
+  bool _matrixTypingServiceListenerAttached = false;
   ConversationInfo? _roomInfo;
   Timer? _roomMetaDebounce;
   Timer? _reconnectionTimer;
@@ -363,6 +459,7 @@ class ConversationScreenWM
   @override
   void initWidgetModel() {
     super.initWidgetModel();
+    unawaited(MutedChatsStore.instance.ensureLoaded());
     _messageController = TextEditingController();
     _messageController.addListener(_syncComposerHasText);
     _roomState = ValueNotifier(const ConversationState.loading());
@@ -376,6 +473,200 @@ class ConversationScreenWM
     } else {
       _loadMessages();
     }
+
+    _matrixTypingFromServiceFn = () {
+      if (_disposed) return;
+      final ids =
+          MatrixService().roomListTypingUserIds.value[widget.roomId] ?? const [];
+      roomTypingUserIds.value = List<String>.from(ids);
+    };
+
+    timelineSearchController.addListener(_onTimelineSearchTextChanged);
+    jumpToTimelineEventId.addListener(_onJumpTimelineEventIdChanged);
+  }
+
+  void _onTimelineSearchTextChanged() {
+    if (_disposed) return;
+    if (!timelineSearchOpen.value) return;
+    _recomputeTimelineSearchHits(jumpToFirst: true);
+  }
+
+  void toggleTimelineSearch() {
+    timelineSearchOpen.value = !timelineSearchOpen.value;
+    if (!timelineSearchOpen.value) {
+      timelineSearchController.removeListener(_onTimelineSearchTextChanged);
+      timelineSearchController.clear();
+      timelineSearchController.addListener(_onTimelineSearchTextChanged);
+      _timelineSearchHitIds = <String>[];
+      _timelineSearchIndex = 0;
+      _timelineSearchJumpFailedNoVisibleMatch = false;
+      timelineSearchUiRevision.value++;
+    } else {
+      _recomputeTimelineSearchHits(jumpToFirst: true);
+    }
+  }
+
+  bool _timelineMessageSearchable(Message m) {
+    if (TimelineLocalHiddenStore.isHidden(m)) return false;
+    if (m.messageType == MessageType.message) return true;
+    if (m.messageType == MessageType.membershipChange ||
+        m.messageType == MessageType.profileChange) {
+      return true;
+    }
+    return false;
+  }
+
+  bool _timelineMessageMatchesQuery(Message m, String q) {
+    if (m.sender.toLowerCase().contains(q)) return true;
+    if (m.senderUserId.toLowerCase().contains(q)) return true;
+    if (m.content.toLowerCase().contains(q)) return true;
+    return false;
+  }
+
+  void _recomputeTimelineSearchHits({required bool jumpToFirst}) {
+    _timelineSearchJumpFailedNoVisibleMatch = false;
+    final q = timelineSearchController.text.trim().toLowerCase();
+    final st = _roomState.value;
+    if (q.isEmpty || st is! RoomStateLoaded) {
+      _timelineSearchHitIds = <String>[];
+      _timelineSearchIndex = 0;
+      timelineSearchUiRevision.value++;
+      return;
+    }
+    // Newest-first: [0] = latest match (near the composer); next/prev walk older/newer.
+    final ids = <String>[];
+    for (final m in st.messages.reversed) {
+      if (!_timelineMessageSearchable(m)) continue;
+      if (!_timelineMessageMatchesQuery(m, q)) continue;
+      final id = m.eventId.isNotEmpty ? m.eventId : m.transactionId;
+      if (id.isEmpty) continue;
+      ids.add(id);
+    }
+    _timelineSearchHitIds = ids;
+    _timelineSearchIndex = 0;
+    if (jumpToFirst && ids.isNotEmpty) {
+      _requestTimelineJumpForSearchHit(ids.first);
+    }
+    timelineSearchUiRevision.value++;
+  }
+
+  void timelineSearchTowardHistory() {
+    if (!timelineSearchCanGoTowardHistory) return;
+    _timelineSearchJumpFailedNoVisibleMatch = false;
+    _timelineSearchIndex++;
+    _requestTimelineJumpForSearchHit(
+      _timelineSearchHitIds[_timelineSearchIndex],
+    );
+    timelineSearchUiRevision.value++;
+  }
+
+  void timelineSearchTowardLatest() {
+    if (!timelineSearchCanGoTowardLatest) return;
+    _timelineSearchJumpFailedNoVisibleMatch = false;
+    _timelineSearchIndex--;
+    _requestTimelineJumpForSearchHit(
+      _timelineSearchHitIds[_timelineSearchIndex],
+    );
+    timelineSearchUiRevision.value++;
+  }
+
+  Future<void> openTimelineSearchDateJump(BuildContext context) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(now.year, now.month, now.day),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(now.year + 1, 12, 31),
+      helpText: 'Jump to first message on this day',
+    );
+    if (picked == null || !context.mounted || _disposed) return;
+    await timelineJumpToFirstMessageOnDate(picked, context);
+  }
+
+  Message? _findFirstMessageOnCalendarDay(
+    List<Message> messages,
+    DateTime targetDay,
+  ) {
+    final y = targetDay.year;
+    final m = targetDay.month;
+    final d = targetDay.day;
+    for (final msg in messages) {
+      if (msg.messageType == MessageType.timelineStart ||
+          msg.messageType == MessageType.dateDivider ||
+          msg.messageType == MessageType.readMarker) {
+        continue;
+      }
+      if (msg.messageType != MessageType.message) continue;
+      if (TimelineLocalHiddenStore.isHidden(msg)) continue;
+      DateTime local;
+      try {
+        local = DateTime.fromMillisecondsSinceEpoch(
+          msg.timestamp.toInt(),
+        ).toLocal();
+      } catch (_) {
+        continue;
+      }
+      if (local.year == y && local.month == m && local.day == d) {
+        return msg;
+      }
+    }
+    return null;
+  }
+
+  /// Loads older pages if needed, then scrolls to the chronologically first
+  /// [MessageType.message] on that calendar day (local timezone).
+  Future<void> timelineJumpToFirstMessageOnDate(
+    DateTime day,
+    BuildContext context,
+  ) async {
+    const maxPages = 80;
+    for (var page = 0; page < maxPages; page++) {
+      if (_disposed) return;
+      final st = _roomState.value;
+      if (st is! RoomStateLoaded) return;
+
+      final hit = _findFirstMessageOnCalendarDay(st.messages, day);
+      if (hit != null) {
+        final id = hit.eventId.isNotEmpty ? hit.eventId : hit.transactionId;
+        if (id.isEmpty) return;
+        PaginatedMessageListState.requestScrollToEvent(
+          jumpToTimelineEventId,
+          id,
+        );
+        timelineSearchUiRevision.value++;
+        return;
+      }
+
+      final (_, hasMore) = await fetchOlderMessages(
+        conversationId: widget.roomId,
+        limit: 50,
+      );
+      if (!hasMore) break;
+    }
+
+    if (context.mounted && !_disposed) {
+      final loc = MaterialLocalizations.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No messages on ${loc.formatFullDate(day)} in loaded history. '
+            'Load more by scrolling up, then try again.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> openForwardMessagePicker(Message message) async {
+    if (!messageCanBeForwarded(message)) return;
+    if (!context.mounted) return;
+    await showForwardMessageRoomPicker(
+      context: context,
+      sourceRoomId: widget.roomId,
+      message: message,
+      sendToRoom: (targetRoomId, text) =>
+          model.sendMessage(targetRoomId, text),
+    );
   }
 
   @override
@@ -400,18 +691,50 @@ class ConversationScreenWM
     showPendingOutgoingInvite.dispose();
     _roomMetaDebounce?.cancel();
     _markReadDebounce?.cancel();
+    _markReadDebounce = null;
+    if (_markReadFlushPending && widget.status == ChatRoomStatus.joined) {
+      unawaited(model.markTimelineAsRead(widget.roomId).catchError((_) {}));
+    }
+    _markReadFlushPending = false;
+    _timelineThumbnailPrefetchIds.clear();
     _fileSendProgress.dispose();
+    jumpToTimelineEventId.removeListener(_onJumpTimelineEventIdChanged);
     jumpToTimelineEventId.dispose();
     scrollTimelineToLatest.dispose();
+    timelineSearchController.removeListener(_onTimelineSearchTextChanged);
+    timelineSearchController.dispose();
+    timelineSearchOpen.dispose();
+    timelineSearchUiRevision.dispose();
     replyDraft.dispose();
     senderAvatarMxcByUserId.dispose();
+    memberDisplayNamesByUserId.dispose();
+    roomTypingUserIds.dispose();
+    _typingIdleTimer?.cancel();
     _disposed = true;
     super.dispose();
   }
 
   void _disposeStreams() {
+    final fn = _matrixTypingFromServiceFn;
+    if (fn != null && _matrixTypingServiceListenerAttached) {
+      MatrixService().roomListTypingUserIds.removeListener(fn);
+      _matrixTypingServiceListenerAttached = false;
+    }
     _timelineListSubscription?.cancel();
     _timelineListSubscription = null;
+    _typingSubscription?.cancel();
+    _typingSubscription = null;
+    _typingIdleTimer?.cancel();
+    _typingIdleTimer = null;
+    if (!_disposed) {
+      roomTypingUserIds.value = [];
+      // Clearing global typing must not run notifyListeners during unmount — the chat list
+      // ListenableBuilder is still locked. Apply after this frame.
+      final roomId = widget.roomId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        MatrixService().applyRoomTypingPayload(roomId, const []);
+      });
+    }
     _reconnectionTimer?.cancel();
     _reconnectionTimer = null;
     _healthCheckTimer?.cancel();
@@ -504,6 +827,7 @@ class ConversationScreenWM
             messages: list,
             roomInfo: _roomInfo!,
           );
+          _prefetchTimelineRasterThumbnails(list);
           _lastUpdateTime = DateTime.now();
         },
         (_) {
@@ -543,7 +867,10 @@ class ConversationScreenWM
   void _scheduleMarkTimelineRead() {
     if (widget.status != ChatRoomStatus.joined) return;
     _markReadDebounce?.cancel();
-    _markReadDebounce = Timer(const Duration(milliseconds: 400), () {
+    _markReadFlushPending = true;
+    _markReadDebounce = Timer(const Duration(milliseconds: 200), () {
+      _markReadDebounce = null;
+      _markReadFlushPending = false;
       if (_disposed) return;
       unawaited(model.markTimelineAsRead(widget.roomId).catchError((_) {}));
     });
@@ -551,6 +878,13 @@ class ConversationScreenWM
 
   /// When the user scrolls back to the newest messages, send a read receipt for the latest event.
   void onTimelineScrolledToBottom() => _scheduleMarkTimelineRead();
+
+  /// User scrolled away from the newest edge; drop debounced mark-read so we do not mark read on pop.
+  void onTimelineLeftNewestEdge() {
+    _markReadDebounce?.cancel();
+    _markReadDebounce = null;
+    _markReadFlushPending = false;
+  }
 
   void _scheduleRoomMetaRefresh() {
     if (widget.status != ChatRoomStatus.joined) return;
@@ -563,14 +897,61 @@ class ConversationScreenWM
 
   void _applyMemberAvatarOverridesFromDetails(RoomDetails d) {
     if (_disposed) return;
-    final map = <String, String>{};
+    final avatars = <String, String>{};
+    final names = <String, String>{};
     for (final m in d.members) {
       final a = m.avatarUrl.trim();
       if (a.isNotEmpty) {
-        map[m.userId] = a;
+        avatars[m.userId] = a;
       }
+      final dn = m.displayName.trim();
+      names[m.userId] = dn.isNotEmpty ? dn : m.userId;
     }
-    senderAvatarMxcByUserId.value = map;
+    senderAvatarMxcByUserId.value = avatars;
+    memberDisplayNamesByUserId.value = names;
+  }
+
+  String typingIndicatorLabel(List<String> userIds) {
+    if (userIds.isEmpty) return '';
+    final nameMap = memberDisplayNamesByUserId.value;
+    String labelFor(String id) {
+      final resolved = memberDisplayNameForUserId(nameMap, id);
+      if (resolved != null && resolved.isNotEmpty) return resolved;
+      final s = id.trim();
+      if (s.startsWith('@')) {
+        final c = s.indexOf(':');
+        if (c > 1) return s.substring(1, c);
+      }
+      return s.length > 22 ? '${s.substring(0, 20)}…' : s;
+    }
+
+    final labels = userIds.map(labelFor).where((s) => s.isNotEmpty).toList();
+    if (labels.isEmpty) return 'Someone is typing';
+    if (labels.length == 1) return '${labels[0]} is typing';
+    if (labels.length == 2) {
+      return '${labels[0]} and ${labels[1]} are typing';
+    }
+    if (labels.length == 3) {
+      return '${labels[0]}, ${labels[1]} and ${labels[2]} are typing';
+    }
+    final extra = labels.length - 3;
+    return '${labels[0]}, ${labels[1]}, ${labels[2]} '
+        'and $extra other${extra == 1 ? '' : 's'} are typing';
+  }
+
+  void onComposerTextChanged(String text) {
+    if (_disposed || widget.status != ChatRoomStatus.joined) return;
+    _typingIdleTimer?.cancel();
+    final t = text.trim();
+    if (t.isEmpty) {
+      unawaited(model.sendTypingNotice(widget.roomId, false));
+      return;
+    }
+    unawaited(model.sendTypingNotice(widget.roomId, true));
+    _typingIdleTimer = Timer(const Duration(seconds: 4), () {
+      if (_disposed) return;
+      unawaited(model.sendTypingNotice(widget.roomId, false));
+    });
   }
 
   Future<void> _refreshRoomMeta() async {
@@ -593,6 +974,7 @@ class ConversationScreenWM
                 messages: msgs,
                 roomInfo: snap.info,
               );
+              _prefetchTimelineRasterThumbnails(msgs);
             },
             orElse: () {},
           );
@@ -619,6 +1001,7 @@ class ConversationScreenWM
     final canReply = message.eventId.isNotEmpty;
     final canReact =
         message.eventId.isNotEmpty || message.transactionId.isNotEmpty;
+    final canForward = messageCanBeForwarded(message);
     if (isDesktopTargetPlatform()) {
       final theme = Theme.of(context);
       unawaited(
@@ -670,6 +1053,25 @@ class ConversationScreenWM
                 leading: const Icon(Icons.emoji_emotions_outlined, size: 22),
                 title: Text(
                   'React',
+                  style: TextStyle(fontFamily: MatrixTheme.fontFamily),
+                ),
+              ),
+            ),
+            PopupMenuItem<void>(
+              enabled: canForward,
+              onTap: canForward
+                  ? () {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!this.context.mounted) return;
+                        unawaited(openForwardMessagePicker(message));
+                      });
+                    }
+                  : null,
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.forward_rounded, size: 22),
+                title: Text(
+                  'Forward…',
                   style: TextStyle(fontFamily: MatrixTheme.fontFamily),
                 ),
               ),
@@ -752,6 +1154,20 @@ class ConversationScreenWM
                             onToggle: (k) => toggleTimelineReaction(message, k),
                           );
                         });
+                      }
+                    : null,
+              ),
+              ListTile(
+                leading: const Icon(Icons.forward_rounded),
+                title: Text(
+                  'Forward…',
+                  style: TextStyle(fontFamily: MatrixTheme.fontFamily),
+                ),
+                enabled: canForward,
+                onTap: canForward
+                    ? () {
+                        Navigator.pop(ctx);
+                        unawaited(openForwardMessagePicker(message));
                       }
                     : null,
               ),
@@ -1242,6 +1658,19 @@ class ConversationScreenWM
     final content = _messageController.text.trim();
     if (content.isEmpty) return;
 
+    if (!context.read<NetworkAvailability>().isOnline) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No network connection. Messages will send when you are back online.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
     final replyTarget = replyDraft.value;
     final replyToEventId = replyTarget != null && replyTarget.eventId.isNotEmpty
         ? replyTarget.eventId
@@ -1254,14 +1683,12 @@ class ConversationScreenWM
         replyToEventId: replyToEventId,
       );
       result.fold((eventId) {
+        _typingIdleTimer?.cancel();
+        unawaited(model.sendTypingNotice(widget.roomId, false));
         _messageController.clear();
         clearReplyDraft();
         scrollTimelineToLatest.value = scrollTimelineToLatest.value + 1;
         // Room list is updated in Rust on send; no need to push from Flutter.
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_disposed || !context.mounted) return;
-          _composerFocusNode.requestFocus();
-        });
       }, (_) {});
     } catch (e) {
       if (context.mounted) {
@@ -2028,6 +2455,14 @@ class ConversationScreenWM
       return;
     }
     try {
+      final camOk = await AppRuntimePermissions.ensureCamera(
+        context,
+        title: 'Camera',
+        rationale:
+            'Taking a photo to send requires camera access. You can allow it '
+            'here or pick a file instead.',
+      );
+      if (!camOk || !context.mounted) return;
       final picker = ImagePicker();
       final XFile? picked = await picker.pickImage(
         source: ImageSource.camera,
@@ -2077,6 +2512,14 @@ class ConversationScreenWM
       return;
     }
     try {
+      final camOk = await AppRuntimePermissions.ensureCamera(
+        context,
+        title: 'Camera',
+        rationale:
+            'Recording a video to send requires camera access. You can allow '
+            'it here or pick a file instead.',
+      );
+      if (!camOk || !context.mounted) return;
       final picker = ImagePicker();
       final XFile? picked = await picker.pickVideo(
         source: ImageSource.camera,
@@ -2415,6 +2858,21 @@ class ConversationScreenWM
 
   void cancelFileSend() {
     model.cancelTimelineFileSend();
+  }
+
+  Future<void> showCallOptions() async {
+    if (!context.mounted || widget.status != ChatRoomStatus.joined) return;
+    final ri = _roomState.value.maybeWhen(
+      loaded: (_, ri) => ri,
+      orElse: () => null,
+    );
+    if (ri == null) return;
+    await showMatrixCallOptionsSheet(
+      context: context,
+      roomId: widget.roomId,
+      roomName: ri.name.isNotEmpty ? ri.name : widget.roomName,
+      isDirectRoom: ri.isDirect,
+    );
   }
 
   Future<void> showRoomInfo() async {
@@ -2791,6 +3249,34 @@ class ConversationScreenWM
     return false;
   }
 
+  static const int _kTimelineThumbnailPrefetchCap = 160;
+
+  /// Fire-and-forget thumbnail fetch so rows often hit a warm cache/decrypt path.
+  void _prefetchTimelineRasterThumbnails(List<Message> list) {
+    if (_disposed || widget.status != ChatRoomStatus.joined) return;
+    var n = 0;
+    for (final m in list) {
+      if (n >= _kTimelineThumbnailPrefetchCap) break;
+      if (m.messageType != MessageType.message) continue;
+      if (m.isRedacted) continue;
+      if (TimelineLocalHiddenStore.isHidden(m)) continue;
+      switch (m.roomMsgKind) {
+        case RoomMessageKind.image:
+        case RoomMessageKind.video:
+        case RoomMessageKind.file:
+          break;
+        default:
+          continue;
+      }
+      final id = m.eventId.isNotEmpty ? m.eventId : m.transactionId;
+      if (id.isEmpty) continue;
+      if (_timelineThumbnailPrefetchIds.contains(id)) continue;
+      _timelineThumbnailPrefetchIds.add(id);
+      n++;
+      unawaited(fetchRoomMessageMedia(id, thumbnail: true).then((_) {}));
+    }
+  }
+
   void _listenToChatUpdates() {
     LoggingService.info(
       'CONVERSATION_SCREEN',
@@ -2849,6 +3335,7 @@ class ConversationScreenWM
               messages: list,
               roomInfo: _roomInfo ?? roomInfo,
             );
+            _prefetchTimelineRasterThumbnails(list);
             if (widget.status == ChatRoomStatus.joined) {
               _scheduleMarkTimelineRead();
             }
@@ -2876,6 +3363,29 @@ class ConversationScreenWM
       widget.roomId,
       _timelineListSubscription!,
     );
+
+    final typingFn = _matrixTypingFromServiceFn;
+    if (typingFn != null) {
+      if (!_matrixTypingServiceListenerAttached) {
+        MatrixService().roomListTypingUserIds.addListener(typingFn);
+        _matrixTypingServiceListenerAttached = true;
+      }
+      typingFn();
+    }
+
+    _typingSubscription?.cancel();
+    _typingSubscription = model.subscribeToRoomTyping(widget.roomId).listen(
+      (ids) {
+        if (_disposed) return;
+        MatrixService().applyRoomTypingPayload(widget.roomId, List<String>.from(ids));
+      },
+      onError: (_) {
+        if (!_disposed) {
+          MatrixService().applyRoomTypingPayload(widget.roomId, const []);
+        }
+      },
+    );
+
     _startHealthCheck();
   }
 

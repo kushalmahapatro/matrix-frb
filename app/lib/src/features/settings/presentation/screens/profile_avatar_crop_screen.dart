@@ -4,11 +4,19 @@ import 'package:crop_your_image/crop_your_image.dart';
 import 'package:flutter/material.dart';
 import 'package:matrix/src/core/presentation/widgets/terminal_container.dart';
 
-/// Square crop for profile photos; user pans/zooms and confirms the visible area.
+/// Square crop for avatars; user pans/zooms and confirms the visible area.
 class ProfileAvatarCropScreen extends StatefulWidget {
-  const ProfileAvatarCropScreen({super.key, required this.imageBytes});
+  const ProfileAvatarCropScreen({
+    super.key,
+    required this.imageBytes,
+    this.title = 'CROP PHOTO',
+    this.hintText =
+        'Pinch and drag to position. The square area is what others see in your profile.',
+  });
 
   final Uint8List imageBytes;
+  final String title;
+  final String hintText;
 
   @override
   State<ProfileAvatarCropScreen> createState() =>
@@ -23,14 +31,14 @@ class _ProfileAvatarCropScreenState extends State<ProfileAvatarCropScreen> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return TerminalScreen(
-      title: 'CROP PHOTO',
+      title: widget.title,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: Text(
-              'Pinch and drag to position. The square area is what others see in your profile.',
+              widget.hintText,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),

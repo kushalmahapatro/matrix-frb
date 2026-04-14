@@ -1,0 +1,35 @@
+name: matrix_workspace
+description: "Matrix chat Application"
+publish_to: 'none'
+version: 0.0.1+2
+
+environment:
+  sdk: ^3.10.0
+
+workspace:
+  - app
+  - sdk
+
+dependencies:
+  media:
+    git:
+      url: https://github.com/kushalmahapatro/media-rs.git
+      ref: 4a390db93e8fda2dc30c4c51296fca6dc5313540
+
+dependency_overrides:
+  media_dart:
+    git:
+      url: https://github.com/kushalmahapatro/media-rs.git
+      ref: 4a390db93e8fda2dc30c4c51296fca6dc5313540
+      path: media_dart
+  media_flutter:
+    git:
+      url: https://github.com/kushalmahapatro/media-rs.git
+      ref: 4a390db93e8fda2dc30c4c51296fca6dc5313540
+      path: media_flutter
+  archive: ^4.0.7
+
+hooks:
+  user_defines:
+    media:
+      localBuild: false

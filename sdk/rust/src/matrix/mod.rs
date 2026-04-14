@@ -1,6 +1,8 @@
 pub mod attachment_thumbnails;
+pub mod call_decline_watch;
 pub mod authentication;
 pub mod document_preview;
+pub mod element_call;
 pub mod client;
 pub mod disk_media_store;
 pub mod file_send_progress;

@@ -205,7 +205,8 @@ impl Write for BroadcastLogWriter {
     fn flush(&mut self) -> std::io::Result<()> {
         if !self.buf.is_empty() {
             let full = std::mem::take(&mut self.buf);
-            let _ = self.tx.send(full.trim_end_matches('\n').to_string());
+            // `trim_end()` is Unicode-safe; avoid `trim_end_matches` edge cases under Drop.
+            let _ = self.tx.send(full.trim_end().to_string());
         }
         Ok(())
     }
@@ -215,7 +216,7 @@ impl Drop for BroadcastLogWriter {
     fn drop(&mut self) {
         if !self.buf.is_empty() {
             let full = std::mem::take(&mut self.buf);
-            let _ = self.tx.send(full.trim_end_matches('\n').to_string());
+            let _ = self.tx.send(full.trim_end().to_string());
         }
     }
 }

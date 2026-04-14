@@ -9,8 +9,10 @@ import 'package:matrix/src/core/desktop/desktop_window_coordinator.dart';
 import 'package:matrix/src/core/layout/app_layout_variant.dart';
 import 'package:matrix/src/core/layout/app_layout_actions.dart';
 import 'package:matrix/src/core/layout/messaging_layout_preference.dart';
+import 'package:matrix/src/core/muted_chats_store.dart';
 import 'package:provider/provider.dart';
 import 'package:matrix/src/core/logging_service.dart';
+import 'package:matrix/src/core/network/network_availability.dart';
 import 'package:matrix/src/core/navigation/navigator_service.dart';
 import 'package:matrix/src/core/state_management/base_state_widget_model.dart';
 import 'package:matrix/src/core/timeline_local_hidden_store.dart';
@@ -36,11 +38,23 @@ class MessagingWorkspaceWM
   final GlobalKey<NavigatorState> nestedNavigatorKey =
       GlobalKey<NavigatorState>();
 
+  @override
+  NavigatorState? get nestedShellNavigator => nestedNavigatorKey.currentState;
+
   final ValueNotifier<ChatState> chatState = ValueNotifier(
     const ChatState.loading(),
   );
   final ValueNotifier<ChatType> selectedChatType = ValueNotifier(ChatType.all);
   final ValueNotifier<Chat?> selectedRoom = ValueNotifier<Chat?>(null);
+
+  /// Compact (phone) home: 0 = Chats, 1 = Calls.
+  final ValueNotifier<int> mobileHomeTabIndex = ValueNotifier(0);
+
+  /// Desktop split / narrow-desktop shell: 0 = Chats, 1 = Calls (sidebar or compact pane).
+  final ValueNotifier<int> desktopSidebarTabIndex = ValueNotifier(0);
+
+  /// Filters the room list (name, last line, id). Notifies on each keystroke.
+  late final TextEditingController roomListSearchController;
 
   /// Keyboard highlight in the room list (desktop). Separate from [selectedRoom].
   final ValueNotifier<String?> roomListKeyboardFocusId = ValueNotifier<String?>(
@@ -87,6 +101,13 @@ class MessagingWorkspaceWM
 
   StreamSubscription<List<Chat>>? _roomListSubscription;
   bool _isSubscribed = false;
+
+  void _onSelectedRoomForTypingResync() {
+    chatState.value.maybeWhen(
+      loaded: _syncTypingSubscriptionsForRooms,
+      orElse: () {},
+    );
+  }
   Timer? _reconnectionTimer;
   Timer? _healthCheckTimer;
   int _reconnectionAttempts = 0;
@@ -278,6 +299,9 @@ class MessagingWorkspaceWM
   ) async {
     if (!isDesktopTargetPlatform()) return;
     if (!anchorContext.mounted) return;
+    await MutedChatsStore.instance.ensureLoaded();
+    if (!anchorContext.mounted) return;
+    final muted = MutedChatsStore.instance.isMuted(chat.id);
     final canNewWindow =
         !kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.linux ||
@@ -293,6 +317,10 @@ class MessagingWorkspaceWM
             value: 'window',
             child: Text('Open in new window'),
           ),
+        PopupMenuItem<String>(
+          value: muted ? 'unmute' : 'mute',
+          child: Text(muted ? 'Unmute chat' : 'Mute chat'),
+        ),
       ],
     );
     if (!anchorContext.mounted) return;
@@ -303,14 +331,72 @@ class MessagingWorkspaceWM
       case 'window':
         onRoomDoubleTap(shellLayout, chat);
         break;
+      case 'mute':
+        await MutedChatsStore.instance.setMuted(chat.id, true);
+        break;
+      case 'unmute':
+        await MutedChatsStore.instance.setMuted(chat.id, false);
+        break;
       default:
         break;
     }
   }
 
+  /// Touch: long-press a room row for mute / unmute (desktop uses the context menu).
+  Future<void> showMobileRoomLongPressMenu(
+    BuildContext context,
+    Chat chat,
+  ) async {
+    await MutedChatsStore.instance.ensureLoaded();
+    if (!context.mounted) return;
+    final muted = MutedChatsStore.instance.isMuted(chat.id);
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(
+                  muted
+                      ? Icons.notifications_active_outlined
+                      : Icons.notifications_off_outlined,
+                ),
+                title: Text(muted ? 'Unmute chat' : 'Mute chat'),
+                subtitle: Text(
+                  muted
+                      ? 'Show unread count and notifications again'
+                      : 'Hide unread badge and notifications for this room',
+                  style: theme.textTheme.bodySmall,
+                ),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await MutedChatsStore.instance.setMuted(chat.id, !muted);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void onChatTypeSelected(ChatType t) => selectedChatType.value = t;
 
   Future<void> createRoom() async {
+    if (!context.read<NetworkAvailability>().isOnline) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Connect to the internet to create a room.'),
+          ),
+        );
+      }
+      return;
+    }
     final result = await openCreateChat(context);
     if (result != null) {
       await Future<void>.delayed(const Duration(seconds: 2));
@@ -333,6 +419,14 @@ class MessagingWorkspaceWM
   }
 
   void openSettings() => unawaited(openSettingsFrom(context));
+
+  void openCallHistory() {
+    if (!isDesktopTargetPlatform()) {
+      mobileHomeTabIndex.value = 1;
+      return;
+    }
+    desktopSidebarTabIndex.value = 1;
+  }
 
   Future<void> refreshRecoveryBannerState() async {
     try {
@@ -407,11 +501,20 @@ class MessagingWorkspaceWM
   @override
   void initWidgetModel() {
     super.initWidgetModel();
+    if (mobileHomeTabIndex.value > 1) {
+      mobileHomeTabIndex.value = 0;
+    }
+    if (desktopSidebarTabIndex.value > 1) {
+      desktopSidebarTabIndex.value = 0;
+    }
+    roomListSearchController = TextEditingController();
     unawaited(TimelineLocalHiddenStore.ensureLoaded());
+    unawaited(MutedChatsStore.instance.ensureLoaded());
     unawaited(_loadBannerDontShowAgainFromPrefs());
     unawaited(refreshRecoveryBannerState());
     _loadAllChats();
     _listenToChatUpdates();
+    selectedRoom.addListener(_onSelectedRoomForTypingResync);
   }
 
   @override
@@ -473,6 +576,7 @@ class MessagingWorkspaceWM
   void dispose() {
     _emptyRoomListSettleTimer?.cancel();
     _isSubscribed = false;
+    MatrixService().clearRoomTypingSubscriptions();
     MatrixService().unregisterRoomUpdatesSubscription();
     _roomListSubscription?.cancel();
     _roomListSubscription = null;
@@ -480,6 +584,9 @@ class MessagingWorkspaceWM
     _stopHealthCheck();
     roomListKeyboardFocusId.dispose();
     roomListFocusNode.dispose();
+    roomListSearchController.dispose();
+    mobileHomeTabIndex.dispose();
+    desktopSidebarTabIndex.dispose();
     chatState.dispose();
     selectedChatType.dispose();
     selectedRoom.dispose();
@@ -487,12 +594,35 @@ class MessagingWorkspaceWM
     recoveryBannerDismissedThisSession.dispose();
     recoveryBannerDontShowAgainPersisted.dispose();
     recoveryServerBackupExists.dispose();
+    selectedRoom.removeListener(_onSelectedRoomForTypingResync);
     super.dispose();
   }
 
   Future<void> _loadAllChats() async {
     chatState.value = const ChatState.loading();
     _listenToChatUpdates();
+  }
+
+  void _syncTypingSubscriptionsForRooms(List<Chat> chats) {
+    final joined = chats
+        .where((c) => c.status == ChatRoomStatus.joined)
+        .toList(growable: false);
+    joined.sort((a, b) {
+      final ta = a.lastActivity?.millisecondsSinceEpoch ?? 0;
+      final tb = b.lastActivity?.millisecondsSinceEpoch ?? 0;
+      return tb.compareTo(ta);
+    });
+    final sel = selectedRoom.value?.id;
+    final ordered = <String>[];
+    if (sel != null &&
+        sel.isNotEmpty &&
+        joined.any((c) => c.id == sel)) {
+      ordered.add(sel);
+    }
+    for (final c in joined) {
+      if (c.id != sel) ordered.add(c.id);
+    }
+    MatrixService().syncRoomTypingSubscriptions(ordered);
   }
 
   void _onRoomList(List<Chat> list) {
@@ -503,6 +633,7 @@ class MessagingWorkspaceWM
     _emptyRoomListSettleTimer?.cancel();
 
     if (list.isEmpty) {
+      MatrixService().syncRoomTypingSubscriptions(const []);
       final hadRooms = chatState.value.maybeWhen(
         loaded: (rooms) => rooms.isNotEmpty,
         orElse: () => false,
@@ -516,6 +647,7 @@ class MessagingWorkspaceWM
       chatState.value = const ChatState.loading();
       _emptyRoomListSettleTimer = Timer(_emptyListSettleDuration, () {
         if (!_isSubscribed || !context.mounted) return;
+        MatrixService().syncRoomTypingSubscriptions(const []);
         chatState.value = const ChatState.loaded(rooms: []);
         selectedChatType.value = selectedChatType.value;
       });
@@ -526,6 +658,7 @@ class MessagingWorkspaceWM
     chatState.value = ChatState.loaded(rooms: list);
     selectedChatType.value = selectedChatType.value;
     _lastUpdateTime = DateTime.now();
+    _syncTypingSubscriptionsForRooms(list);
   }
 
   void _listenToChatUpdates() {
@@ -565,6 +698,9 @@ class MessagingWorkspaceWM
 
   Future<Uint8List?> loadListingThumbnail(String roomId, Message message) =>
       model.loadListingThumbnail(roomId, message);
+
+  Future<Uint8List?> loadRoomAvatarThumbnail(String mxcUri) =>
+      model.loadRoomAvatarThumbnail(mxcUri);
 
   Future<void> _restartSyncAndResubscribe() async {
     try {

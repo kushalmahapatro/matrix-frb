@@ -82,6 +82,11 @@ typedef struct wire_cst_tracing_configuration {
   struct wire_cst_tracing_file_configuration *write_to_files;
 } wire_cst_tracing_configuration;
 
+typedef struct wire_cst_list_prim_i_16_loose {
+  int16_t *ptr;
+  int32_t len;
+} wire_cst_list_prim_i_16_loose;
+
 typedef struct wire_cst_message_reaction_entry {
   struct wire_cst_list_prim_u_8_strict *key;
   uint32_t count;
@@ -138,6 +143,7 @@ typedef struct wire_cst_room_update {
   struct wire_cst_list_prim_u_8_strict *room_id;
   struct wire_cst_list_prim_u_8_strict *raw_name;
   struct wire_cst_list_prim_u_8_strict *display_name;
+  struct wire_cst_list_prim_u_8_strict *avatar_url;
   bool *is_dm;
   int32_t update_type;
   uint64_t *unread_notifications;
@@ -151,6 +157,11 @@ typedef struct wire_cst_list_message {
   struct wire_cst_message *ptr;
   int32_t len;
 } wire_cst_list_message;
+
+typedef struct wire_cst_list_prim_i_16_strict {
+  int16_t *ptr;
+  int32_t len;
+} wire_cst_list_prim_i_16_strict;
 
 typedef struct wire_cst_room_banned_user_row {
   struct wire_cst_list_prim_u_8_strict *user_id;
@@ -178,6 +189,18 @@ typedef struct wire_cst_list_room_file_item {
   struct wire_cst_room_file_item *ptr;
   int32_t len;
 } wire_cst_list_room_file_item;
+
+typedef struct wire_cst_room_invited_member_row {
+  struct wire_cst_list_prim_u_8_strict *user_id;
+  struct wire_cst_list_prim_u_8_strict *user_id_display;
+  struct wire_cst_list_prim_u_8_strict *display_name;
+  struct wire_cst_list_prim_u_8_strict *avatar_url;
+} wire_cst_room_invited_member_row;
+
+typedef struct wire_cst_list_room_invited_member_row {
+  struct wire_cst_room_invited_member_row *ptr;
+  int32_t len;
+} wire_cst_list_room_invited_member_row;
 
 typedef struct wire_cst_room_link_item {
   struct wire_cst_list_prim_u_8_strict *event_id;
@@ -275,6 +298,7 @@ typedef struct wire_cst_room_details {
   struct wire_cst_list_prim_u_8_strict *room_id;
   struct wire_cst_list_prim_u_8_strict *display_name;
   struct wire_cst_list_prim_u_8_strict *topic;
+  struct wire_cst_list_prim_u_8_strict *room_avatar_url;
   bool is_direct;
   bool is_encrypted;
   uint32_t member_count;
@@ -282,12 +306,17 @@ typedef struct wire_cst_room_details {
   struct wire_cst_list_prim_u_8_strict *current_user_id;
   bool current_user_is_admin;
   bool current_user_is_moderator;
+  bool current_user_can_set_room_avatar;
   bool current_user_can_invite;
   bool current_user_can_ban;
   int64_t power_level_invite_required;
   int64_t power_level_kick_required;
   int64_t power_level_ban_required;
   struct wire_cst_list_room_banned_user_row *banned_users;
+  struct wire_cst_list_room_invited_member_row *invited_members;
+  uint32_t media_index_count;
+  uint32_t links_index_count;
+  uint32_t polls_index_count;
 } wire_cst_room_details;
 
 typedef struct wire_cst_sync_notification_summary {
@@ -300,6 +329,7 @@ typedef struct wire_cst_sync_notification_summary {
   bool is_highlight;
   bool is_noisy;
   struct wire_cst_list_prim_u_8_strict *event_id;
+  bool incoming_call_ring;
 } wire_cst_sync_notification_summary;
 
 typedef struct wire_cst_user_search_result {
@@ -308,6 +338,10 @@ typedef struct wire_cst_user_search_result {
 } wire_cst_user_search_result;
 
 void frbgen_matrix_sdk_wire__crate__logger__platform__FieldsFormatterForFiles_default(int64_t port_);
+
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_active_call_participant_ids(int64_t port_,
+                                                                                                 uintptr_t that,
+                                                                                                 struct wire_cst_list_prim_u_8_strict *room_id);
 
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_apply_room_power_level_settings(int64_t port_,
                                                                                                      uintptr_t that,
@@ -337,9 +371,34 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_create_grou
                                                                                        struct wire_cst_list_prim_u_8_strict *name,
                                                                                        struct wire_cst_list_String *user_ids);
 
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_decline_rtc_call(int64_t port_,
+                                                                                      uintptr_t that,
+                                                                                      struct wire_cst_list_prim_u_8_strict *room_id,
+                                                                                      struct wire_cst_list_prim_u_8_strict *rtc_notification_event_id);
+
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_element_call_send_from_webview(int64_t port_,
+                                                                                                    uintptr_t that,
+                                                                                                    struct wire_cst_list_prim_u_8_strict *json);
+
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_element_call_webview_url(int64_t port_,
+                                                                                              uintptr_t that,
+                                                                                              struct wire_cst_list_prim_u_8_strict *room_id,
+                                                                                              struct wire_cst_list_prim_u_8_strict *element_call_base_url,
+                                                                                              struct wire_cst_list_prim_u_8_strict *widget_id,
+                                                                                              bool is_direct_room,
+                                                                                              bool join_existing_call,
+                                                                                              bool voice_only,
+                                                                                              struct wire_cst_list_prim_u_8_strict *client_id,
+                                                                                              struct wire_cst_list_prim_u_8_strict *language_tag,
+                                                                                              struct wire_cst_list_prim_u_8_strict *theme);
+
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_enable_recovery_with_passphrase(int64_t port_,
                                                                                                      uintptr_t that,
                                                                                                      struct wire_cst_list_prim_u_8_strict *passphrase);
+
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_end_call_decline_watcher_for_rtc_notification(int64_t port_,
+                                                                                                                   struct wire_cst_list_prim_u_8_strict *room_id,
+                                                                                                                   struct wire_cst_list_prim_u_8_strict *rtc_notification_event_id);
 
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_fetch_room_message_media(int64_t port_,
                                                                                               uintptr_t that,
@@ -478,6 +537,10 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_register_pu
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_remove_profile_avatar(int64_t port_,
                                                                                            uintptr_t that);
 
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_remove_room_avatar(int64_t port_,
+                                                                                        uintptr_t that,
+                                                                                        struct wire_cst_list_prim_u_8_strict *room_id);
+
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_restart_sync_service(int64_t port_,
                                                                                           uintptr_t that);
 
@@ -486,9 +549,16 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_retry_faile
                                                                                        struct wire_cst_list_prim_u_8_strict *room_id,
                                                                                        struct wire_cst_list_prim_u_8_strict *transaction_id);
 
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_room_has_active_call(int64_t port_,
+                                                                                          uintptr_t that,
+                                                                                          struct wire_cst_list_prim_u_8_strict *room_id);
+
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_room_list_subscribe_to_rooms(int64_t port_,
                                                                                                   uintptr_t that,
                                                                                                   struct wire_cst_list_prim_u_8_strict *room_id);
+
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_rtc_foci_livekit_service_urls(int64_t port_,
+                                                                                                   uintptr_t that);
 
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_search_users(int64_t port_,
                                                                                   uintptr_t that,
@@ -519,6 +589,11 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_reply(
                                                                                 struct wire_cst_list_prim_u_8_strict *content,
                                                                                 struct wire_cst_list_prim_u_8_strict *reply_to_event_id);
 
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_rtc_ring_notification(int64_t port_,
+                                                                                                uintptr_t that,
+                                                                                                struct wire_cst_list_prim_u_8_strict *room_id,
+                                                                                                bool voice_only);
+
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_timeline_file(int64_t port_,
                                                                                         uintptr_t that,
                                                                                         struct wire_cst_list_prim_u_8_strict *room_id,
@@ -540,6 +615,11 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_timeli
                                                                                                       bool audio_as_voice_message,
                                                                                                       struct wire_cst_list_prim_u_8_strict *progress);
 
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_typing_notice(int64_t port_,
+                                                                                        uintptr_t that,
+                                                                                        struct wire_cst_list_prim_u_8_strict *room_id,
+                                                                                        bool typing);
+
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_display_name(int64_t port_,
                                                                                       uintptr_t that,
                                                                                       struct wire_cst_list_prim_u_8_strict *display_name);
@@ -554,8 +634,30 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_room_me
                                                                                                  struct wire_cst_list_prim_u_8_strict *user_id,
                                                                                                  int64_t power_level);
 
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_start_call_decline_watcher(int64_t port_,
+                                                                                                uintptr_t that,
+                                                                                                struct wire_cst_list_prim_u_8_strict *room_id,
+                                                                                                struct wire_cst_list_prim_u_8_strict *rtc_notification_event_id,
+                                                                                                struct wire_cst_list_prim_u_8_strict *sink);
+
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_start_element_call_session(int64_t port_,
+                                                                                                uintptr_t that,
+                                                                                                struct wire_cst_list_prim_u_8_strict *room_id,
+                                                                                                struct wire_cst_list_prim_u_8_strict *element_call_base_url,
+                                                                                                struct wire_cst_list_prim_u_8_strict *widget_id,
+                                                                                                bool is_direct_room,
+                                                                                                bool join_existing_call,
+                                                                                                bool voice_only,
+                                                                                                struct wire_cst_list_prim_u_8_strict *client_id,
+                                                                                                struct wire_cst_list_prim_u_8_strict *language_tag,
+                                                                                                struct wire_cst_list_prim_u_8_strict *theme,
+                                                                                                struct wire_cst_list_prim_u_8_strict *to_widget);
+
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_start_sync_service(int64_t port_,
                                                                                         uintptr_t that);
+
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_stop_element_call_session(int64_t port_,
+                                                                                               uintptr_t that);
 
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_sync_state(int64_t port_,
                                                                                           uintptr_t that,
@@ -568,6 +670,11 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_t
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_list(int64_t port_,
                                                                                             uintptr_t that,
                                                                                             struct wire_cst_list_prim_u_8_strict *stream);
+
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_typing(int64_t port_,
+                                                                                              uintptr_t that,
+                                                                                              struct wire_cst_list_prim_u_8_strict *room_id,
+                                                                                              struct wire_cst_list_prim_u_8_strict *stream);
 
 void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_sync_notifications(int64_t port_,
                                                                                                      uintptr_t that,
@@ -608,6 +715,12 @@ void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_upload_prof
                                                                                            struct wire_cst_list_prim_u_8_strict *mime_type,
                                                                                            struct wire_cst_list_prim_u_8_loose *data);
 
+void frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_upload_room_avatar(int64_t port_,
+                                                                                        uintptr_t that,
+                                                                                        struct wire_cst_list_prim_u_8_strict *room_id,
+                                                                                        struct wire_cst_list_prim_u_8_strict *mime_type,
+                                                                                        struct wire_cst_list_prim_u_8_loose *data);
+
 void frbgen_matrix_sdk_wire__crate__api__document_preview__document_preview_json(int64_t port_,
                                                                                  struct wire_cst_list_prim_u_8_strict *extension,
                                                                                  struct wire_cst_list_prim_u_8_loose *data);
@@ -615,6 +728,37 @@ void frbgen_matrix_sdk_wire__crate__api__document_preview__document_preview_json
 void frbgen_matrix_sdk_wire__crate__logger__platform__init_platform(int64_t port_,
                                                                     struct wire_cst_tracing_configuration *config,
                                                                     bool use_lightweight_tokio_runtime);
+
+void frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_close(int64_t port_);
+
+void frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_connect(int64_t port_,
+                                                                                       struct wire_cst_list_prim_u_8_strict *url,
+                                                                                       struct wire_cst_list_prim_u_8_strict *token,
+                                                                                       bool voice_only);
+
+void frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_connection_state(int64_t port_);
+
+void frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_publish_local_camera_track(int64_t port_);
+
+void frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_push_audio_pcm16(int64_t port_,
+                                                                                                struct wire_cst_list_prim_i_16_loose *pcm,
+                                                                                                uint32_t sample_rate,
+                                                                                                uint32_t num_channels);
+
+void frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_push_video_i420(int64_t port_,
+                                                                                               uint32_t width,
+                                                                                               uint32_t height,
+                                                                                               struct wire_cst_list_prim_u_8_loose *data,
+                                                                                               int64_t timestamp_us,
+                                                                                               int32_t rotation_degrees);
+
+void frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_remote_participant_count(int64_t port_);
+
+void frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_set_camera_muted(int64_t port_,
+                                                                                                bool muted);
+
+void frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_set_microphone_muted(int64_t port_,
+                                                                                                    bool muted);
 
 void frbgen_matrix_sdk_wire__crate__logger__tracing__log_event(int64_t port_,
                                                                struct wire_cst_list_prim_u_8_strict *file,
@@ -674,6 +818,10 @@ struct wire_cst_list_message_reaction_entry *frbgen_matrix_sdk_cst_new_list_mess
 
 struct wire_cst_list_prim_f_32_strict *frbgen_matrix_sdk_cst_new_list_prim_f_32_strict(int32_t len);
 
+struct wire_cst_list_prim_i_16_loose *frbgen_matrix_sdk_cst_new_list_prim_i_16_loose(int32_t len);
+
+struct wire_cst_list_prim_i_16_strict *frbgen_matrix_sdk_cst_new_list_prim_i_16_strict(int32_t len);
+
 struct wire_cst_list_prim_u_8_loose *frbgen_matrix_sdk_cst_new_list_prim_u_8_loose(int32_t len);
 
 struct wire_cst_list_prim_u_8_strict *frbgen_matrix_sdk_cst_new_list_prim_u_8_strict(int32_t len);
@@ -681,6 +829,8 @@ struct wire_cst_list_prim_u_8_strict *frbgen_matrix_sdk_cst_new_list_prim_u_8_st
 struct wire_cst_list_room_banned_user_row *frbgen_matrix_sdk_cst_new_list_room_banned_user_row(int32_t len);
 
 struct wire_cst_list_room_file_item *frbgen_matrix_sdk_cst_new_list_room_file_item(int32_t len);
+
+struct wire_cst_list_room_invited_member_row *frbgen_matrix_sdk_cst_new_list_room_invited_member_row(int32_t len);
 
 struct wire_cst_list_room_link_item *frbgen_matrix_sdk_cst_new_list_room_link_item(int32_t len);
 
@@ -719,10 +869,13 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_message);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_message_reaction_entry);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_prim_f_32_strict);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_prim_i_16_loose);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_prim_i_16_strict);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_prim_u_8_loose);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_prim_u_8_strict);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_room_banned_user_row);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_room_file_item);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_room_invited_member_row);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_room_link_item);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_room_member_row);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_list_room_poll_item);
@@ -736,6 +889,16 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerFieldsFormatterForFiles);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMatrixClient);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__document_preview__document_preview_json);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_close);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_connect);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_connection_state);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_publish_local_camera_track);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_push_audio_pcm16);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_push_video_i420);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_remote_participant_count);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_set_camera_muted);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_set_microphone_muted);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_active_call_participant_ids);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_apply_room_power_level_settings);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_backup_exists_on_server);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_ban_room_member);
@@ -743,7 +906,11 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_configure);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_create_direct_room);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_create_group_room);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_decline_rtc_call);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_element_call_send_from_webview);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_element_call_webview_url);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_enable_recovery_with_passphrase);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_end_call_decline_watcher_for_rtc_notification);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_fetch_room_message_media);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_fetch_user_avatar_thumbnail);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_get_all_rooms);
@@ -776,23 +943,32 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_register);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_register_pusher);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_remove_profile_avatar);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_remove_room_avatar);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_restart_sync_service);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_retry_failed_send);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_room_has_active_call);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_room_list_subscribe_to_rooms);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_rtc_foci_livekit_service_urls);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_search_users);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_message);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_poll);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_poll_response);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_reply);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_rtc_ring_notification);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_timeline_file);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_timeline_file_with_progress);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_send_typing_notice);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_display_name);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_profile_initials);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_set_room_member_power_level);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_start_call_decline_watcher);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_start_element_call_session);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_start_sync_service);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_stop_element_call_session);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_sync_state);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_all_room_updates);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_list);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_room_typing);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_sync_notifications);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_list);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_subscribe_to_timeline_updates);
@@ -801,6 +977,7 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_unban_room_member);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_unregister_pusher);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_upload_profile_avatar);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_upload_room_avatar);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__logger__platform__FieldsFormatterForFiles_default);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__logger__platform__init_platform);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__logger__platform__reload_tracing_file_writer);

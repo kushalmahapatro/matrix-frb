@@ -1,10 +1,13 @@
+import 'dart:async';
+
 import 'package:elementary/elementary.dart';
 import 'package:flutter/material.dart';
 import 'package:graphx/graphx.dart';
+import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
 import 'package:matrix/src/core/file_path_service.dart';
 import 'package:matrix/src/core/navigation/navigator_service.dart';
 import 'package:matrix/src/features/auth/presentation/screens/login_screen.dart';
-import 'package:matrix/src/features/chat_lisitng/presentation/screens/chat_listing_screen.dart';
+import 'package:matrix/src/core/permissions/permission_onboarding_navigation.dart';
 import 'package:matrix/src/features/splash/domain/models/matrix_characters.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
 import 'package:matrix/src/features/splash/presentation/screen/splash_screen_wm.dart';
@@ -29,39 +32,59 @@ class SplashScreen extends ElementaryWidget<SplashScreenWM>
         // layout at 0×0 on some routes/embedders (black screen + GraphX warning).
         return Scaffold(
           backgroundColor: theme.colorScheme.surface,
-          // Explicit size from layout avoids GraphX's first-frame 0×0 warning when
-          // the embedder reports an empty size before the initial layout pass.
-          body: LayoutBuilder(
-            builder: (context, constraints) {
-              final w = constraints.maxWidth;
-              final h = constraints.maxHeight;
-              if (!constraints.hasBoundedWidth ||
-                  !constraints.hasBoundedHeight ||
-                  w <= 0 ||
-                  h <= 0) {
-                // Empty placeholder on dark scaffold reads as a black screen.
-                return Center(
-                  child: CircularProgressIndicator(
-                    color: MatrixTheme.matrixGreen,
+          // GraphX / SceneBuilderWidget often paints nothing on desktop embedders
+          // (looks like a black screen) even when constraints are valid; use Flutter
+          // chrome here. Mobile keeps the Matrix rain.
+          body: !kIsWeb && isDesktopTargetPlatform()
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        color: MatrixTheme.matrixGreen,
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Loading…',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
                   ),
-                );
-              }
-              return SizedBox(
-                width: w,
-                height: h,
-                child: SceneBuilderWidget(
-                  builder: () => SceneController(
-                    back: MatrixRainDrawingScene(
-                      matrixCharacters,
-                      backgroundColor: theme.colorScheme.surface,
-                      textColor: MatrixTheme.matrixGreen,
-                    ),
-                  ),
-                  autoSize: false,
+                )
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final w = constraints.maxWidth;
+                    final h = constraints.maxHeight;
+                    if (!constraints.hasBoundedWidth ||
+                        !constraints.hasBoundedHeight ||
+                        w <= 0 ||
+                        h <= 0) {
+                      // Empty placeholder on dark scaffold reads as a black screen.
+                      return Center(
+                        child: CircularProgressIndicator(
+                          color: MatrixTheme.matrixGreen,
+                        ),
+                      );
+                    }
+                    return SizedBox(
+                      width: w,
+                      height: h,
+                      child: SceneBuilderWidget(
+                        builder: () => SceneController(
+                          back: MatrixRainDrawingScene(
+                            matrixCharacters,
+                            backgroundColor: theme.colorScheme.surface,
+                            textColor: MatrixTheme.matrixGreen,
+                          ),
+                        ),
+                        autoSize: false,
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
         );
       },
     );
@@ -69,7 +92,7 @@ class SplashScreen extends ElementaryWidget<SplashScreenWM>
 
   @override
   void navigateToChatScreen(BuildContext context) {
-    NavigatorService.pushReplacement(context, const ChatListingScreen());
+    unawaited(navigateHomeAfterSessionReady(context));
   }
 
   @override

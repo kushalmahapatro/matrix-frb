@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:matrix/src/core/calls/native_livekit_call_banner.dart';
+import 'package:matrix/src/core/calls/native_livekit_call_host.dart';
 import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
 import 'package:matrix/src/theme/matrix_theme.dart';
 
@@ -10,6 +14,7 @@ class TerminalContainer extends StatelessWidget {
   final bool showBorder;
   final bool showGlow;
   final Color? borderColor;
+
   /// Panel fill; defaults to [ColorScheme.surfaceContainerHighest].
   final Color? backgroundColor;
   final double? width;
@@ -60,6 +65,37 @@ class TerminalContainer extends StatelessWidget {
   }
 }
 
+class _MergedAppBarBottom extends StatelessWidget
+    implements PreferredSizeWidget {
+  const _MergedAppBarBottom({required this.first, required this.second});
+
+  final PreferredSizeWidget first;
+  final PreferredSizeWidget second;
+
+  @override
+  Size get preferredSize =>
+      Size.fromHeight(first.preferredSize.height + second.preferredSize.height);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: first.preferredSize.height,
+          width: double.infinity,
+          child: first,
+        ),
+        SizedBox(
+          height: second.preferredSize.height,
+          width: double.infinity,
+          child: second,
+        ),
+      ],
+    );
+  }
+}
+
 class TerminalScreen extends StatelessWidget {
   final Widget child;
   final String? title;
@@ -103,78 +139,101 @@ class TerminalScreen extends StatelessWidget {
             style: MatrixTheme.subtitleStyle.copyWith(
               color: MatrixTheme.matrixLightGreen,
               fontSize: 17,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 3,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.2,
               shadows: [
                 Shadow(
-                  color: MatrixTheme.matrixGreen.withValues(alpha: 0.55),
-                  blurRadius: 12,
-                ),
-                Shadow(
-                  color: MatrixTheme.matrixAccent.withValues(alpha: 0.35),
-                  blurRadius: 18,
+                  color: MatrixTheme.matrixAccent.withValues(alpha: 0.4),
+                  blurRadius: 10,
                 ),
               ],
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           );
-    return Scaffold(
-      resizeToAvoidBottomInset: resizeToAvoidBottomInset,
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: showAppBar
-          ? AppBar(
-              title: barTitle,
-              actions: actions,
-              leading: leading,
-              automaticallyImplyLeading: automaticallyImplyLeading,
-              elevation: 0,
-              scrolledUnderElevation: 0,
-              backgroundColor: theme.scaffoldBackgroundColor,
-              foregroundColor:
-                  desktop ? scheme.onSurface : MatrixTheme.matrixGreen,
-              surfaceTintColor: Colors.transparent,
-              iconTheme: IconThemeData(
-                color: desktop ? scheme.onSurface : MatrixTheme.matrixGreen,
-              ),
-              actionsIconTheme: IconThemeData(
-                color: desktop ? scheme.onSurface : MatrixTheme.matrixGreen,
-              ),
-              bottom: desktop
-                  ? PreferredSize(
-                      preferredSize: const Size.fromHeight(1),
-                      child: Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: scheme.outlineVariant.withValues(alpha: 0.45),
-                      ),
-                    )
-                  : null,
-            )
-          : null,
-      body: desktop
-          ? ColoredBox(
-              color: theme.scaffoldBackgroundColor,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(child: child),
-                ],
-              ),
-            )
-          : Container(
-              width: double.infinity,
-              height: double.infinity,
-              decoration: BoxDecoration(gradient: MatrixTheme.backgroundGradient),
-              child: SafeArea(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(child: child),
-                  ],
+    return ListenableBuilder(
+      listenable: NativeLiveKitCallHost.instance,
+      builder: (context, _) {
+        final host = NativeLiveKitCallHost.instance;
+        final session = host.session;
+        final minimizedBottom = (host.showInAppOngoingCallStrip && session != null)
+            ? NativeLiveKitMinimizedCallAppBarBottom(
+                session: session,
+                onOpen: () =>
+                    unawaited(openNativeLiveKitCallUiFromBanner(context)),
+                onHangUp: () => unawaited(session.hangUp()),
+              )
+            : null;
+
+        final PreferredSizeWidget? desktopRule = desktop
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(1),
+                child: Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: scheme.outlineVariant.withValues(alpha: 0.45),
                 ),
-              ),
-            ),
+              )
+            : null;
+
+        final PreferredSizeWidget? composedBottom;
+        if (desktopRule != null && minimizedBottom != null) {
+          composedBottom = _MergedAppBarBottom(
+            first: desktopRule,
+            second: minimizedBottom,
+          );
+        } else {
+          composedBottom = minimizedBottom ?? desktopRule;
+        }
+
+        return Scaffold(
+          resizeToAvoidBottomInset: resizeToAvoidBottomInset,
+          backgroundColor: theme.scaffoldBackgroundColor,
+          appBar: showAppBar
+              ? AppBar(
+                  title: barTitle,
+                  actions: actions,
+                  leading: leading,
+                  automaticallyImplyLeading: automaticallyImplyLeading,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  backgroundColor: theme.scaffoldBackgroundColor,
+                  foregroundColor: desktop
+                      ? scheme.onSurface
+                      : MatrixTheme.matrixGreen,
+                  surfaceTintColor: Colors.transparent,
+                  iconTheme: IconThemeData(
+                    color: desktop ? scheme.onSurface : MatrixTheme.matrixGreen,
+                  ),
+                  actionsIconTheme: IconThemeData(
+                    color: desktop ? scheme.onSurface : MatrixTheme.matrixGreen,
+                  ),
+                  bottom: composedBottom,
+                )
+              : null,
+          body: desktop
+              ? ColoredBox(
+                  color: theme.scaffoldBackgroundColor,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [Expanded(child: child)],
+                  ),
+                )
+              : Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: MatrixTheme.backgroundGradient,
+                  ),
+                  child: SafeArea(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [Expanded(child: child)],
+                    ),
+                  ),
+                ),
+        );
+      },
     );
   }
 }
@@ -205,10 +264,7 @@ class TerminalButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: isPrimary ? scheme.primary : scheme.surface,
           foregroundColor: isPrimary ? scheme.onPrimary : scheme.primary,
-          side: BorderSide(
-            color: scheme.primary,
-            width: isPrimary ? 0 : 2,
-          ),
+          side: BorderSide(color: scheme.primary, width: isPrimary ? 0 : 2),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           elevation: 0,
         ),
@@ -233,9 +289,9 @@ class TerminalButton extends StatelessWidget {
                   Text(
                     text,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: isPrimary ? scheme.onPrimary : scheme.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      color: isPrimary ? scheme.onPrimary : scheme.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -250,9 +306,11 @@ class TerminalTextField extends StatelessWidget {
   final String hint;
   final IconData icon;
   final bool isPassword;
+
   /// When non-null, overrides [isPassword] for obscuring (e.g. show/hide password toggle).
   final bool? obscureText;
   final bool enabled;
+
   /// When true, the field cannot be edited but can still be focused for selection/copy.
   final bool readOnly;
   final String? Function(String?)? validator;
@@ -338,10 +396,10 @@ class TerminalStatusMessage extends StatelessWidget {
             isError
                 ? Icons.error_outline
                 : isWarning
-                    ? Icons.warning_outlined
-                    : isSuccess
-                        ? Icons.check_circle_outline
-                        : Icons.info_outline,
+                ? Icons.warning_outlined
+                : isSuccess
+                ? Icons.check_circle_outline
+                : Icons.info_outline,
             color: color,
             size: 16,
           ),
@@ -349,7 +407,9 @@ class TerminalStatusMessage extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: color),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: color),
             ),
           ),
         ],

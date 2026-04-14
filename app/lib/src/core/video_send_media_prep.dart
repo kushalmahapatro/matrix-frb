@@ -2,9 +2,23 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:io';
 
+import 'package:matrix/src/core/logging_service.dart';
+import 'package:matrix/src/core/media_library_log.dart';
 import 'package:media/media.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+
+// --- `media` package (media-rs) — intended purposes ---
+//
+// 1. **Thumbnail generation (image & video)** — [Media.thumbnailSaveToPath], [Media.thumbnailImage].
+// 2. **Video timeline thumbnails** — count split across duration; each frame generated and **streamed**
+//    as it is ready: [Media.timelineThumbnailsStream] (`frameCount`). Not used in this file yet
+//    (e.g. filmstrip / scrubber UIs).
+// 4. **Transcoding + estimates** — [Media.transcodeVideoStream]; estimated compressed **size** and
+//    **wall-clock** encode time via [estimateCompressedSize], [estimateEncodeWallClock], [Media.probe].
+//
+// This module uses (1) and (4) heavily for Matrix send prep; (4) includes transcode for large uploads.
+// Verbose **`package:media`** tracing: filter **`MatrixMediaLib`** ([kMediaLibLogTag] in media_library_log.dart).
 
 /// Compress videos at or above this size before send (H.264/AAC MP4 via `media` package).
 const int kVideoTranscodeMinBytes = 2 * 1024 * 1024;
@@ -61,7 +75,8 @@ class VideoTranscodeProgressChunk {
   /// 0–1 when time-based and still within ETA; ignored when `null` (keep UI value).
   final double? linearProgress;
 
-  /// When time-based and wall time exceeded [EncodeTimeEstimate]; `null` means unchanged.
+  /// Time-based mode: after the bar hits 100% at the ETA, `true` means show an
+  /// indeterminate bar until encode finishes. `null` means unchanged.
   final bool? pastEstimate;
 
   /// Native encoder status line; `null` means unchanged.
@@ -129,7 +144,7 @@ Future<VideoHdSdTimelineEstimates> estimateVideoHdSdForTimelineSend(
   }
 
   try {
-    await Media.init();
+    await ensureMediaLibReady('estimateVideoHdSdForTimelineSend');
     final probe = await Media.probe(sourcePath);
     final hdEst = estimateCompressedSize(
       probe: probe,
@@ -147,6 +162,12 @@ Future<VideoHdSdTimelineEstimates> estimateVideoHdSdForTimelineSend(
       probe: probe,
       preset: VideoPreset.p480,
     );
+    final durMs = _probeDurationMs(probe);
+    LoggingService.info(
+      kMediaLibLogTag,
+      'estimateCompressedSize / estimateEncodeWallClock basename=${p.basename(sourcePath)} '
+      'durationMs=$durMs hdBytes=${hdEst.estimatedBytes} sdBytes=${sdEst.estimatedBytes}',
+    );
     return VideoHdSdTimelineEstimates(
       sizes: VideoHdSdEstimates(
         hd720Bytes: _clampEstimatedBytesToSource(
@@ -162,6 +183,10 @@ Future<VideoHdSdTimelineEstimates> estimateVideoHdSdForTimelineSend(
       sd480Encode: sdTime.estimated.inMilliseconds > 0 ? sdTime : null,
     );
   } catch (e, st) {
+    LoggingService.warn(
+      kMediaLibLogTag,
+      'estimateVideoHdSd FAILED basename=${p.basename(sourcePath)} error=$e',
+    );
     developer.log(
       'estimateCompressedSize / estimateEncodeWallClock (media)',
       error: e,
@@ -193,7 +218,8 @@ class VideoSendMediaPrep {
   }
 }
 
-/// JPEG thumbnail from [`prepareRasterImageThumbnailForTimelineSend`]; delete [filesToCleanup] after send.
+/// JPEG thumbnail from [`prepareRasterImageThumbnailForTimelineSend`] /
+/// [`prepareDocumentThumbnailForTimelineSend`]; delete [filesToCleanup] after send.
 class ImageThumbnailPrep {
   ImageThumbnailPrep({required this.jpegPath, required this.filesToCleanup});
 
@@ -209,8 +235,8 @@ class ImageThumbnailPrep {
   }
 }
 
-/// App-generated timeline thumbnail via the `media` package; pass [appThumbnailJpegPath] to Rust only
-/// (Matrix SDK / homeserver are not used to synthesize image or video thumbs on send).
+/// App-generated timeline thumbnail via the `media` package; pass [appThumbnailJpegPath] to Rust only.
+/// Rust does not build raster thumbnails from raw file bytes on send—only loads this JPEG when present.
 class AppTimelineSendPrep {
   AppTimelineSendPrep._({
     required this.filePathToSend,
@@ -222,8 +248,9 @@ class AppTimelineSendPrep {
   final String? appThumbnailJpegPath;
   final List<File> _filesToCleanup;
 
-  /// Runs [prepareVideoForTimelineSend] or [prepareRasterImageThumbnailForTimelineSend] when the file
-  /// looks like video or raster image (extension, [mimeType], or magic bytes).
+  /// Runs [prepareVideoForTimelineSend], [prepareRasterImageThumbnailForTimelineSend], or
+  /// [prepareDocumentThumbnailForTimelineSend] when the file looks like video, raster image, or a
+  /// common document type (extension or [mimeType]).
   static Future<AppTimelineSendPrep?> prepare(
     String path, {
     String? mimeType,
@@ -238,6 +265,10 @@ class AppTimelineSendPrep {
     MediaOutboundPrepStageCallback? onStage,
     VideoTranscodeProgressCallback? onVideoTranscodeProgress,
     VideoSendQuality videoQuality = VideoSendQuality.sd,
+
+    /// When set (e.g. from [estimateVideoHdSdForTimelineSend]), the compression
+    /// progress bar uses this wall-clock ETA instead of re-probing inside transcode.
+    EncodeTimeEstimate? encodeWallClockEstimate,
   }) async {
     final m = mimeType?.toLowerCase().trim();
     if (m != null && m.startsWith('video/')) {
@@ -245,6 +276,12 @@ class AppTimelineSendPrep {
     }
     if (m != null && m.startsWith('image/')) {
       return _fromImage(path, onStage: onStage);
+    }
+    if (m != null &&
+        (m == 'application/pdf' ||
+            m.contains('officedocument') ||
+            m.contains('opendocument'))) {
+      return _fromDocument(path, onStage: onStage);
     }
     if (m != null && m.startsWith('audio/')) {
       return null;
@@ -258,10 +295,14 @@ class AppTimelineSendPrep {
         onStage: onStage,
         onVideoTranscodeProgress: onVideoTranscodeProgress,
         quality: videoQuality,
+        encodeWallClockEstimate: encodeWallClockEstimate,
       );
     }
     if (await isTimelineImageSendCandidate(path, mimeType: mimeType)) {
       return _fromImage(path, onStage: onStage);
+    }
+    if (isTimelineDocumentThumbnailCandidate(path, mimeType: mimeType)) {
+      return _fromDocument(path, onStage: onStage);
     }
     return null;
   }
@@ -271,12 +312,14 @@ class AppTimelineSendPrep {
     MediaOutboundPrepStageCallback? onStage,
     VideoTranscodeProgressCallback? onVideoTranscodeProgress,
     VideoSendQuality quality = VideoSendQuality.sd,
+    EncodeTimeEstimate? encodeWallClockEstimate,
   }) async {
     final v = await prepareVideoForTimelineSend(
       path,
       onStage: onStage,
       onVideoTranscodeProgress: onVideoTranscodeProgress,
       quality: quality,
+      encodeWallClockEstimate: encodeWallClockEstimate,
     );
     if (v == null) return null;
     return AppTimelineSendPrep._(
@@ -292,9 +335,48 @@ class AppTimelineSendPrep {
   }) async {
     onStage?.call(MediaOutboundPrepStage.generatingThumbnail);
     final thumb = await prepareRasterImageThumbnailForTimelineSend(path);
+    final jp = thumb?.jpegPath;
+    if (jp != null && jp.isNotEmpty) {
+      LoggingService.info(
+        _kThumbnailLogTag,
+        'send prep (image): thumbnail path ready basename=${p.basename(path)}',
+      );
+    } else {
+      LoggingService.warn(
+        _kThumbnailLogTag,
+        'send prep (image): NO thumbnail path (Rust will send without thumb/blurhash) '
+        'basename=${p.basename(path)}',
+      );
+    }
     return AppTimelineSendPrep._(
       filePathToSend: path,
-      appThumbnailJpegPath: thumb?.jpegPath,
+      appThumbnailJpegPath: jp,
+      filesToCleanup: thumb?.filesToCleanup ?? <File>[],
+    );
+  }
+
+  static Future<AppTimelineSendPrep> _fromDocument(
+    String path, {
+    MediaOutboundPrepStageCallback? onStage,
+  }) async {
+    onStage?.call(MediaOutboundPrepStage.generatingThumbnail);
+    final thumb = await prepareDocumentThumbnailForTimelineSend(path);
+    final jp = thumb?.jpegPath;
+    if (jp != null && jp.isNotEmpty) {
+      LoggingService.info(
+        _kThumbnailLogTag,
+        'send prep (document): thumbnail path ready basename=${p.basename(path)}',
+      );
+    } else {
+      LoggingService.warn(
+        _kThumbnailLogTag,
+        'send prep (document): NO thumbnail path (Rust will send without thumb) '
+        'basename=${p.basename(path)}',
+      );
+    }
+    return AppTimelineSendPrep._(
+      filePathToSend: path,
+      appThumbnailJpegPath: jp,
       filesToCleanup: thumb?.filesToCleanup ?? <File>[],
     );
   }
@@ -484,20 +566,68 @@ bool isProbableRasterImageFilePath(String path) {
   return exts.contains(e);
 }
 
-/// Uses the `media` package to emit a JPEG suitable for Matrix `info` / thumbnail upload.
-Future<ImageThumbnailPrep?> prepareRasterImageThumbnailForTimelineSend(
-  String sourcePath,
-) async {
+/// PDF / Office (and similar) sends: try a timeline JPEG via [Media.thumbnailSaveToPath] when the
+/// picker reports a matching [mimeType] or the path extension is known.
+bool isTimelineDocumentThumbnailCandidate(
+  String path, {
+  String? mimeType,
+}) {
+  final m = mimeType?.toLowerCase().trim();
+  if (m != null && m.isNotEmpty) {
+    if (m == 'application/pdf') return true;
+    if (m.contains('officedocument') || m.contains('opendocument')) return true;
+  }
+  const exts = {
+    'pdf',
+    'docx',
+    'pptx',
+    'xlsx',
+    'xlsm',
+    'pptm',
+    'docm',
+    'ods',
+    'odp',
+    'odt',
+    'doc',
+    'ppt',
+    'xls',
+  };
+  final e = p.extension(path.toLowerCase()).replaceFirst('.', '');
+  return exts.contains(e);
+}
+
+/// Tag for console / IDE filtering when debugging Matrix timeline thumbnail generation.
+const String _kThumbnailLogTag = 'MatrixThumbnail';
+
+Future<ImageThumbnailPrep?> _prepareJpegThumbnailViaMediaLibrary(
+  String sourcePath, {
+  required String logKind,
+  required String tempNamePrefix,
+}) async {
+  final base = p.basename(sourcePath);
+  LoggingService.info(
+    _kThumbnailLogTag,
+    '$logKind thumbnail (media): start basename=$base maxEdge=$kTimelineVideoThumbnailMaxEdgePx',
+  );
   final src = File(sourcePath);
-  if (!await src.exists()) return null;
+  if (!await src.exists()) {
+    LoggingService.warn(
+      _kThumbnailLogTag,
+      '$logKind thumbnail (media): source missing basename=$base',
+    );
+    return null;
+  }
 
   final dir = await getTemporaryDirectory();
-  final base = p.basename(sourcePath);
   final stamp = DateTime.now().microsecondsSinceEpoch;
-  final thumbOut = p.join(dir.path, 'matrix_img_thumb_${stamp}_$base.jpg');
+  final thumbOut = p.join(dir.path, '${tempNamePrefix}_${stamp}_$base.jpg');
 
   try {
-    await Media.init();
+    await ensureMediaLibReady('thumbnailSaveToPath($logKind)');
+    LoggingService.info(
+      kMediaLibLogTag,
+      'thumbnailSaveToPath start kind=$logKind basename=$base maxEdge=$kTimelineVideoThumbnailMaxEdgePx',
+    );
     final writtenPath = await Media.thumbnailSaveToPath(
       path: sourcePath,
       outputPath: thumbOut,
@@ -507,12 +637,57 @@ Future<ImageThumbnailPrep?> prepareRasterImageThumbnailForTimelineSend(
     );
     final tf = File(writtenPath);
     if (await tf.exists() && await tf.length() > 0) {
+      final len = await tf.length();
+      LoggingService.info(
+        kMediaLibLogTag,
+        'thumbnailSaveToPath OK kind=$logKind bytes=$len out=${p.basename(writtenPath)}',
+      );
+      LoggingService.info(
+        _kThumbnailLogTag,
+        '$logKind thumbnail (media): OK basename=$base bytes=$len out=${p.basename(writtenPath)}',
+      );
       return ImageThumbnailPrep(jpegPath: writtenPath, filesToCleanup: [tf]);
     }
-  } catch (_) {}
+    LoggingService.warn(
+      _kThumbnailLogTag,
+      '$logKind thumbnail (media): output missing or empty basename=$base path=$writtenPath',
+    );
+  } catch (e, st) {
+    LoggingService.warn(
+      _kThumbnailLogTag,
+      '$logKind thumbnail (media): FAILED basename=$base error=$e',
+    );
+    developer.log(
+      '$logKind thumbnail (media)',
+      error: e,
+      stackTrace: st,
+      name: 'matrix.timeline_send',
+    );
+  }
 
   return null;
 }
+
+/// Uses the `media` package to emit a JPEG suitable for Matrix `info` / thumbnail upload.
+Future<ImageThumbnailPrep?> prepareRasterImageThumbnailForTimelineSend(
+  String sourcePath,
+) =>
+    _prepareJpegThumbnailViaMediaLibrary(
+      sourcePath,
+      logKind: 'Image',
+      tempNamePrefix: 'matrix_img_thumb',
+    );
+
+/// Same as [prepareRasterImageThumbnailForTimelineSend] for PDF / Office paths when `media` can
+/// produce a raster frame (platform-dependent; may return `null`).
+Future<ImageThumbnailPrep?> prepareDocumentThumbnailForTimelineSend(
+  String sourcePath,
+) =>
+    _prepareJpegThumbnailViaMediaLibrary(
+      sourcePath,
+      logKind: 'Document',
+      tempNamePrefix: 'matrix_doc_thumb',
+    );
 
 /// Uses `media` [Media.transcodeVideoStream] then [Media.thumbnailSaveToPath] on the file we upload.
 ///
@@ -526,7 +701,11 @@ Future<String?> generateVideoPreviewThumbnailForUi(String sourcePath) async {
   final stamp = DateTime.now().microsecondsSinceEpoch;
   final thumbOut = p.join(dir.path, 'matrix_preview_thumb_${stamp}_$base.jpg');
   try {
-    await Media.init();
+    await ensureMediaLibReady('previewThumbnailUi');
+    LoggingService.info(
+      kMediaLibLogTag,
+      'thumbnailSaveToPath (UI preview) basename=$base timeSec=1.0',
+    );
     final writtenPath = await Media.thumbnailSaveToPath(
       path: sourcePath,
       outputPath: thumbOut,
@@ -536,9 +715,22 @@ Future<String?> generateVideoPreviewThumbnailForUi(String sourcePath) async {
     );
     final tf = File(writtenPath);
     if (await tf.exists() && await tf.length() > 0) {
+      final len = await tf.length();
+      LoggingService.info(
+        kMediaLibLogTag,
+        'thumbnailSaveToPath (UI preview) OK bytes=$len',
+      );
       return writtenPath;
     }
+    LoggingService.warn(
+      kMediaLibLogTag,
+      'thumbnailSaveToPath (UI preview) empty or missing output',
+    );
   } catch (e, st) {
+    LoggingService.warn(
+      kMediaLibLogTag,
+      'thumbnailSaveToPath (UI preview) FAILED basename=$base error=$e',
+    );
     developer.log(
       'preview thumbnail',
       error: e,
@@ -556,38 +748,74 @@ Future<String?> _tryTranscodeToMp4({
   required int sourceLen,
   required VideoSendQuality quality,
   VideoTranscodeProgressCallback? onVideoTranscodeProgress,
+  EncodeTimeEstimate? wallClockEtaOverride,
 }) async {
   Timer? timer;
   final sw = Stopwatch();
   try {
-    await Media.init();
+    await ensureMediaLibReady('transcodeVideoStream');
     VideoProbe? probe;
     try {
       probe = await Media.probe(sourcePath);
-    } catch (_) {}
+      if (probe.durationMs != null) {
+        LoggingService.info(
+          kMediaLibLogTag,
+          'Media.probe (transcode) basename=${p.basename(sourcePath)} durationMs=${probe.durationMs}',
+        );
+      }
+    } catch (e) {
+      LoggingService.warn(
+        kMediaLibLogTag,
+        'Media.probe (transcode) failed basename=${p.basename(sourcePath)} error=$e',
+      );
+    }
 
     final preset = quality == VideoSendQuality.hd
         ? VideoPreset.p720
         : VideoPreset.p480;
-    final eta = probe != null
+    final etaFromProbe = probe != null
         ? estimateEncodeWallClock(probe: probe, preset: preset)
         : const EncodeTimeEstimate(
             estimated: Duration.zero,
             confidence: EstimateConfidence.low,
           );
+    final eta = (wallClockEtaOverride != null &&
+            wallClockEtaOverride.estimated.inMilliseconds > 0)
+        ? wallClockEtaOverride
+        : etaFromProbe;
     final estimateMs = eta.estimated.inMilliseconds;
     final useTimeBasedProgress = estimateMs > 0;
     String? lastStreamMessage;
+    var showedFullBarAtEstimateEnd = false;
 
     void tickTimer() {
       final cb = onVideoTranscodeProgress;
       if (cb == null || !useTimeBasedProgress) return;
       final elapsed = sw.elapsedMilliseconds;
-      final past = elapsed >= estimateMs;
+      if (elapsed < estimateMs) {
+        cb(
+          VideoTranscodeProgressChunk(
+            linearProgress: (elapsed / estimateMs).clamp(0.0, 1.0),
+            pastEstimate: false,
+            message: lastStreamMessage,
+          ),
+        );
+        return;
+      }
+      if (!showedFullBarAtEstimateEnd) {
+        showedFullBarAtEstimateEnd = true;
+        cb(
+          VideoTranscodeProgressChunk(
+            linearProgress: 1.0,
+            pastEstimate: false,
+            message: lastStreamMessage,
+          ),
+        );
+        return;
+      }
       cb(
         VideoTranscodeProgressChunk(
-          linearProgress: past ? null : (elapsed / estimateMs).clamp(0.0, 1.0),
-          pastEstimate: past,
+          pastEstimate: true,
           message: lastStreamMessage,
         ),
       );
@@ -601,6 +829,11 @@ Future<String?> _tryTranscodeToMp4({
       tickTimer();
     }
 
+    LoggingService.info(
+      kMediaLibLogTag,
+      'transcodeVideoStream start basename=${p.basename(sourcePath)} -> ${p.basename(outMp4)} '
+      '${quality.targetWidth}x${quality.targetHeight} ${quality.targetBitrateKbps}kbps',
+    );
     try {
       await for (final ev in Media.transcodeVideoStream(
         inputPath: sourcePath,
@@ -654,6 +887,10 @@ Future<String?> _tryTranscodeToMp4({
         preset: preset,
       );
     }
+    LoggingService.info(
+      kMediaLibLogTag,
+      'transcodeVideoStream OK wallMs=$wallMs outBytes=$outLen out=${p.basename(outMp4)}',
+    );
     onVideoTranscodeProgress?.call(
       const VideoTranscodeProgressChunk(
         linearProgress: 1.0,
@@ -664,6 +901,10 @@ Future<String?> _tryTranscodeToMp4({
   } catch (e, st) {
     timer?.cancel();
     sw.stop();
+    LoggingService.warn(
+      kMediaLibLogTag,
+      'transcodeVideoStream FAILED basename=${p.basename(sourcePath)} error=$e',
+    );
     developer.log(
       'transcode (media)',
       error: e,
@@ -679,6 +920,7 @@ Future<VideoSendMediaPrep?> prepareVideoForTimelineSend(
   MediaOutboundPrepStageCallback? onStage,
   VideoTranscodeProgressCallback? onVideoTranscodeProgress,
   VideoSendQuality quality = VideoSendQuality.sd,
+  EncodeTimeEstimate? encodeWallClockEstimate,
 }) async {
   final src = File(sourcePath);
   if (!await src.exists()) return null;
@@ -703,6 +945,7 @@ Future<VideoSendMediaPrep?> prepareVideoForTimelineSend(
         sourceLen: len,
         quality: quality,
         onVideoTranscodeProgress: onVideoTranscodeProgress,
+        wallClockEtaOverride: encodeWallClockEstimate,
       );
       if (transcoded != null) {
         pathToSend = transcoded;
@@ -715,16 +958,25 @@ Future<VideoSendMediaPrep?> prepareVideoForTimelineSend(
 
   final timeCandidatesSec = <double>[1.0, 0.0, 0.5, 0.25, 2.0, 0.1, 3.0];
   try {
-    await Media.init();
+    await ensureMediaLibReady('prepareVideo_thumbnail_probe');
     final info = await Media.probe(pathToSend);
     final durMs = _probeDurationMs(info);
+    LoggingService.info(
+      kMediaLibLogTag,
+      'Media.probe (send thumbnail) sendPath=${p.basename(pathToSend)} durationMs=$durMs',
+    );
     if (durMs != null) {
       final midSec = durMs / 2000.0;
       if (midSec > 0) {
         timeCandidatesSec.insert(0, midSec);
       }
     }
-  } catch (_) {}
+  } catch (e) {
+    LoggingService.warn(
+      kMediaLibLogTag,
+      'Media.probe (send thumbnail) failed sendPath=${p.basename(pathToSend)} error=$e',
+    );
+  }
 
   String? thumbPath;
   final seenTimes = <String>{};
@@ -736,7 +988,11 @@ Future<VideoSendMediaPrep?> prepareVideoForTimelineSend(
       'matrix_media_thumb_${stamp}_${key}_$base.jpg',
     );
     try {
-      await Media.init();
+      await ensureMediaLibReady('prepareVideo_thumbnailSaveToPath');
+      LoggingService.info(
+        kMediaLibLogTag,
+        'thumbnailSaveToPath (video send) timeSec=$timeSec basename=${p.basename(pathToSend)}',
+      );
       final writtenPath = await Media.thumbnailSaveToPath(
         path: pathToSend,
         outputPath: thumbOut,
@@ -746,11 +1002,20 @@ Future<VideoSendMediaPrep?> prepareVideoForTimelineSend(
       );
       final tf = File(writtenPath);
       if (await tf.exists() && await tf.length() > 0) {
+        final tlen = await tf.length();
+        LoggingService.info(
+          kMediaLibLogTag,
+          'thumbnailSaveToPath (video send) OK timeSec=$timeSec bytes=$tlen',
+        );
         thumbPath = writtenPath;
         temps.add(tf);
         break;
       }
     } catch (e, st) {
+      LoggingService.warn(
+        kMediaLibLogTag,
+        'thumbnailSaveToPath (video send) FAILED timeSec=$timeSec error=$e',
+      );
       developer.log(
         'Video thumbnail (media package) t=$timeSec s',
         error: e,
@@ -761,6 +1026,10 @@ Future<VideoSendMediaPrep?> prepareVideoForTimelineSend(
   }
 
   if (thumbPath == null) {
+    LoggingService.warn(
+      _kThumbnailLogTag,
+      'video thumbnail: FAILED all time candidates basename=$base sendPath=${p.basename(pathToSend)}',
+    );
     for (final f in temps) {
       try {
         if (f.existsSync()) f.deleteSync();
@@ -768,6 +1037,17 @@ Future<VideoSendMediaPrep?> prepareVideoForTimelineSend(
     }
     return null;
   }
+
+  final tf = File(thumbPath);
+  int? tb;
+  try {
+    tb = await tf.length();
+  } catch (_) {}
+  LoggingService.info(
+    _kThumbnailLogTag,
+    'video thumbnail: OK basename=$base bytes=$tb sendPath=${p.basename(pathToSend)} '
+    'thumb=${p.basename(thumbPath)}',
+  );
 
   return VideoSendMediaPrep(
     filePathToSend: pathToSend,

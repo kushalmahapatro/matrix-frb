@@ -191,6 +191,9 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
       prep = await AppTimelineSendPrep.prepareForSend(
         widget.filePath,
         mimeType: widget.mimeType,
+        encodeWallClockEstimate: _videoQuality == VideoSendQuality.hd
+            ? _encodeEstHd720
+            : _encodeEstSd480,
         onStage: (s) {
           if (!mounted) return;
           setState(() {

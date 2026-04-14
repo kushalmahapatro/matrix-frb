@@ -14,3 +14,16 @@ app/dart_defines/inve.json
 app/lib/firebase_options.dart
 app/macos/Runner/GoogleService-Info.plist
 app/matrix-keystore.jks
+.dart_tool/
+.idea/
+build/
+.DS_Store
+.flutter-plugins-dependencies
+app/.DS_Store
+app/.flutter-plugins-dependencies
+app/.metadata
+app/ios/.DS_Store
+app/lib/src/.DS_Store
+app/lib/.DS_Store
+app/macos/.DS_Store
+app/ios/.DS_Store

@@ -201,8 +201,12 @@ fn spawn_session_invalid_listener(client: Client) {
             match change {
                 SessionChange::UnknownToken(_) => {
                     info!(
-                        "Session invalid (UnknownToken / refresh token rejected), clearing client and session file"
+                        "Session invalid (UnknownToken / refresh token rejected), clearing session file"
                     );
+                    if let Some(config) = GLOBAL_CONFIG.get() {
+                        let path = Path::new(&config.session_path).join(SESSION_JSON);
+                        let _ = std::fs::remove_file(&path);
+                    }
                     break;
                 }
                 SessionChange::TokensRefreshed => {

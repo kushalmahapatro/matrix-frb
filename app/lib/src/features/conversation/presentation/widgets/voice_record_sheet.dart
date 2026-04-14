@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:matrix/src/core/permissions/app_runtime_permissions.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
@@ -104,15 +105,9 @@ class _VoiceRecordSheetState extends State<VoiceRecordSheet> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      final ok = await _recorder.hasPermission();
+      final ok =
+          await AppRuntimePermissions.ensureMicrophoneForVoiceMessage(context);
       if (!ok) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Microphone permission is required to record.'),
-            ),
-          );
-        }
         setState(() => _busy = false);
         return;
       }

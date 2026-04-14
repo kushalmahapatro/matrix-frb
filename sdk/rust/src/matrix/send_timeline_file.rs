@@ -7,14 +7,14 @@
 //!   [`RoomSendQueueUpdate::SentEvent`] / [`RoomSendQueueUpdate::MediaUpload`] and then load the
 //!   decrypted `m.room.message` into the cache (by server [`EventId`] from the send response).
 //!
-//! **Image / video timeline thumbnails** are **only** taken from the app: pass a JPEG path from the
-//! Flutter `media` package via [`send_timeline_file_from_path`]'s `app_thumbnail_jpeg_path`.
-//! Rust / Matrix SDK does not synthesize raster thumbnails for those types on send.
+//! **Raster timeline thumbnails** (images, videos, and optional document previews) come **only**
+//! from the app: pass a JPEG path from the Dart `media` package via
+//! [`send_timeline_file_from_path`]'s `app_thumbnail_jpeg_path`. Rust validates JPEG magic, sizes
+//! the upload, and derives blurhash; it does **not** synthesize thumbnails from PDF / office bytes
+//! on send (that work is done in Dart via `media`).
 //!
-//! Other thumbnails when no app path is supplied:
-//! - **PDF**: first page via **Pdfium** ([`crate::matrix::attachment_thumbnails`]) when loadable.
-//! - **Office zips** (docx, pptx, xlsx, ODF): first embedded / standard thumbnail image when present.
-//! - **Other files**: no synthetic placeholder thumbnail is uploaded.
+//! When no app path is supplied (or the file is not a JPEG the loader accepts), **no** thumbnail
+//! MXC is uploaded for that send (except audio, which never uses this path).
 //!
 //! **Video transcode** before upload is handled in the app (Dart `media`); Rust uploads the file at
 //! `file_path` as-is.
@@ -85,51 +85,163 @@ fn blurhash_from_jpeg_bytes(data: &[u8]) -> Option<String> {
 
 fn merge_thumb_blurhash_into_info(info: &mut Option<AttachmentInfo>, thumb_jpeg: &[u8]) {
     let Some(hash) = blurhash_from_jpeg_bytes(thumb_jpeg) else {
+        tracing::warn!(
+            target: "matrix.thumbnail_send",
+            thumb_bytes = thumb_jpeg.len(),
+            "blurhash: encode failed (decode or blurhash crate)",
+        );
         return;
     };
     match info {
         Some(AttachmentInfo::Image(ref mut i)) => {
+            tracing::info!(
+                target: "matrix.thumbnail_send",
+                kind = "image",
+                hash_len = hash.len(),
+                "blurhash: set on Image info",
+            );
             i.blurhash = Some(hash);
         }
         Some(AttachmentInfo::Video(ref mut i)) => {
+            tracing::info!(
+                target: "matrix.thumbnail_send",
+                kind = "video",
+                hash_len = hash.len(),
+                "blurhash: set on Video info",
+            );
             i.blurhash = Some(hash);
         }
-        _ => {}
+        _ => {
+            tracing::debug!(
+                target: "matrix.thumbnail_send",
+                "blurhash: skipped (not image/video attachment info)",
+            );
+        }
     }
 }
 
 /// JPEG from the app (`media` package); validates magic + decodes dimensions for Matrix `ThumbnailInfo`.
 fn load_app_jpeg_thumbnail(path: &Path) -> Option<(Vec<u8>, u32, u32, usize)> {
-    let data = std::fs::read(path).ok()?;
+    let data = match std::fs::read(path) {
+        Ok(d) => d,
+        Err(e) => {
+            tracing::warn!(
+                target: "matrix.thumbnail_send",
+                path = %path.display(),
+                error = %e,
+                "app JPEG thumbnail: read failed",
+            );
+            return None;
+        }
+    };
     if data.len() < 3 || !data.starts_with(&[0xff, 0xd8, 0xff]) {
+        tracing::warn!(
+            target: "matrix.thumbnail_send",
+            path = %path.display(),
+            len = data.len(),
+            "app JPEG thumbnail: not JPEG magic",
+        );
         return None;
     }
-    let img = image::load_from_memory_with_format(&data, image::ImageFormat::Jpeg).ok()?;
+    let img = match image::load_from_memory_with_format(&data, image::ImageFormat::Jpeg) {
+        Ok(i) => i,
+        Err(e) => {
+            tracing::warn!(
+                target: "matrix.thumbnail_send",
+                path = %path.display(),
+                error = %e,
+                "app JPEG thumbnail: decode failed",
+            );
+            return None;
+        }
+    };
     let len = data.len();
+    tracing::info!(
+        target: "matrix.thumbnail_send",
+        path = %path.display(),
+        w = img.width(),
+        h = img.height(),
+        bytes = len,
+        "app JPEG thumbnail: loaded OK",
+    );
     Some((data, img.width(), img.height(), len))
 }
 
 async fn thumbnail_from_app_path(app_thumbnail_path: Option<&Path>) -> Option<(Vec<u8>, u32, u32, usize)> {
     let tp = app_thumbnail_path?.to_path_buf();
-    tokio::task::spawn_blocking(move || load_app_jpeg_thumbnail(&tp))
-        .await
-        .ok()
-        .flatten()
+    let path_display = tp.display().to_string();
+    match tokio::task::spawn_blocking(move || load_app_jpeg_thumbnail(&tp)).await {
+        Ok(out) => out,
+        Err(e) => {
+            tracing::warn!(
+                target: "matrix.thumbnail_send",
+                path = %path_display,
+                error = %e,
+                "app JPEG thumbnail: spawn_blocking task failed",
+            );
+            None
+        }
+    }
 }
 
 /// Thumbnail bytes for SDK [`SdkAttachmentConfig::thumbnail`] / plain-room MXC upload.
-/// `image/*` and `video/*` use **only** [`thumbnail_from_app_path`] (Dart `media`); no SDK thumbnail.
+/// All types that upload a thumbnail use [`thumbnail_from_app_path`] (JPEG from Dart `media`).
 async fn generate_attachment_thumbnail(
     path: &Path,
     mime_type: &Mime,
-    data: &[u8],
+    _file_bytes: &[u8],
     app_thumbnail_path: Option<&Path>,
 ) -> Option<(Vec<u8>, u32, u32, usize)> {
-    match mime_type.type_() {
-        mime::IMAGE | mime::VIDEO => thumbnail_from_app_path(app_thumbnail_path).await,
+    let has_app = app_thumbnail_path.map(|p| p.display().to_string());
+    let out = match mime_type.type_() {
+        mime::IMAGE | mime::VIDEO => {
+            if app_thumbnail_path.is_none() {
+                tracing::warn!(
+                    target: "matrix.thumbnail_send",
+                    mime = %mime_type,
+                    file = %path.display(),
+                    "thumbnail: no app_thumbnail_jpeg_path (image/video need Dart media JPEG)",
+                );
+            }
+            thumbnail_from_app_path(app_thumbnail_path).await
+        }
         mime::AUDIO => None,
-        _ => super::attachment_thumbnails::try_document_thumbnail(path, mime_type, data),
+        _ => {
+            if app_thumbnail_path.is_none() {
+                tracing::debug!(
+                    target: "matrix.thumbnail_send",
+                    mime = %mime_type,
+                    file = %path.display(),
+                    "thumbnail: no app_thumbnail_jpeg_path (non-audio: optional Dart media JPEG)",
+                );
+            }
+            thumbnail_from_app_path(app_thumbnail_path).await
+        }
+    };
+    match &out {
+        Some((_, w, h, sz)) => {
+            tracing::info!(
+                target: "matrix.thumbnail_send",
+                mime = %mime_type,
+                file = %path.display(),
+                app_path = ?has_app,
+                thumb_w = w,
+                thumb_h = h,
+                thumb_bytes = sz,
+                "thumbnail: generated OK",
+            );
+        }
+        None => {
+            tracing::info!(
+                target: "matrix.thumbnail_send",
+                mime = %mime_type,
+                file = %path.display(),
+                app_path = ?has_app,
+                "thumbnail: none (no upload for this send)",
+            );
+        }
     }
+    out
 }
 
 fn attachment_info_for(mime_type: &Mime, data: &[u8]) -> Option<AttachmentInfo> {

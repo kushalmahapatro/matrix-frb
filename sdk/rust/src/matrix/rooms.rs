@@ -12,7 +12,7 @@ use matrix_sdk::{
         },
         OwnedRoomId, RoomId,
     },
-    Client, Room, RoomState,
+    Client, Room, RoomMemberships, RoomState,
 };
 use matrix_sdk_ui::room_list_service::RoomListItem;
 use matrix_sdk_ui::timeline::{LatestEventValue, RoomExt};
@@ -22,6 +22,7 @@ use tokio::sync::Mutex as AsyncMutex;
 use crate::{
     frb_generated::StreamSink,
     matrix::{
+        client::format_user_id_for_display,
         sync_service::App,
         timelines::{
             self, EventSendStateKind, Message, MessageType, RoomMessageKind,
@@ -86,6 +87,8 @@ pub struct RoomUpdate {
     pub room_id: String,
     pub raw_name: Option<String>,
     pub display_name: Option<String>,
+    /// Room avatar MXC from `m.room.avatar` when known.
+    pub avatar_url: Option<String>,
     pub is_dm: Option<bool>,
     pub update_type: UpdateType,
     pub unread_notifications: Option<u64>,
@@ -98,8 +101,32 @@ pub struct RoomUpdate {
 pub(crate) async fn get_room_update_data(room: &Room, own_user_id: Option<&str>) -> RoomUpdate {
     let room_id = room.room_id().to_string();
     let raw_name = room.name().map(|name| name.to_string());
-    let display_name = room.cached_display_name().map(|name| name.to_string());
+    let mut display_name = room.cached_display_name().map(|name| name.to_string());
+    let avatar_url = room.avatar_url().map(|u| u.to_string());
     let is_dm = room.is_direct().await.unwrap_or(false);
+
+    if is_dm && raw_name.is_none() {
+        if let Ok(joined) = room.members_no_sync(RoomMemberships::JOIN).await {
+            if joined.len() == 2 {
+                let peer = joined
+                    .iter()
+                    .find(|m| !m.is_account_user())
+                    .or_else(|| {
+                        own_user_id.and_then(|own| {
+                            joined
+                                .iter()
+                                .find(|m| m.user_id().as_str() != own)
+                        })
+                    });
+                if let Some(peer) = peer {
+                    let peer_dn = format_user_id_for_display(&peer.name().to_string());
+                    if !peer_dn.trim().is_empty() {
+                        display_name = Some(peer_dn);
+                    }
+                }
+            }
+        }
+    }
     let unread_notification_count = room.unread_notification_counts().notification_count;
     let unread_highlight_count = room.unread_notification_counts().highlight_count;
     let unread_mentions_count = room.num_unread_mentions();
@@ -262,6 +289,7 @@ pub(crate) async fn get_room_update_data(room: &Room, own_user_id: Option<&str>)
         room_id,
         raw_name,
         display_name,
+        avatar_url,
         is_dm: Some(is_dm),
         update_type,
         unread_notifications: Some(unread_notification_count),

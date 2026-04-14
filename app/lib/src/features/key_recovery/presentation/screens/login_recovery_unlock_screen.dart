@@ -1,7 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:matrix/src/core/navigation/navigator_service.dart';
+import 'package:matrix/src/core/permissions/permission_onboarding_navigation.dart';
 import 'package:matrix/src/core/presentation/widgets/terminal_container.dart';
-import 'package:matrix/src/features/chat_lisitng/presentation/screens/chat_listing_screen.dart';
 import 'package:matrix/src/features/key_recovery/data/key_recovery_repository.dart';
 import 'package:matrix/src/features/key_recovery/domain/key_recovery_prefs.dart';
 import 'package:matrix/src/features/key_recovery/presentation/key_recovery_copy.dart';
@@ -44,7 +46,7 @@ class _LoginRecoveryUnlockScreenState extends State<LoginRecoveryUnlockScreen> {
     if (widget.closeWhenDone) {
       NavigatorService.pop(context);
     } else {
-      NavigatorService.pushReplacement(context, const ChatListingScreen());
+      unawaited(navigateHomeAfterSessionReady(context));
     }
   }
 

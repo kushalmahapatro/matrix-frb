@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_blurhash/flutter_blurhash.dart';
 import 'package:flutter_linkify/flutter_linkify.dart';
+import 'package:linkify/linkify.dart' show linkify;
 import 'package:path/path.dart' as p;
 import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
 import 'package:matrix/src/core/layout/conversation_message_style_preference.dart';
@@ -40,6 +42,82 @@ const List<String> kTimelineQuickReactions = [
 /// Additional presets for the scrollable grid (no overlap with [kTimelineQuickReactions]).
 const String _kTimelineDeletedBubbleSubtitle =
     'This message is no longer visible.';
+
+/// Bold highlight for in-conversation search matches (merged onto base text style).
+TextStyle _timelineSearchHighlightStyle(ColorScheme scheme) => TextStyle(
+      backgroundColor: scheme.tertiaryContainer.withValues(alpha: 0.92),
+      color: scheme.onTertiaryContainer,
+      fontWeight: FontWeight.w700,
+    );
+
+List<TextSpan> _plainTextSearchHighlightSpans(
+  String text,
+  String? highlightQuery,
+  TextStyle? baseStyle,
+  TextStyle highlightStyle,
+) {
+  final q = highlightQuery?.trim();
+  if (q == null || q.isEmpty) {
+    return [TextSpan(text: text, style: baseStyle)];
+  }
+  final pattern = RegExp(RegExp.escape(q), caseSensitive: false);
+  final out = <TextSpan>[];
+  var start = 0;
+  for (final m in pattern.allMatches(text)) {
+    if (m.start > start) {
+      out.add(TextSpan(text: text.substring(start, m.start), style: baseStyle));
+    }
+    out.add(
+      TextSpan(
+        text: text.substring(m.start, m.end),
+        style: baseStyle?.merge(highlightStyle) ?? highlightStyle,
+      ),
+    );
+    start = m.end;
+  }
+  if (start < text.length) {
+    out.add(TextSpan(text: text.substring(start), style: baseStyle));
+  }
+  return out;
+}
+
+List<InlineSpan> _linkifySpansWithSearchHighlight(
+  String text,
+  String? highlightQuery,
+  TextStyle? baseStyle,
+  TextStyle? linkStyle,
+  TextStyle highlightStyle,
+  LinkCallback? onOpen, {
+  bool useMouseRegion = false,
+}) {
+  final q = highlightQuery?.trim();
+  final elements = linkify(text);
+  final spans = <InlineSpan>[];
+  for (final element in elements) {
+    if (element is LinkableElement) {
+      spans.add(
+        TextSpan(
+          text: element.text,
+          style: linkStyle,
+          recognizer: onOpen != null
+              ? (TapGestureRecognizer()..onTap = () => onOpen(element))
+              : null,
+          mouseCursor: useMouseRegion ? SystemMouseCursors.click : null,
+        ),
+      );
+    } else {
+      final t = element.text;
+      if (q == null || q.isEmpty) {
+        spans.add(TextSpan(text: t, style: baseStyle));
+      } else {
+        spans.addAll(
+          _plainTextSearchHighlightSpans(t, q, baseStyle, highlightStyle),
+        );
+      }
+    }
+  }
+  return spans;
+}
 
 bool _conversationPlacementLeftRight(BuildContext context) {
   try {
@@ -193,83 +271,9 @@ Future<void> openTimelineQuickReactionPicker(
   BuildContext context, {
   required Future<void> Function(String reactionKey) onToggle,
 }) async {
-  if (isDesktopTargetPlatform() && preferDialogOverModalSheet(context)) {
-    final mq = MediaQuery.sizeOf(context);
-    final picked = await showMenu<String>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        mq.width / 2 - 1,
-        mq.height / 2 - 1,
-        mq.width / 2 - 1,
-        mq.height / 2 - 1,
-      ),
-      constraints: const BoxConstraints(maxWidth: 340, maxHeight: 520),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: MatrixTheme.terminalBorder),
-      ),
-      color: MatrixTheme.terminalBackground,
-      items: [
-        ...[...kTimelineQuickReactions, ...kTimelinePresetReactionsMore].map(
-          (e) => PopupMenuItem<String>(
-            value: e,
-            height: 44,
-            child: Center(child: Text(e, style: const TextStyle(fontSize: 22))),
-          ),
-        ),
-        const PopupMenuDivider(),
-        PopupMenuItem<String>(
-          value: '__custom__',
-          child: Text(
-            'Custom reaction…',
-            style: TextStyle(fontFamily: MatrixTheme.fontFamily),
-          ),
-        ),
-      ],
-    );
-    if (!context.mounted) return;
-    if (picked == '__custom__') {
-      final custom = await showDialog<String>(
-        context: context,
-        builder: (ctx) {
-          final c = TextEditingController();
-          return AlertDialog(
-            backgroundColor: MatrixTheme.terminalBackground,
-            title: Text(
-              'Custom reaction',
-              style: TextStyle(fontFamily: MatrixTheme.fontFamily),
-            ),
-            content: TextField(
-              controller: c,
-              autofocus: true,
-              maxLength: 128,
-              decoration: const InputDecoration(
-                hintText: 'Emoji or short text',
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, c.text.trim()),
-                child: const Text('Add'),
-              ),
-            ],
-          );
-        },
-      );
-      if (custom != null && custom.isNotEmpty) {
-        await onToggle(custom);
-      }
-      return;
-    }
-    if (picked != null && picked.isNotEmpty) {
-      await onToggle(picked);
-    }
-    return;
-  }
+  // Desktop used showMenu with a zero-size RelativeRect (L==R, T==B), which
+  // collapsed the menu to a single vertical column on Windows. Use the same
+  // Wrap + grid panel as mobile via showAdaptivePanel (dialog on wide desktop).
   await showAdaptivePanel<void>(
     context: context,
     scrollControlled: true,
@@ -412,6 +416,45 @@ class _TimelineDateDividerRow extends StatelessWidget {
   }
 }
 
+class _TimelineSystemEventRow extends StatelessWidget {
+  const _TimelineSystemEventRow({
+    required this.text,
+    this.searchHighlightQuery,
+  });
+
+  final String text;
+  final String? searchHighlightQuery;
+
+  @override
+  Widget build(BuildContext context) {
+    if (text.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final baseStyle = theme.textTheme.bodySmall?.copyWith(
+      color: muted.withValues(alpha: 0.92),
+      fontStyle: FontStyle.italic,
+      height: 1.25,
+    );
+    final hl = _timelineSearchHighlightStyle(theme.colorScheme);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 20),
+      child: Center(
+        child: SelectableText.rich(
+          TextSpan(
+            children: _plainTextSearchHighlightSpans(
+              text,
+              searchHighlightQuery,
+              baseStyle,
+              hl,
+            ),
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+}
+
 class _TimelineUnreadMarkerRow extends StatelessWidget {
   const _TimelineUnreadMarkerRow();
 
@@ -454,6 +497,41 @@ class _TimelineUnreadMarkerRow extends StatelessWidget {
   }
 }
 
+/// MatrixRTC / legacy VoIP row: icon + label inside the normal message bubble chrome.
+class _CallTimelineBubbleBody extends StatelessWidget {
+  const _CallTimelineBubbleBody({
+    required this.label,
+    required this.accent,
+  });
+
+  final String label;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Icon(Icons.call_rounded, size: 22, color: accent),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              height: 1.25,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Return `true` if this failure was shown elsewhere (suppresses the snack bar).
+typedef ProgrammaticJumpFailureHandler = bool Function(String message);
+
 class PaginatedMessageList extends StatefulWidget {
   const PaginatedMessageList({
     super.key,
@@ -467,6 +545,8 @@ class PaginatedMessageList extends StatefulWidget {
     required this.onVisibleRange, // Optional: for read receipts
     this.onOpenAttachment,
     this.jumpToEventNotifier,
+    /// When set, may handle jump failures (e.g. in-conversation search inline UI).
+    this.onProgrammaticJumpFailure,
     /// Increment (e.g. after sending) to scroll to the latest messages even when
     /// the user was scrolled up.
     this.scrollToLatestNotifier,
@@ -476,10 +556,18 @@ class PaginatedMessageList extends StatefulWidget {
     this.onPollVote,
     this.onShowMessageActions,
     this.onBecameAtBottom,
+    this.onLeftNewestEdge,
     this.onSenderAvatarTap,
+    /// When non-empty, matching substrings in message bodies (and system rows) are highlighted.
+    this.timelineSearchHighlightQuery,
   });
 
+  final ProgrammaticJumpFailureHandler? onProgrammaticJumpFailure;
+
   final String roomId;
+
+  /// Active in-conversation search phrase for inline highlights (case-insensitive).
+  final String? timelineSearchHighlightQuery;
 
   /// Live member avatars from room state; when non-null, overrides stale [Message.senderAvatarMxc].
   final ValueNotifier<Map<String, String>>? senderAvatarMxcByUserId;
@@ -501,6 +589,9 @@ class PaginatedMessageList extends StatefulWidget {
   /// Fires when the user scrolls from higher up back to the latest messages (reverse list “bottom”).
   /// Use to send read receipts without waiting for the next timeline sync.
   final VoidCallback? onBecameAtBottom;
+
+  /// Fires when the user leaves the newest-message edge (scrolls up). Cancels debounced mark-read.
+  final VoidCallback? onLeftNewestEdge;
 
   /// When set to a non-empty event id (e.g. from room info), scrolls that bubble into view.
   final ValueNotifier<String?>? jumpToEventNotifier;
@@ -552,17 +643,20 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
   /// Skips tail-driven [_scrollToBottom] right after a history page (avoids fighting restore).
   bool _deferTailAutoscroll = false;
   int _unseenNewCount = 0;
+  /// When the timeline has no read marker, oldest unread from stream tail growth (scroll-up).
+  String? _firstStreamUnreadEventId;
   /// Seeded true so we do not fire [onBecameAtBottom] on the initial layout-at-bottom frame.
   bool _wasAtBottom = true;
+  /// Drives the jump-to-latest chip; must update via [setState] because [ScrollController] does not.
+  bool _showJumpToLatestFab = false;
   String _lastTailKey = '';
   String? _pendingJumpEventId;
   GlobalKey? _jumpKey;
   int _jumpRetryFrames = 0;
   int _jumpResolveGeneration = 0;
 
-  /// After the first attempt (success or “nothing to do”), we stop re-running.
-  bool _didInitialUnreadScroll = false;
-  bool _scheduledInitialUnreadFrame = false;
+  /// Fires [onBecameAtBottom] once when the list is first laid out at the newest edge.
+  bool _notifiedInitialBottomRead = false;
   int? _lastScrollToLatestSeq;
 
   /// Event / transaction id to frame after a successful jump-to-message.
@@ -573,20 +667,42 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
   List<Message>? _newestFirstDisplayCache;
   List<Message>? _newestFirstCacheSourceRef;
   int _newestFirstCacheLength = -1;
+  bool? _newestFirstCacheIsGroupRoom;
 
   static const Duration _jumpHighlightDuration = Duration(seconds: 3);
+
+  /// Direct rooms: hide noisy `m.room.member` "joined the room" rows (matches Rust timeline copy).
+  static bool _isDirectRoomHiddenMemberJoin(Message m) {
+    if (m.messageType != MessageType.membershipChange) return false;
+    return m.content.endsWith(' joined the room');
+  }
 
   List<Message> _newestFirstDisplay() {
     final src = widget.initialMessages;
     if (_newestFirstDisplayCache != null &&
         identical(_newestFirstCacheSourceRef, src) &&
-        _newestFirstCacheLength == src.length) {
+        _newestFirstCacheLength == src.length &&
+        _newestFirstCacheIsGroupRoom == widget.isGroupRoom) {
       return _newestFirstDisplayCache!;
     }
     _newestFirstCacheSourceRef = src;
     _newestFirstCacheLength = src.length;
-    _newestFirstDisplayCache = src.reversed.toList(growable: false);
+    _newestFirstCacheIsGroupRoom = widget.isGroupRoom;
+    var rev = src.reversed.toList(growable: false);
+    if (!widget.isGroupRoom) {
+      rev = rev
+          .where((m) => !_isDirectRoomHiddenMemberJoin(m))
+          .toList(growable: false);
+    }
+    _newestFirstDisplayCache = rev;
     return _newestFirstDisplayCache!;
+  }
+
+  /// Sync after layout / programmatic scroll so [_wasAtBottom] matches the real offset before any
+  /// user drag (listener may not run until the position changes).
+  void _syncWasAtBottomBaseline() {
+    if (!_controller.hasClients) return;
+    _wasAtBottom = _isAtBottom;
   }
 
   /// Scrolls to and briefly highlights [eventId], reusing the same path as
@@ -610,9 +726,37 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
     }
   }
 
+  void _presentProgrammaticJumpFailure(String message) {
+    if (widget.onProgrammaticJumpFailure != null &&
+        widget.onProgrammaticJumpFailure!(message)) {
+      return;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   bool get _isAtBottom {
-    // With reverse:true, bottom == pixels <= 20
-    return !_controller.hasClients || _controller.position.pixels <= 20;
+    // With reverse:true, “newest” edge is a small pixel offset; use a looser band
+    // so read receipts still fire if padding rounds [pixels] slightly above 0.
+    return !_controller.hasClients || _controller.position.pixels <= 56;
+  }
+
+  void _maybeNotifyReadAtBottom() {
+    if (_notifiedInitialBottomRead) return;
+    if (!_controller.hasClients) return;
+    if (!_isAtBottom) return;
+    _notifiedInitialBottomRead = true;
+    widget.onBecameAtBottom?.call();
+  }
+
+  void _syncJumpFabVisibility() {
+    if (!mounted) return;
+    final show = !_isAtBottom;
+    if (show != _showJumpToLatestFab) {
+      setState(() => _showJumpToLatestFab = show);
+    }
   }
 
   void _onScrollToLatestNotifier() {
@@ -623,50 +767,6 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _scrollToBottom();
     });
-  }
-
-  void _scheduleInitialUnreadScrollIfNeeded() {
-    if (_didInitialUnreadScroll) return;
-    if (!widget.initialMessages.any((m) => m.messageType == MessageType.readMarker)) {
-      return;
-    }
-    if (_scheduledInitialUnreadFrame) return;
-    _scheduledInitialUnreadFrame = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scheduledInitialUnreadFrame = false;
-      if (!mounted || _didInitialUnreadScroll) return;
-      _tryScrollToFirstUnreadAfterReadMarker();
-    });
-  }
-
-  void _tryScrollToFirstUnreadAfterReadMarker() {
-    if (_didInitialUnreadScroll) return;
-    final notifier = widget.jumpToEventNotifier;
-    final messages = widget.initialMessages;
-    final markerIndex = messages.indexWhere((m) => m.messageType == MessageType.readMarker);
-    if (markerIndex < 0) {
-      _didInitialUnreadScroll = true;
-      return;
-    }
-
-    String? targetId;
-    for (var i = markerIndex + 1; i < messages.length; i++) {
-      final m = messages[i];
-      if (!_timelineRowEligibleForJumpScroll(m)) continue;
-      if (m.eventId.isNotEmpty) {
-        targetId = m.eventId;
-        break;
-      }
-      if (m.transactionId.isNotEmpty) {
-        targetId = m.transactionId;
-        break;
-      }
-    }
-
-    _didInitialUnreadScroll = true;
-    if (notifier != null && targetId != null && targetId.isNotEmpty) {
-      PaginatedMessageListState.requestScrollToEvent(notifier, targetId);
-    }
   }
 
   @override
@@ -686,7 +786,15 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
         if (widget.initialMessages.length < 5 && _hasMore) {
           _maybeLoadOlder();
         }
-        _scheduleInitialUnreadScrollIfNeeded();
+        _syncJumpFabVisibility();
+        _syncWasAtBottomBaseline();
+        _maybeNotifyReadAtBottom();
+        // Scroll [ScrollPosition] may attach one frame later than first layout.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _syncWasAtBottomBaseline();
+          _maybeNotifyReadAtBottom();
+        });
       });
     }
   }
@@ -694,6 +802,9 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
   @override
   void dispose() {
     _jumpHighlightTimer?.cancel();
+    if (_controller.hasClients && _isAtBottom) {
+      widget.onBecameAtBottom?.call();
+    }
     widget.scrollToLatestNotifier?.removeListener(_onScrollToLatestNotifier);
     widget.jumpToEventNotifier?.removeListener(_onJumpNotifier);
     if (_scrollListenerAttached) {
@@ -711,6 +822,67 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
     if (m.transactionId.isNotEmpty) return 't:${m.transactionId}';
     if (m.eventId.isNotEmpty) return 'e:${m.eventId}';
     return 'x:${m.timestamp}:${m.content.hashCode}';
+  }
+
+  bool _listPrefixEqual(List<Message> a, List<Message> b, int n) {
+    if (n < 0 || n > a.length || n > b.length) return false;
+    for (var i = 0; i < n; i++) {
+      if (_stableMessageKey(a[i]) != _stableMessageKey(b[i])) return false;
+    }
+    return true;
+  }
+
+  /// New messages only at the end (oldest → newest storage).
+  bool _didAppendOnlyAtTail(List<Message> oldL, List<Message> newL) {
+    final o = oldL.length;
+    final n = newL.length;
+    if (n <= o) return false;
+    return _listPrefixEqual(oldL, newL, o);
+  }
+
+  /// Older history only at the start (full list replace from sync / pagination).
+  bool _didPrependOnlyAtHead(List<Message> oldL, List<Message> newL) {
+    final o = oldL.length;
+    final n = newL.length;
+    if (n <= o) return false;
+    for (var i = 0; i < o; i++) {
+      if (_stableMessageKey(newL[n - o + i]) != _stableMessageKey(oldL[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  int? _readMarkerDisplayIndex(List<Message> newestFirst) {
+    for (var i = 0; i < newestFirst.length; i++) {
+      if (newestFirst[i].messageType == MessageType.readMarker) return i;
+    }
+    return null;
+  }
+
+  int _unreadCountFromReadMarker(List<Message> newestFirst, int readMarkerIndex) {
+    var c = 0;
+    for (var i = 0; i < readMarkerIndex; i++) {
+      if (_countsTowardUnreadFab(newestFirst[i])) c++;
+    }
+    return c;
+  }
+
+  int _fabUnreadCountForDisplay(List<Message> newestFirst) {
+    // At the newest edge the user has caught up visually; badge must clear even
+    // if the read-marker row in the timeline has not synced yet.
+    if (_controller.hasClients && _isAtBottom) return 0;
+    final rm = _readMarkerDisplayIndex(newestFirst);
+    if (rm != null) return _unreadCountFromReadMarker(newestFirst, rm);
+    return _unseenNewCount;
+  }
+
+  void _onJumpDownFabTapped() {
+    // Always go to the true newest edge so [_isAtBottom] becomes true, stream
+    // unread state clears, and [onBecameAtBottom] runs (read receipt). Jumping
+    // only to “first unread” left the viewport above the tail so the FAB count
+    // (read-marker–derived) never dropped.
+    _scrollToBottom();
   }
 
   /// Pins the row that was chronologically oldest before a prepend (same logical
@@ -821,11 +993,12 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
 
   void _abortJumpToEvent(int gen, String message) {
     if (gen != _jumpResolveGeneration) return;
+    // Present before clearing [jumpToEventNotifier] so listeners can still
+    // attribute the failure (e.g. in-conversation search vs date jump).
+    if (mounted) {
+      _presentProgrammaticJumpFailure(message);
+    }
     widget.jumpToEventNotifier?.value = null;
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// Index in [display] (newest → oldest) of the list row that builds a bubble
@@ -837,6 +1010,8 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
         MessageType.dateDivider,
         MessageType.readMarker,
         MessageType.timelineStart,
+        MessageType.membershipChange,
+        MessageType.profileChange,
       ].contains(message.messageType)) {
         continue;
       }
@@ -910,6 +1085,7 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
         curve: Curves.easeOutCubic,
       ).then((_) {
         if (!mounted) return;
+        _syncWasAtBottomBaseline();
         final highlightId = id;
         _jumpRetryFrames = 0;
         _jumpHighlightTimer?.cancel();
@@ -927,16 +1103,12 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
       return;
     }
 
-    final display = widget.initialMessages.reversed.toList(growable: false);
+    final display = _newestFirstDisplay();
     final idx = _jumpTargetDisplayIndex(id, display);
     if (idx == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'That message is not shown as a row in this timeline.',
-            ),
-          ),
+        _presentProgrammaticJumpFailure(
+          'That message is not shown as a row in this timeline.',
         );
       }
       _jumpRetryFrames = 0;
@@ -960,9 +1132,7 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
     }
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not scroll to that message.')),
-      );
+      _presentProgrammaticJumpFailure('Could not scroll to that message.');
     }
     _jumpRetryFrames = 0;
     setState(() {
@@ -989,14 +1159,32 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
     final atBottom = _isAtBottom;
     if (atBottom && !_wasAtBottom) {
       widget.onBecameAtBottom?.call();
+    } else if (!atBottom && _wasAtBottom) {
+      widget.onLeftNewestEdge?.call();
     }
     _wasAtBottom = atBottom;
 
     widget.onVisibleRange?.call(_firstVisible(), _lastVisible());
+    _syncJumpFabVisibility();
   }
 
   @override
   void didUpdateWidget(PaginatedMessageList oldWidget) {
+    final oldList = oldWidget.initialMessages;
+    final newList = widget.initialMessages;
+    final wasAtBottom = _isAtBottom;
+    double? scrollPreserveOldPixels;
+    double? scrollPreserveOldMax;
+    final appendedTail = _didAppendOnlyAtTail(oldList, newList);
+    final prependedHead =
+        !appendedTail && _didPrependOnlyAtHead(oldList, newList);
+    if ((appendedTail || prependedHead) &&
+        !wasAtBottom &&
+        _controller.hasClients) {
+      scrollPreserveOldPixels = _controller.position.pixels;
+      scrollPreserveOldMax = _controller.position.maxScrollExtent;
+    }
+
     super.didUpdateWidget(oldWidget);
     if (oldWidget.scrollToLatestNotifier != widget.scrollToLatestNotifier) {
       oldWidget.scrollToLatestNotifier?.removeListener(_onScrollToLatestNotifier);
@@ -1035,7 +1223,46 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
       });
     }
     _lastTailKey = newTail;
-    _scheduleInitialUnreadScrollIfNeeded();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (scrollPreserveOldPixels != null &&
+          scrollPreserveOldMax != null &&
+          _controller.hasClients) {
+        final newMax = _controller.position.maxScrollExtent;
+        final delta = newMax - scrollPreserveOldMax;
+        if (delta.abs() > 0.5) {
+          _controller.jumpTo(
+            (scrollPreserveOldPixels + delta).clamp(0.0, newMax),
+          );
+        }
+      }
+      if (!mounted) return;
+      if (appendedTail && !wasAtBottom && oldList.isNotEmpty) {
+        final preview = newList.reversed.toList(growable: false);
+        if (_readMarkerDisplayIndex(preview) == null) {
+          final oldLen = oldList.length;
+          var addedUnread = 0;
+          for (var i = oldLen; i < newList.length; i++) {
+            if (_countsTowardUnreadFab(newList[i])) addedUnread++;
+          }
+          if (addedUnread > 0) {
+            final firstNew = newList[oldLen];
+            final fid = firstNew.eventId.isNotEmpty
+                ? firstNew.eventId
+                : firstNew.transactionId;
+            setState(() {
+              _unseenNewCount += addedUnread;
+              if (fid.isNotEmpty) {
+                _firstStreamUnreadEventId ??= fid;
+              }
+            });
+          }
+        }
+      }
+      if (!mounted) return;
+      _syncJumpFabVisibility();
+      _maybeNotifyReadAtBottom();
+    });
   }
 
   Future<void> _maybeLoadOlder() async {
@@ -1117,19 +1344,37 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
       if (shouldAutoscroll) {
         _scrollToBottom();
       } else {
-        setState(() => _unseenNewCount += 1);
+        final fid = m.eventId.isNotEmpty ? m.eventId : m.transactionId;
+        setState(() {
+          if (_countsTowardUnreadFab(m)) {
+            _unseenNewCount += 1;
+            if (fid.isNotEmpty) {
+              _firstStreamUnreadEventId ??= fid;
+            }
+          }
+        });
       }
     });
   }
 
   void _scrollToBottom() {
     if (!_controller.hasClients) return;
-    _controller.animateTo(
+    setState(() {
+      _unseenNewCount = 0;
+      _firstStreamUnreadEventId = null;
+    });
+    _controller
+        .animateTo(
       0, // because reverse:true
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
-    );
-    setState(() => _unseenNewCount = 0);
+    )
+        .then((_) {
+      if (mounted) {
+        _syncWasAtBottomBaseline();
+        _syncJumpFabVisibility();
+      }
+    });
   }
 
   Message _firstVisible() {
@@ -1154,14 +1399,21 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
     }
 
     final display = _newestFirstDisplay();
+    final fabUnread = _fabUnreadCountForDisplay(display);
     final messagePlacementLR = _conversationPlacementLeftRight(context);
 
     return Stack(
       children: [
         NotificationListener<ScrollEndNotification>(
           onNotification: (_) {
-            if (_isAtBottom && _unseenNewCount != 0) {
-              setState(() => _unseenNewCount = 0);
+            if (_isAtBottom) {
+              widget.onBecameAtBottom?.call();
+              if (_unseenNewCount != 0 || _firstStreamUnreadEventId != null) {
+                setState(() {
+                  _unseenNewCount = 0;
+                  _firstStreamUnreadEventId = null;
+                });
+              }
             }
             return false;
           },
@@ -1186,6 +1438,17 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
                   }
                   if (message.messageType == MessageType.readMarker) {
                     return const _TimelineUnreadMarkerRow();
+                  }
+                  if (message.messageType == MessageType.membershipChange ||
+                      message.messageType == MessageType.profileChange) {
+                    final stableSys = _stableMessageKey(message);
+                    return KeyedSubtree(
+                      key: ValueKey<String>(stableSys),
+                      child: _TimelineSystemEventRow(
+                        text: message.content,
+                        searchHighlightQuery: widget.timelineSearchHighlightQuery,
+                      ),
+                    );
                   }
                   // Real [MessageType.message] can have empty [content] (e.g. image/file
                   // with no caption); those must still build so jump-to-event GlobalKeys attach.
@@ -1239,6 +1502,8 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
                               widget.onShowReactionReactors,
                           onPollVote: widget.onPollVote,
                           onSenderAvatarTap: widget.onSenderAvatarTap,
+                          searchHighlightQuery:
+                              widget.timelineSearchHighlightQuery,
                           jumpHighlighted:
                               _jumpHighlightId != null &&
                               _messageMatchesJumpTarget(
@@ -1277,7 +1542,7 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
         ),
 
         // Jump to latest (always when scrolled up; subtitle when there are new messages).
-        if (!_isAtBottom)
+        if (_showJumpToLatestFab)
           Positioned(
             bottom: 12,
             left: 0,
@@ -1288,7 +1553,7 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
                 color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(22),
                 child: InkWell(
-                  onTap: _scrollToBottom,
+                  onTap: _onJumpDownFabTapped,
                   borderRadius: BorderRadius.circular(22),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
@@ -1298,15 +1563,22 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          size: 22,
-                          color: Theme.of(context).colorScheme.primary,
+                        Badge(
+                          isLabelVisible: fabUnread > 0,
+                          label: Text(
+                            fabUnread > 99 ? '99+' : '$fabUnread',
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                          child: Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 22,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                         ),
-                        if (_unseenNewCount > 0) ...[
-                          const SizedBox(width: 6),
+                        if (fabUnread > 0) ...[
+                          const SizedBox(width: 8),
                           Text(
-                            '$_unseenNewCount new ${_unseenNewCount == 1 ? "message" : "messages"}',
+                            '$fabUnread unread ${fabUnread == 1 ? "message" : "messages"}',
                             style: Theme.of(context).textTheme.labelLarge,
                           ),
                         ],
@@ -1347,6 +1619,7 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
     onPollVote,
     void Function(BuildContext context, Message message)? onSenderAvatarTap,
     bool jumpHighlighted = false,
+    String? searchHighlightQuery,
   }) {
     Widget bubbleForMap(Map<String, String>? avatarMap) => MessageBubble(
           message: m,
@@ -1369,6 +1642,7 @@ class PaginatedMessageListState extends State<PaginatedMessageList> {
               ? (ctx, anchor) => widget.onShowMessageActions!(ctx, m, anchor)
               : null,
           onSenderAvatarTap: onSenderAvatarTap,
+          searchHighlightQuery: searchHighlightQuery,
         );
     final Widget bubble = senderAvatarMxcByUserId != null
         ? ValueListenableBuilder<Map<String, String>>(
@@ -1679,7 +1953,10 @@ String _readReceiptDetailTooltip(BuildContext context, Message message) {
   }
   if (n > 1) return 'Read by $n members$suffix';
   if (n == 1) return 'Read$suffix';
-  return 'Sent';
+  if (message.sendState == EventSendStateKind.delivered) {
+    return 'Delivered$suffix';
+  }
+  return 'Sent$suffix';
 }
 
 /// Outgoing bubbles only: local echo / server ack + aggregated `m.read` from [Message.readReceiptCount].
@@ -1711,14 +1988,14 @@ class _OutgoingReceiptStrip extends StatelessWidget {
     final readCount = message.readReceiptCount;
     final readColor = theme.colorScheme.primary;
     final sentColor = theme.colorScheme.onSurface.withValues(alpha: 0.45);
-    final icon = readCount > 0
+    final Widget icon = readCount > 0
         ? Icon(
             Icons.done_all_rounded,
             size: 16,
             color: readColor,
           )
         : Icon(
-            Icons.done_rounded,
+            Icons.done_all_rounded,
             size: 16,
             color: sentColor,
           );
@@ -1770,6 +2047,7 @@ bool _shouldShowInlineReplyMediaThumb(Message message) {
     RoomMessageKind.file => true,
     RoomMessageKind.text => false,
     RoomMessageKind.poll => false,
+    RoomMessageKind.call => false,
     RoomMessageKind.other => false,
   };
 }
@@ -2084,6 +2362,7 @@ Widget _inlineReplyKindPlaceholder(RoomMessageKind kind, ThemeData theme) {
     RoomMessageKind.file => Icons.insert_drive_file_outlined,
     RoomMessageKind.audio => Icons.audiotrack,
     RoomMessageKind.poll => Icons.poll_outlined,
+    RoomMessageKind.call => Icons.call_outlined,
     RoomMessageKind.text => Icons.chat_bubble_outline,
     RoomMessageKind.other => Icons.perm_media_outlined,
   };
@@ -2795,12 +3074,16 @@ class MessageBubble extends StatelessWidget {
     this.onPollVote,
     this.onOpenMessageActions,
     this.onSenderAvatarTap,
+    this.searchHighlightQuery,
   });
 
   /// Incoming bubbles: blue accent so they read clearly against terminal-green “sent” styling.
   static const Color _receivedAccent = Color(0xFF58A6FF);
 
   final Message message;
+
+  /// In-conversation search: highlight matching substrings in body and sender line.
+  final String? searchHighlightQuery;
 
   final String roomId;
   final bool isOutgoing;
@@ -3039,6 +3322,7 @@ class MessageBubble extends StatelessWidget {
       decorationColor:
           isOutgoing ? theme.colorScheme.primary : _receivedAccent,
     );
+    final searchHighlightStyle = _timelineSearchHighlightStyle(theme.colorScheme);
     final showOverlayActions = pending || showMenu;
     final bubbleCrossAxis =
         layoutOutgoing ? CrossAxisAlignment.end : CrossAxisAlignment.start;
@@ -3136,9 +3420,16 @@ class MessageBubble extends StatelessWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        message.displayName,
-                                        style: metaNameStyle,
+                                      Text.rich(
+                                        TextSpan(
+                                          children:
+                                              _plainTextSearchHighlightSpans(
+                                            message.displayName,
+                                            searchHighlightQuery,
+                                            metaNameStyle,
+                                            searchHighlightStyle,
+                                          ),
+                                        ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         textAlign: TextAlign.start,
@@ -3157,9 +3448,16 @@ class MessageBubble extends StatelessWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.end,
                                     children: [
-                                      Text(
-                                        message.displayName,
-                                        style: metaNameStyle,
+                                      Text.rich(
+                                        TextSpan(
+                                          children:
+                                              _plainTextSearchHighlightSpans(
+                                            message.displayName,
+                                            searchHighlightQuery,
+                                            metaNameStyle,
+                                            searchHighlightStyle,
+                                          ),
+                                        ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         textAlign: TextAlign.end,
@@ -3239,6 +3537,13 @@ class MessageBubble extends StatelessWidget {
                                 ? (ids) => onPollVote!(message.eventId, ids)
                                 : null,
                           )
+                        else if (message.roomMsgKind == RoomMessageKind.call)
+                          _CallTimelineBubbleBody(
+                            label: message.content.trim().isNotEmpty
+                                ? message.content.trim()
+                                : 'Call',
+                            accent: barColor,
+                          )
                         else if (_wantsMediaPreview(message))
                           Padding(
                             padding: const EdgeInsets.only(bottom: 8),
@@ -3268,12 +3573,18 @@ class MessageBubble extends StatelessWidget {
                         else ...[
                           SizedBox(
                             width: double.infinity,
-                            child: SelectableLinkify(
-                              text: message.content,
-                              style: messageBodyStyle,
-                              linkStyle: linkStyle,
+                            child: SelectableText.rich(
+                              TextSpan(
+                                children: _linkifySpansWithSearchHighlight(
+                                  message.content,
+                                  searchHighlightQuery,
+                                  messageBodyStyle,
+                                  linkStyle,
+                                  searchHighlightStyle,
+                                  (link) => openMatrixUrl(context, link.url),
+                                ),
+                              ),
                               textAlign: bubbleTextAlign,
-                              onOpen: (link) => openMatrixUrl(context, link.url),
                             ),
                           ),
                           if (matrixLinkPreviewsJsonHasData(
@@ -3332,9 +3643,11 @@ class MessageBubble extends StatelessWidget {
                                 child: Text.rich(
                                   TextSpan(
                                     children: [
-                                      TextSpan(
-                                        text: message.displayName,
-                                        style: metaNameStyle,
+                                      ..._plainTextSearchHighlightSpans(
+                                        message.displayName,
+                                        searchHighlightQuery,
+                                        metaNameStyle,
+                                        searchHighlightStyle,
                                       ),
                                       TextSpan(text: ' · ', style: metaSepStyle),
                                       TextSpan(
@@ -3783,18 +4096,6 @@ bool _isTimelineRasterBytes(Uint8List data) {
 /// Wider slot so MSC / placeholder waveform bars are visible in the bubble.
 const double _kAudioWaveformThumbW = 76;
 
-/// Matches timeline rows that render a visible bubble (same rules as jump-to-event).
-bool _timelineRowEligibleForJumpScroll(Message m) {
-  if (m.messageType != MessageType.message) return false;
-  if (m.content.isEmpty &&
-      !_wantsMediaPreview(m) &&
-      !m.isRedacted &&
-      !TimelineLocalHiddenStore.isHidden(m)) {
-    return false;
-  }
-  return true;
-}
-
 bool _wantsMediaPreview(Message m) {
   final lookup = m.eventId.isNotEmpty ? m.eventId : m.transactionId;
   if (lookup.isEmpty) return false;
@@ -3806,9 +4107,22 @@ bool _wantsMediaPreview(Message m) {
       return true;
     case RoomMessageKind.text:
     case RoomMessageKind.poll:
+    case RoomMessageKind.call:
     case RoomMessageKind.other:
       return false;
   }
+}
+
+/// Rows that count as “chat” for the jump-down unread badge (mirrors bubble visibility).
+bool _countsTowardUnreadFab(Message m) {
+  if (m.messageType != MessageType.message) return false;
+  if (TimelineLocalHiddenStore.isHidden(m)) return false;
+  if (m.content.isEmpty &&
+      !_wantsMediaPreview(m) &&
+      !m.isRedacted) {
+    return false;
+  }
+  return true;
 }
 
 String _timelineExtLower(String label) {
@@ -3891,6 +4205,7 @@ String _timelineAttachmentMimeLabel(
     RoomMessageKind.file =>
       extLower.isNotEmpty ? extLower.toUpperCase() : 'file',
     RoomMessageKind.poll => 'poll',
+    RoomMessageKind.call => 'call',
     RoomMessageKind.text => 'text',
     RoomMessageKind.other => 'attachment',
   };
@@ -4121,10 +4436,15 @@ Widget _timelineNoThumbnailRow({
     RoomMessageKind.poll => Icons.poll_outlined,
     _ => Icons.perm_media_outlined,
   };
-  // Same frame as portrait timeline thumbnail (kTimelineThumbPortraitW × kTimelineThumbPortraitH).
+  final thumbSize = mediaPreviewWidth > 0 && mediaPreviewHeight > 0
+      ? timelineThumbBoxFromEventDimensions(
+          mediaPreviewWidth,
+          mediaPreviewHeight,
+        )
+      : const Size(kTimelineThumbPortraitW, kTimelineThumbPortraitH);
   final placeholder = SizedBox(
-    width: kTimelineThumbPortraitW,
-    height: kTimelineThumbPortraitH,
+    width: thumbSize.width,
+    height: thumbSize.height,
     child: DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(3),
@@ -4254,40 +4574,52 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
 
   Future<void> _load() async {
     try {
-      var b = await widget.loadMessageMedia(
+      var displayB = await widget.loadMessageMedia(
         widget.timelineMediaKey,
         thumbnail: true,
       );
-      if (b != null && b.isNotEmpty && !_isTimelineRasterBytes(b)) {
-        b = null;
+      if (displayB != null &&
+          displayB.isNotEmpty &&
+          !_isTimelineRasterBytes(displayB)) {
+        displayB = null;
       }
       RasterPreviewMeta? meta;
-      if (b != null && b.isNotEmpty) {
-        meta = await decodeRasterPreviewMeta(b);
+      if (displayB != null && displayB.isNotEmpty) {
+        meta = await decodeRasterPreviewMeta(displayB);
         if (meta == null) {
-          b = null;
+          displayB = null;
         } else {
-          final frame = timelineThumbFrameSizeForPixels(
-            widget.mediaPreviewWidth,
-            widget.mediaPreviewHeight,
+          final oriented = orientedIntrinsicForLayout(
+            meta.rawSize,
+            meta.exifOrientation,
           );
-          final longLogical =
-              frame.width >= frame.height ? frame.width : frame.height;
+          final thumbBox = timelineThumbBoxPreservingAspect(oriented);
+          final longLogical = thumbBox.width >= thumbBox.height
+              ? thumbBox.width
+              : thumbBox.height;
           final longPx = timelineThumbDecodeExtentPx(longLogical);
+          final preEncodeMeta = meta;
           final small = await encodeRasterPngMaxLongEdgeWithMeta(
-            b,
+            displayB,
             longPx,
-            meta,
+            preEncodeMeta,
           );
-          if (small != null) b = small;
+          if (small != null && small.isNotEmpty) {
+            displayB = small;
+            // Re-encode path bakes orientation into pixels; do not rotate again.
+            final dm = await decodeRasterPreviewMeta(small);
+            meta = dm != null
+                ? RasterPreviewMeta(dm.rawSize, 1)
+                : RasterPreviewMeta(oriented, 1);
+          }
         }
       }
       if (!mounted) return;
       setState(() {
-        _bytes = b;
+        _bytes = displayB;
         _previewMeta = meta;
         _loading = false;
-        if (b != null && b.isNotEmpty) {
+        if (displayB != null && displayB.isNotEmpty) {
           _error = null;
         } else if (!_canUseBlurhashAsThumbnailFallback()) {
           _error = 'Preview unavailable';
@@ -4318,7 +4650,7 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
 
   /// Thumb slot while loading, or when thumbnail download failed but [mediaBlurhash] is set.
   Widget _mediaPreviewThumbBlurhashOrSpinner(ThemeData theme) {
-    final frame = timelineThumbFrameSizeForPixels(
+    final frame = timelineThumbBoxFromEventDimensions(
       widget.mediaPreviewWidth,
       widget.mediaPreviewHeight,
     );
@@ -4506,8 +4838,9 @@ class _MessageMediaPreviewState extends State<_MessageMediaPreview> {
       meta.exifOrientation,
     );
     final portrait = oriented.height > oriented.width;
-    final tw = portrait ? kTimelineThumbPortraitW : kTimelineThumbLandscapeW;
-    final th = portrait ? kTimelineThumbPortraitH : kTimelineThumbLandscapeH;
+    final box = timelineThumbBoxPreservingAspect(oriented);
+    final tw = box.width;
+    final th = box.height;
     final thumbDecode = timelineThumbImageDecodeCacheParams(
       logicalWidth: tw,
       logicalHeight: th,
