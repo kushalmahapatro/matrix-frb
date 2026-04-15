@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:matrix_sdk/matrix_sdk.dart';
 
 /// Abstraction over FRB LiveKit APIs for production use and testing.
@@ -33,6 +35,9 @@ abstract class LiveKitNativeBridge {
     required int timestampUs,
     required int rotationDegrees,
   });
+
+  /// Mono PCM16 @ 48 kHz from the first remote mic (Rust ring buffer); empty if none pending.
+  Future<Int16List> pullRemoteAudioPcm16({required int maxSamples});
 }
 
 /// Default: delegates to generated [matrix_sdk] bindings.
@@ -96,6 +101,10 @@ class DefaultLiveKitNativeBridge implements LiveKitNativeBridge {
         timestampUs: timestampUs,
         rotationDegrees: rotationDegrees,
       );
+
+  @override
+  Future<Int16List> pullRemoteAudioPcm16({required int maxSamples}) =>
+      livekitSessionPullRemoteAudioPcm16(maxSamples: BigInt.from(maxSamples));
 }
 
 /// In-memory fake for widget/integration tests (no Rust).
@@ -173,4 +182,8 @@ class FakeLiveKitNativeBridge implements LiveKitNativeBridge {
   }) async {
     pushVideoCount++;
   }
+
+  @override
+  Future<Int16List> pullRemoteAudioPcm16({required int maxSamples}) async =>
+      Int16List(0);
 }

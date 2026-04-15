@@ -7,6 +7,7 @@ import 'package:matrix/src/core/desktop/desktop_compact_call_window_position.dar
 import 'package:matrix/src/core/desktop/desktop_compact_call_window_size.dart';
 import 'package:matrix/src/core/desktop/desktop_ongoing_call_main_bridge.dart';
 import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
+import 'package:matrix/src/core/calls/call_mic_activity_waveform.dart';
 import 'package:matrix/src/core/desktop/desktop_window_args.dart';
 import 'package:matrix/src/theme/matrix_theme.dart';
 import 'package:window_manager/window_manager.dart';
@@ -83,7 +84,7 @@ class _OngoingCallScaffoldState extends State<_OngoingCallScaffold> {
   void initState() {
     super.initState();
     unawaited(_refresh());
-    _poll = Timer.periodic(const Duration(milliseconds: 400), (_) {
+    _poll = Timer.periodic(const Duration(milliseconds: 120), (_) {
       unawaited(_refresh());
     });
   }
@@ -147,6 +148,7 @@ class _OngoingCallScaffoldState extends State<_OngoingCallScaffold> {
     final durationOrStatus =
         (snap?['durationOrStatus'] as String?) ?? '…';
     final micMuted = snap?['micMuted'] as bool? ?? false;
+    final micLevel = (snap?['micCaptureLevel'] as num?)?.toDouble() ?? 0.0;
     final speakerOn = snap?['speakerOn'] as bool? ?? true;
     final cameraMuted = snap?['cameraMuted'] as bool? ?? true;
     final preferVideo = snap?['preferVideoCallUi'] as bool? ?? a.preferVideoCallUi;
@@ -232,6 +234,17 @@ class _OngoingCallScaffoldState extends State<_OngoingCallScaffold> {
                   fontWeight: FontWeight.w600,
                   fontSize: 10,
                   color: scheme.onSurfaceVariant,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: CallMicActivityWaveform(
+                  level: micLevel,
+                  muted: micMuted,
+                  height: 28,
+                  barWidth: 2.5,
+                  gap: 1.5,
+                  activeColor: MatrixTheme.matrixLightGreen.withValues(alpha: 0.9),
                 ),
               ),
               if (videoSurface)

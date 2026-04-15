@@ -2,6 +2,9 @@
 //!
 //! **Local media** is fed from Flutter: PCM16 from the `record` plugin into [`livekit_session_push_audio_pcm16`],
 //! and tightly packed I420 from the `camera` preview into [`livekit_session_push_video_i420`].
+//!
+//! **First remote microphone** is decoded in Rust via [`NativeAudioStream`], pushed into a bounded ring buffer,
+//! and consumed by Flutter through [`livekit_session_pull_remote_audio_pcm16`] (see app `flutter_sound` downlink).
 
 #[cfg(target_arch = "wasm32")]
 pub mod imp {
@@ -54,12 +57,18 @@ pub mod imp {
     pub async fn livekit_session_publish_local_camera_track() -> Result<(), String> {
         Err("LiveKit native session is not available on web.".to_owned())
     }
+
+    pub async fn livekit_session_pull_remote_audio_pcm16(_max_samples: usize) -> Vec<i16> {
+        Vec::new()
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod imp {
     use std::borrow::Cow;
-    use std::collections::HashSet;
+    use std::collections::{HashSet, VecDeque};
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::Arc;
     use std::sync::LazyLock;
 
     use futures_util::StreamExt;
@@ -68,27 +77,36 @@ pub mod imp {
     use livekit::track::{LocalAudioTrack, LocalTrack, LocalVideoTrack};
     use livekit::webrtc::audio_source::native::NativeAudioSource;
     use livekit::webrtc::audio_source::AudioSourceOptions;
+    use livekit::webrtc::audio_stream::native::NativeAudioStream;
     use livekit::webrtc::prelude::{AudioFrame, RtcAudioSource, RtcVideoSource, VideoRotation};
-    use livekit::webrtc::video_stream::native::NativeVideoStream;
     use livekit::webrtc::video_frame::{I420Buffer, VideoFrame};
     use livekit::webrtc::video_source::native::NativeVideoSource;
     use livekit::webrtc::video_source::VideoResolution;
+    use livekit::webrtc::video_stream::native::NativeVideoStream;
     use tokio::sync::Mutex;
     use tokio::task::JoinHandle;
+    use tokio_util::sync::CancellationToken;
 
     struct LiveKitHeld {
-        room: std::sync::Arc<Room>,
+        room: Arc<Room>,
         audio_source: NativeAudioSource,
         /// Pending PCM samples before forming 10 ms WebRTC frames (see `NativeAudioSource` docs).
         audio_buffer: Vec<i16>,
         video_source: Option<NativeVideoSource>,
         _drain_events: JoinHandle<()>,
-        /// Drains remote video frames so decoders do not backlog. Remote audio is **not** drained
-        /// via `NativeAudioStream` — that path consumes PCM and silences default speaker playout.
+        /// Remote track attach loop (video drain + first-remote audio ring buffer).
         _remote_media_playout: JoinHandle<()>,
+        /// Mono i16 @ 48 kHz from the first remote mic (`NativeAudioStream`); Flutter pulls and plays.
+        remote_pcm_ring: Arc<Mutex<VecDeque<i16>>>,
+        remote_play_cancel: CancellationToken,
     }
 
     static SESSION: LazyLock<Mutex<Option<LiveKitHeld>>> = LazyLock::new(|| Mutex::new(None));
+
+    /// Flutter → Rust FRB calls carrying PCM batches (see [livekit_session_push_audio_pcm16]).
+    static LIVEKIT_AUDIO_PCM_BATCHES_FROM_FLUTTER: AtomicU64 = AtomicU64::new(0);
+    /// Successful [NativeAudioSource::capture_frame] calls (10 ms frames into libwebrtc).
+    static LIVEKIT_AUDIO_WEBRTC_FRAMES_OUT: AtomicU64 = AtomicU64::new(0);
 
     /// WebRTC `InitAndroid` must run on the **Android main thread** (see `WebRtcAndroidInit` in Kotlin).
     /// Running it from this async path (`tokio`) breaks JNI class lookup (`JniInit` not found).
@@ -114,6 +132,18 @@ pub mod imp {
     const AUDIO_SAMPLES_10MS: usize = (AUDIO_SAMPLE_RATE / 100) as usize;
     /// Drop audio if Flutter gets this far ahead (about 200 ms).
     const AUDIO_BUFFER_CAP_SAMPLES: usize = AUDIO_SAMPLES_10MS * 20;
+    /// ~3 s of mono 48 kHz remote PCM; overflow drops oldest samples to cap latency.
+    const REMOTE_PCM_RING_CAP_SAMPLES: usize = AUDIO_SAMPLE_RATE as usize * 3;
+
+    async fn push_i16_to_remote_ring(ring: &Mutex<VecDeque<i16>>, data: &[i16]) {
+        let mut q = ring.lock().await;
+        for &s in data {
+            while q.len() >= REMOTE_PCM_RING_CAP_SAMPLES {
+                q.pop_front();
+            }
+            q.push_back(s);
+        }
+    }
 
     fn map_rotation(deg: i32) -> VideoRotation {
         let d = ((deg % 360) + 360) % 360;
@@ -207,51 +237,203 @@ pub mod imp {
     }
 
     async fn dispose_held(held: LiveKitHeld) -> Result<(), String> {
+        held.remote_play_cancel.cancel();
         held._remote_media_playout.abort();
         let close_res = held.room.close().await.map_err(|e| e.to_string());
         held._drain_events.abort();
         close_res
     }
 
-    /// For each remote **video** track, drain decoded frames (audio uses default WebRTC playout).
-    fn spawn_remote_media_playout_task(room: std::sync::Arc<Room>) -> JoinHandle<()> {
+    /// [`RemoteTrackPublication::is_subscribed`] is `track().is_some()` (misnamed); use
+    /// [`RemoteTrackPublication::is_desired`] to detect missing SFU subscription.
+    fn ensure_remote_publication_desired(publication: &RemoteTrackPublication) {
+        if !publication.is_desired() {
+            publication.set_subscribed(true);
+        }
+    }
+
+    /// For each remote **video** track, drain decoded frames. First remote **audio** is drained into
+    /// [LiveKitHeld::remote_pcm_ring] for Flutter playback; additional remote mics use default playout.
+    fn attach_remote_tracks_from_participant(
+        attached: &mut HashSet<TrackSid>,
+        first_remote_audio_drain: &mut Option<TrackSid>,
+        ring: &Arc<Mutex<VecDeque<i16>>>,
+        play_cancel: &CancellationToken,
+        participant: &RemoteParticipant,
+    ) {
+        for pub_ in participant.track_publications().values() {
+            ensure_remote_publication_desired(pub_);
+            if let Some(track) = pub_.track() {
+                attach_remote_track_if_new(
+                    attached,
+                    first_remote_audio_drain,
+                    ring,
+                    play_cancel,
+                    track,
+                );
+            }
+        }
+    }
+
+    fn spawn_remote_media_playout_task(
+        room: Arc<Room>,
+        ring: Arc<Mutex<VecDeque<i16>>>,
+        play_cancel: CancellationToken,
+    ) -> JoinHandle<()> {
         tokio::spawn(async move {
             let mut rx = room.subscribe();
             let mut attached: HashSet<TrackSid> = HashSet::new();
+            let mut first_remote_audio_drain: Option<TrackSid> = None;
 
-            while let Some(event) = rx.recv().await {
-                match event {
-                    RoomEvent::Connected {
-                        participants_with_tracks,
-                    } => {
-                        for (_participant, pubs) in participants_with_tracks {
-                            for publication in pubs {
-                                if let Some(track) = publication.track() {
-                                    attach_remote_track_if_new(&mut attached, track);
+            // `RoomEvent::Connected` is dispatched *during* `Room::connect` before this task
+            // subscribes, so we often miss it. Catch up on any remote tracks that already exist.
+            for p in room.remote_participants().values() {
+                attach_remote_tracks_from_participant(
+                    &mut attached,
+                    &mut first_remote_audio_drain,
+                    &ring,
+                    &play_cancel,
+                    p,
+                );
+            }
+            if !attached.is_empty() {
+                tracing::info!(
+                    target: "matrix_livekit_audio",
+                    remote_tracks_attached = attached.len(),
+                    "remote media playout: catch-up attached existing participant track(s)"
+                );
+            }
+
+            loop {
+                tokio::select! {
+                    _ = play_cancel.cancelled() => break,
+                    maybe_ev = rx.recv() => {
+                        let Some(event) = maybe_ev else { break };
+                        match event {
+                            RoomEvent::Connected {
+                                participants_with_tracks,
+                            } => {
+                                for (_participant, pubs) in participants_with_tracks {
+                                    for publication in pubs {
+                                        ensure_remote_publication_desired(&publication);
+                                        if let Some(track) = publication.track() {
+                                            attach_remote_track_if_new(
+                                                &mut attached,
+                                                &mut first_remote_audio_drain,
+                                                &ring,
+                                                &play_cancel,
+                                                track,
+                                            );
+                                        }
+                                    }
                                 }
                             }
+                            RoomEvent::ParticipantConnected(p) => {
+                                attach_remote_tracks_from_participant(
+                                    &mut attached,
+                                    &mut first_remote_audio_drain,
+                                    &ring,
+                                    &play_cancel,
+                                    &p,
+                                );
+                            }
+                            RoomEvent::ParticipantActive(p) => {
+                                attach_remote_tracks_from_participant(
+                                    &mut attached,
+                                    &mut first_remote_audio_drain,
+                                    &ring,
+                                    &play_cancel,
+                                    &p,
+                                );
+                            }
+                            RoomEvent::TrackPublished { publication, .. } => {
+                                ensure_remote_publication_desired(&publication);
+                                if let Some(track) = publication.track() {
+                                    attach_remote_track_if_new(
+                                        &mut attached,
+                                        &mut first_remote_audio_drain,
+                                        &ring,
+                                        &play_cancel,
+                                        track,
+                                    );
+                                }
+                            }
+                            RoomEvent::TrackSubscribed {
+                                track, publication, ..
+                            } => {
+                                ensure_remote_publication_desired(&publication);
+                                attach_remote_track_if_new(
+                                    &mut attached,
+                                    &mut first_remote_audio_drain,
+                                    &ring,
+                                    &play_cancel,
+                                    track,
+                                );
+                            }
+                            RoomEvent::Disconnected { .. } => break,
+                            _ => {}
                         }
                     }
-                    RoomEvent::TrackSubscribed { track, .. } => {
-                        attach_remote_track_if_new(&mut attached, track);
-                    }
-                    RoomEvent::Disconnected { .. } => break,
-                    _ => {}
                 }
             }
         })
     }
 
-    fn attach_remote_track_if_new(attached: &mut HashSet<TrackSid>, track: RemoteTrack) {
+    fn attach_remote_track_if_new(
+        attached: &mut HashSet<TrackSid>,
+        first_remote_audio_drain: &mut Option<TrackSid>,
+        ring: &Arc<Mutex<VecDeque<i16>>>,
+        play_cancel: &CancellationToken,
+        track: RemoteTrack,
+    ) {
         match track {
             RemoteTrack::Audio(audio) => {
                 let sid = audio.sid();
-                if !attached.insert(sid) {
+                if !attached.insert(sid.clone()) {
                     return;
                 }
-                // Let libwebrtc route remote audio to the default output. Do not wrap in
-                // `NativeAudioStream` and drain — that consumes decoded PCM and stays silent.
+                let drain_to_flutter = first_remote_audio_drain.is_none();
+                if drain_to_flutter {
+                    *first_remote_audio_drain = Some(sid.clone());
+                }
                 audio.enable();
+                if drain_to_flutter {
+                    let ring = ring.clone();
+                    let child = play_cancel.child_token();
+                    tokio::spawn(async move {
+                        let rtc = audio.rtc_track();
+                        let mut stream = NativeAudioStream::new(
+                            rtc,
+                            AUDIO_SAMPLE_RATE as i32,
+                            AUDIO_CHANNELS as i32,
+                        );
+                        loop {
+                            tokio::select! {
+                                _ = child.cancelled() => break,
+                                frame = stream.next() => {
+                                    match frame {
+                                        None => break,
+                                        Some(f) => {
+                                            push_i16_to_remote_ring(&ring, f.data.as_ref()).await;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    tracing::info!(
+                        target: "matrix_livekit_audio",
+                        track_sid = ?sid,
+                        "remote audio: NativeAudioStream → Flutter pull ring (first remote mic)"
+                    );
+                } else {
+                    tracing::info!(
+                        target: "matrix_livekit_audio",
+                        track_sid = ?sid,
+                        enabled = audio.is_enabled(),
+                        "remote audio: extra participant, default WebRTC playout only"
+                    );
+                }
             }
             RemoteTrack::Video(video) => {
                 let sid = video.sid();
@@ -285,6 +467,7 @@ pub mod imp {
                 .capture_frame(&frame)
                 .await
                 .map_err(|e| e.to_string())?;
+            LIVEKIT_AUDIO_WEBRTC_FRAMES_OUT.fetch_add(1, Ordering::Relaxed);
         }
         Ok(())
     }
@@ -301,27 +484,36 @@ pub mod imp {
         if let Some(held) = guard.take() {
             let _ = dispose_held(held).await;
         }
+        LIVEKIT_AUDIO_PCM_BATCHES_FROM_FLUTTER.store(0, Ordering::Relaxed);
+        LIVEKIT_AUDIO_WEBRTC_FRAMES_OUT.store(0, Ordering::Relaxed);
 
         #[allow(deprecated)]
         let options = RoomOptions::default();
+        // Keep LiveKit default `single_peer_connection: false`. Forcing a single PC has been
+        // linked to missing or unstable **remote audio playout** with custom local PCM injection
+        // on some iOS/Android stacks; dual transceiver mode matches typical mobile LiveKit clients.
         let (room, mut events) = Room::connect(&url, &token, options)
             .await
             .map_err(|e| e.to_string())?;
-        let room = std::sync::Arc::new(room);
+        let room = Arc::new(room);
 
-        let remote_media = spawn_remote_media_playout_task(room.clone());
+        let remote_pcm_ring = Arc::new(Mutex::new(VecDeque::new()));
+        let remote_play_cancel = CancellationToken::new();
+        let remote_media = spawn_remote_media_playout_task(
+            room.clone(),
+            remote_pcm_ring.clone(),
+            remote_play_cancel.clone(),
+        );
 
-        let drain = tokio::spawn(async move {
-            while events.recv().await.is_some() {}
-        });
+        let drain = tokio::spawn(async move { while events.recv().await.is_some() {} });
 
-        // Flutter `record` already applies AEC/NS when streaming; running the same stack again
-        // in WebRTC on pre-mixed PCM often kills the signal. Remote playout still uses ADM.
+        // Flutter should feed dry PCM16 (see app `RecordConfig` on mobile). First remote mic is
+        // drained in Rust and pulled from Dart (see [livekit_session_pull_remote_audio_pcm16]).
         let audio_source = NativeAudioSource::new(
             AudioSourceOptions {
-                echo_cancellation: false,
-                noise_suppression: false,
-                auto_gain_control: false,
+                echo_cancellation: true,
+                noise_suppression: true,
+                auto_gain_control: true,
             },
             AUDIO_SAMPLE_RATE,
             AUDIO_CHANNELS,
@@ -333,11 +525,22 @@ pub mod imp {
         );
         let mut audio_opts = TrackPublishOptions::default();
         audio_opts.source = TrackSource::Microphone;
-        room
+        // Default TrackPublishOptions uses Opus DTX (discontinuous transmission). With a custom
+        // PCM source, VAD/DTX can classify the stream as "silent" and stop sending RTP for long
+        // stretches — callers hear nothing. Prefer continuous encoding for voice calls.
+        audio_opts.dtx = false;
+        // RED + odd SFU / client mixes occasionally yield silent decode; keep uplink conservative.
+        audio_opts.red = false;
+        // Voice uplink: SPEECH Opus preset (typical VoIP). MUSIC (48k) is the generic default but
+        // is a worse match for mono mic PCM in some SFU / client combinations.
+        audio_opts.audio_encoding = Some(livekit::options::audio::SPEECH.encoding);
+        let mic_publication = room
             .local_participant()
             .publish_track(LocalTrack::Audio(audio_track), audio_opts)
             .await
             .map_err(|e| e.to_string())?;
+        // Ensure the server + WebRTC stack treat the mic as live (some joins start muted).
+        mic_publication.unmute();
 
         let video_source = if voice_only {
             None
@@ -349,14 +552,11 @@ pub mod imp {
                 },
                 false,
             );
-            let video_track = LocalVideoTrack::create_video_track(
-                "camera",
-                RtcVideoSource::Native(vs.clone()),
-            );
+            let video_track =
+                LocalVideoTrack::create_video_track("camera", RtcVideoSource::Native(vs.clone()));
             let mut video_opts = TrackPublishOptions::default();
             video_opts.source = TrackSource::Camera;
-            room
-                .local_participant()
+            room.local_participant()
                 .publish_track(LocalTrack::Video(video_track), video_opts)
                 .await
                 .map_err(|e| e.to_string())?;
@@ -370,6 +570,8 @@ pub mod imp {
             video_source,
             _drain_events: drain,
             _remote_media_playout: remote_media,
+            remote_pcm_ring,
+            remote_play_cancel,
         });
         Ok(())
     }
@@ -441,14 +643,11 @@ pub mod imp {
             },
             false,
         );
-        let video_track = LocalVideoTrack::create_video_track(
-            "camera",
-            RtcVideoSource::Native(vs.clone()),
-        );
+        let video_track =
+            LocalVideoTrack::create_video_track("camera", RtcVideoSource::Native(vs.clone()));
         let mut video_opts = TrackPublishOptions::default();
         video_opts.source = TrackSource::Camera;
-        room
-            .local_participant()
+        room.local_participant()
             .publish_track(LocalTrack::Video(video_track), video_opts)
             .await
             .map_err(|e| e.to_string())?;
@@ -481,7 +680,20 @@ pub mod imp {
             let drop = held.audio_buffer.len() - AUDIO_BUFFER_CAP_SAMPLES;
             held.audio_buffer.drain(..drop);
         }
-        flush_audio(held).await
+        let out = flush_audio(held).await;
+        if out.is_ok() {
+            let n = LIVEKIT_AUDIO_PCM_BATCHES_FROM_FLUTTER.fetch_add(1, Ordering::Relaxed) + 1;
+            if n == 1 || n % 50 == 0 {
+                let frames = LIVEKIT_AUDIO_WEBRTC_FRAMES_OUT.load(Ordering::Relaxed);
+                tracing::info!(
+                    target: "matrix_livekit_audio",
+                    flutter_pcm_batches = n,
+                    webrtc_capture_frames = frames,
+                    "LiveKit uplink: PCM batches from Flutter; frames handed to WebRTC (RTP is encoded downstream)"
+                );
+            }
+        }
+        out
     }
 
     pub async fn livekit_session_push_video_i420(
@@ -507,14 +719,32 @@ pub mod imp {
             map_rotation(rotation_degrees),
         )
     }
+
+    /// Pops up to [max_samples] mono PCM16 @ 48 kHz from the first remote microphone ring buffer.
+    pub async fn livekit_session_pull_remote_audio_pcm16(max_samples: usize) -> Vec<i16> {
+        if max_samples == 0 {
+            return Vec::new();
+        }
+        let guard = SESSION.lock().await;
+        let Some(ref held) = *guard else {
+            return Vec::new();
+        };
+        let mut q = held.remote_pcm_ring.lock().await;
+        let take = max_samples.min(q.len());
+        if take == 0 {
+            return Vec::new();
+        }
+        q.drain(0..take).collect()
+    }
 }
 
 pub use imp::livekit_session_close;
 pub use imp::livekit_session_connect;
 pub use imp::livekit_session_connection_state;
+pub use imp::livekit_session_publish_local_camera_track;
+pub use imp::livekit_session_pull_remote_audio_pcm16;
 pub use imp::livekit_session_push_audio_pcm16;
 pub use imp::livekit_session_push_video_i420;
 pub use imp::livekit_session_remote_participant_count;
 pub use imp::livekit_session_set_camera_muted;
 pub use imp::livekit_session_set_microphone_muted;
-pub use imp::livekit_session_publish_local_camera_track;

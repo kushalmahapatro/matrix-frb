@@ -77,7 +77,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => 656535884;
+  int get rustContentHash => 1254404172;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -573,6 +573,11 @@ abstract class RustLibApi extends BaseApi {
   Future<String> crateApiLivekitSessionImpLivekitSessionConnectionState();
 
   Future<void> crateApiLivekitSessionImpLivekitSessionPublishLocalCameraTrack();
+
+  Future<Int16List>
+  crateApiLivekitSessionImpLivekitSessionPullRemoteAudioPcm16({
+    required BigInt maxSamples,
+  });
 
   Future<void> crateApiLivekitSessionImpLivekitSessionPushAudioPcm16({
     required List<int> pcm,
@@ -4246,6 +4251,40 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "livekit_session_publish_local_camera_track",
         argNames: [],
+      );
+
+  @override
+  Future<Int16List>
+  crateApiLivekitSessionImpLivekitSessionPullRemoteAudioPcm16({
+    required BigInt maxSamples,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_usize(maxSamples);
+          return wire
+              .wire__crate__api__livekit_session__imp__livekit_session_pull_remote_audio_pcm16(
+                port_,
+                arg0,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_i_16_strict,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiLivekitSessionImpLivekitSessionPullRemoteAudioPcm16ConstMeta,
+        argValues: [maxSamples],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiLivekitSessionImpLivekitSessionPullRemoteAudioPcm16ConstMeta =>
+      const TaskConstMeta(
+        debugName: "livekit_session_pull_remote_audio_pcm16",
+        argNames: ["maxSamples"],
       );
 
   @override

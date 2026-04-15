@@ -21,6 +21,7 @@ use matrix_sdk_ui::Timeline as SdkTimeline;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::sync::Mutex as StdMutex;
 use tokio::sync::broadcast;
 use tokio::sync::Mutex as AsyncMutex;
@@ -31,7 +32,9 @@ use tokio_util::sync::CancellationToken;
 use crate::frb_generated::StreamSink;
 use crate::matrix::client::format_user_id_for_display;
 use crate::matrix::rooms;
-use crate::matrix::sync_notifications::{SyncNotificationKind, SyncNotificationSummary};
+use crate::matrix::sync_notifications::{
+    SyncNotificationKind, SyncNotificationSummary, RTC_INCOMING_RING_NOTIFY_MAX_AGE_MS,
+};
 use tracing::{debug, error};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -1665,12 +1668,26 @@ pub(crate) async fn subscribe_to_timeline_list_loop(
                         .collect();
                     dedupe_stale_local_echoes(&mut messages);
                     if let Some(ref tx) = rtc_notify_tx {
+                        let now_ms = SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .map(|d| d.as_millis() as u64)
+                            .unwrap_or(0);
                         for m in &messages {
                             let eid = m.event_id.trim();
                             if eid.is_empty() || prev_event_ids.contains(eid) {
                                 continue;
                             }
-                            if let Some(summary) = summary_from_timeline_incoming_call_ring(&room, m)
+                            if !timeline_message_is_peer_incoming_call_ring(m) {
+                                continue;
+                            }
+                            let stale = m.timestamp == 0
+                                || now_ms.saturating_sub(m.timestamp)
+                                    > RTC_INCOMING_RING_NOTIFY_MAX_AGE_MS;
+                            if stale {
+                                continue;
+                            }
+                            if let Some(summary) =
+                                summary_from_timeline_incoming_call_ring(&room, m)
                             {
                                 let _ = tx.send(summary);
                             }
@@ -1820,6 +1837,7 @@ mod room_preview_tests {
 #[cfg(test)]
 mod incoming_call_timeline_tests {
     use super::*;
+    use crate::matrix::sync_notifications::RTC_INCOMING_RING_NOTIFY_MAX_AGE_MS;
     use std::collections::HashSet;
 
     fn base_message() -> Message {
@@ -1888,6 +1906,26 @@ mod incoming_call_timeline_tests {
         let mut m = base_message();
         m.event_id = String::new();
         assert!(!timeline_message_is_peer_incoming_call_ring(&m));
+    }
+
+    #[test]
+    fn rtc_ring_older_than_window_is_stale_for_notify() {
+        let now_ms: u64 = 1_700_000_000_000;
+        let mut m = base_message();
+        m.timestamp = now_ms.saturating_sub(RTC_INCOMING_RING_NOTIFY_MAX_AGE_MS + 1);
+        let stale = m.timestamp == 0
+            || now_ms.saturating_sub(m.timestamp) > RTC_INCOMING_RING_NOTIFY_MAX_AGE_MS;
+        assert!(stale);
+    }
+
+    #[test]
+    fn rtc_ring_inside_window_is_fresh_for_notify() {
+        let now_ms: u64 = 1_700_000_000_000;
+        let mut m = base_message();
+        m.timestamp = now_ms.saturating_sub(1_000);
+        let stale = m.timestamp == 0
+            || now_ms.saturating_sub(m.timestamp) > RTC_INCOMING_RING_NOTIFY_MAX_AGE_MS;
+        assert!(!stale);
     }
 
     /// Mirrors the timeline-list loop: only rows whose event id was **not** in the previous cache

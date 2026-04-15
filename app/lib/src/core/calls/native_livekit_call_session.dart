@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_sound/flutter_sound.dart';
 import 'package:matrix/src/core/navigation/app_navigation.dart';
 import 'package:matrix/src/core/permissions/app_runtime_permissions.dart';
 import 'package:matrix/src/core/calls/call_audio_route.dart';
@@ -20,14 +22,15 @@ enum NativeLiveKitCallPhase { idle, connecting, connected, ended }
 
 /// On Android, configuring [AudioSession] before Rust LiveKit/libwebrtc connects has been
 /// observed to crash the process (SIGSEGV on a `tokio-rt-worker` right after
-/// `requestAudioFocus`). On iOS, configuring the session **before** WebRTC initializes can
-/// prevent correct remote playout / mic routing with a custom PCM capture path. WebRTC starts
+/// `requestAudioFocus`). On iOS and macOS, configuring the session **before** WebRTC initializes
+/// can prevent correct remote playout / mic routing with a custom PCM capture path. WebRTC starts
 /// first; [CallAudioRoute.applyForCall] still runs after local capture is up (see `_connect`)
 /// and for ringback / speaker toggles.
 bool get _deferCallAudioUntilAfterLiveKitConnect =>
     !kIsWeb &&
     (defaultTargetPlatform == TargetPlatform.android ||
-        defaultTargetPlatform == TargetPlatform.iOS);
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS);
 
 @immutable
 class NativeLiveKitCallArgs {
@@ -117,8 +120,6 @@ class NativeLiveKitCallSession extends ChangeNotifier {
 
   static const int _audioSampleRate = 48000;
   static const int _audioChannels = 1;
-  static const int _audioSamplesPerPush = 480;
-  static const int _maxAudioQueueSamples = _audioSamplesPerPush * 25;
 
   final String _historyId = '${DateTime.now().microsecondsSinceEpoch}';
 
@@ -129,11 +130,25 @@ class NativeLiveKitCallSession extends ChangeNotifier {
   String get desktopOngoingCallInstanceKey =>
       '${args.matrixRoomId}\x1f$_historyId';
 
-  final List<int> _pcmQueue = [];
+  /// Bytes from the mic plugin (`record`) per [Uint8List] event (diagnostics only).
+  int _diagMicPcmEvents = 0;
+
+  /// Completed [LiveKitNativeBridge.pushAudioPcm16] calls (one per `record` chunk after alignment).
+  int _diagAudioPushSuccess = 0;
+
+  /// Failed pushes or FRB errors when sending PCM.
+  int _diagAudioPushFailures = 0;
+
+  Timer? _audioUplinkDiagTimer;
 
   /// PCM chunks must reach Rust in order; overlapping FRB futures can acquire the session
   /// mutex out of order and scramble samples.
   Future<void> _pcmPushChain = Future<void>.value();
+
+  /// Remote PCM pulls must not overlap [feedUint8FromStream] calls on the downlink player.
+  Future<void> _remoteDownlinkChain = Future<void>.value();
+  Timer? _remoteAudioPullTimer;
+  FlutterSoundPlayer? _remoteDownlinkPlayer;
   StreamSubscription<Uint8List>? _pcmSub;
   CameraController? _camera;
   bool _cameraStreamRunning = false;
@@ -151,6 +166,7 @@ class NativeLiveKitCallSession extends ChangeNotifier {
   Timer? _statePoll;
   Timer? _aloneTimer;
   Timer? _callDurationTicker;
+  Timer? _micLevelDecayTimer;
 
   /// LiveKit published a local camera track (at connect or after [livekitSessionPublishLocalCameraTrack]).
   bool _videoTrackReadyInRust = false;
@@ -209,6 +225,22 @@ class NativeLiveKitCallSession extends ChangeNotifier {
     if (start == null) return Duration.zero;
     return DateTime.now().difference(start);
   }
+
+  /// Debug: mic PCM events from `record` since connect (not samples).
+  int get debugUplinkMicPcmEvents => _diagMicPcmEvents;
+
+  /// Debug: successful FRB [pushAudioPcm16] invocations (each ≈10 ms @ 48 kHz mono).
+  int get debugUplinkAudioPushSuccess => _diagAudioPushSuccess;
+
+  /// Debug: failed [pushAudioPcm16] calls.
+  int get debugUplinkAudioPushFailures => _diagAudioPushFailures;
+
+  /// Smoothed mic input \[0,1\] from captured PCM (UI waveform).
+  double get micCaptureLevel => _micCaptureLevel;
+
+  double _micCaptureLevel = 0;
+  DateTime? _lastPcmChunkAt;
+  DateTime? _lastMicLevelNotify;
 
   String get connectedCallDurationLabel {
     if (_callDurationEpoch == null) return '';
@@ -321,6 +353,10 @@ class NativeLiveKitCallSession extends ChangeNotifier {
     if (_callHeld && !muted) return;
     if (_micMuted == muted) return;
     _micMuted = muted;
+    if (muted) {
+      _micCaptureLevel = 0;
+      _lastPcmChunkAt = null;
+    }
     notifyListeners();
     try {
       await _lk.setMicrophoneMuted(muted: muted);
@@ -428,49 +464,136 @@ class NativeLiveKitCallSession extends ChangeNotifier {
     await _stopRingback();
   }
 
-  /// [Record] may hand off a [Uint8List] slice with an odd [Uint8List.offsetInBytes];
-  /// [Int16List.view] requires a 2-byte-aligned offset.
-  void _handlePcm16Chunk(Uint8List chunk) {
-    if (chunk.length < 2) return;
-    final evenByteLen = chunk.length & ~1;
-    if (evenByteLen < 2) return;
-    final off = chunk.offsetInBytes;
-    final Int16List samples;
-    if (off.isEven) {
-      samples = Int16List.view(chunk.buffer, off, evenByteLen ~/ 2);
-    } else {
-      final tmp = Uint8List(evenByteLen);
-      tmp.setRange(0, evenByteLen, chunk);
-      samples = Int16List.view(tmp.buffer, 0, evenByteLen ~/ 2);
+  /// Plays the first remote mic via Rust [NativeAudioStream] → ring buffer → FRB pull → PCM stream.
+  Future<void> _startRemoteDownlinkPlayback() async {
+    if (kIsWeb || args.debugSkipPlatformAudioDevices || _remoteDownlinkPlayer != null) {
+      return;
     }
-    _enqueuePcmFrame(samples);
+    FlutterSoundPlayer? p;
+    try {
+      p = FlutterSoundPlayer();
+      await p.openPlayer();
+      await p.startPlayerFromStream(
+        codec: Codec.pcm16,
+        interleaved: true,
+        numChannels: _audioChannels,
+        sampleRate: _audioSampleRate,
+        bufferSize: 8192,
+      );
+      if (_tornDown || _phase != NativeLiveKitCallPhase.connected) {
+        await p.closePlayer();
+        return;
+      }
+      _remoteDownlinkPlayer = p;
+      p = null;
+      _remoteAudioPullTimer?.cancel();
+      _remoteAudioPullTimer = Timer.periodic(const Duration(milliseconds: 10), (_) {
+        _enqueueRemoteDownlinkPull();
+      });
+    } catch (e, st) {
+      debugPrint('NativeLiveKitCallSession: remote downlink start failed: $e\n$st');
+    } finally {
+      if (p != null) {
+        try {
+          await p.closePlayer();
+        } catch (_) {}
+      }
+    }
   }
 
-  void _enqueuePcmFrame(Int16List view) {
-    if (_tornDown || _micMuted) return;
-    for (var i = 0; i < view.length; i++) {
-      _pcmQueue.add(view[i]);
+  void _enqueueRemoteDownlinkPull() {
+    if (_tornDown || _phase != NativeLiveKitCallPhase.connected) return;
+    _remoteDownlinkChain = _remoteDownlinkChain.then((_) => _pullRemoteDownlinkOnce());
+  }
+
+  Future<void> _pullRemoteDownlinkOnce() async {
+    final player = _remoteDownlinkPlayer;
+    if (player == null || _tornDown || _phase != NativeLiveKitCallPhase.connected) {
+      return;
     }
-    if (_pcmQueue.length > _maxAudioQueueSamples) {
-      final drop = _pcmQueue.length - _maxAudioQueueSamples;
-      _pcmQueue.removeRange(0, drop);
+    try {
+      final chunk = await _lk.pullRemoteAudioPcm16(maxSamples: 960);
+      if (chunk.isEmpty) return;
+      final bytes = Uint8List(chunk.length * 2);
+      Int16List.sublistView(bytes).setRange(0, chunk.length, chunk);
+      await player.feedUint8FromStream(bytes);
+    } catch (e, st) {
+      if (!_tornDown) {
+        debugPrint('NativeLiveKitCallSession: remote downlink pull: $e\n$st');
+      }
     }
-    while (_pcmQueue.length >= _audioSamplesPerPush) {
-      final chunk = _pcmQueue.sublist(0, _audioSamplesPerPush);
-      _pcmQueue.removeRange(0, _audioSamplesPerPush);
-      final pcm = List<int>.from(chunk);
-      _pcmPushChain = _pcmPushChain.then((_) async {
-        if (_tornDown) return;
-        try {
-          await _lk.pushAudioPcm16(
-            pcm: pcm,
-            sampleRate: _audioSampleRate,
-            numChannels: _audioChannels,
-          );
-        } catch (e, st) {
-          debugPrint('NativeLiveKitCallSession: push audio failed: $e\n$st');
-        }
-      });
+  }
+
+  Future<void> _stopRemoteDownlinkPlayback() async {
+    _remoteAudioPullTimer?.cancel();
+    _remoteAudioPullTimer = null;
+    _remoteDownlinkChain = Future<void>.value();
+    final p = _remoteDownlinkPlayer;
+    _remoteDownlinkPlayer = null;
+    if (p != null) {
+      try {
+        await p.stopPlayer();
+      } catch (_) {}
+      try {
+        await p.closePlayer();
+      } catch (_) {}
+    }
+  }
+
+  /// `record` often delivers a [Uint8List] view into a larger buffer with an odd
+  /// [offsetInBytes]; [Int16List.sublistView] requires 2-byte alignment. Always copy into a
+  /// fresh [Uint8List] before decoding (same approach as `flutter_livekit_demo`).
+  ///
+  /// Uplink path: PCM16 → [LiveKitNativeBridge.pushAudioPcm16] → Rust
+  /// [livekit_session_push_audio_pcm16] (buffers to 10 ms there) → [NativeAudioSource::capture_frame].
+  ///
+  /// Matches `flutter_livekit_demo`: one push per `record` chunk (aligned copy), serialized by
+  /// [_pcmPushChain] so FRB does not reorder mutex acquisition.
+  void _handlePcm16Chunk(Uint8List chunk) {
+    if (chunk.length < 2 || _tornDown || _micMuted) return;
+    _diagMicPcmEvents++;
+    final n = chunk.length - (chunk.length % 2);
+    if (n < 2) return;
+    final aligned = Uint8List(n);
+    aligned.setRange(0, n, chunk);
+    final samples = Int16List.sublistView(aligned);
+    _lastPcmChunkAt = DateTime.now();
+    _updateMicLevelFromInt16(samples);
+    final pcm = List<int>.from(samples);
+    _pcmPushChain = _pcmPushChain.then((_) async {
+      if (_tornDown || _micMuted) return;
+      try {
+        await _lk.pushAudioPcm16(
+          pcm: pcm,
+          sampleRate: _audioSampleRate,
+          numChannels: _audioChannels,
+        );
+        _diagAudioPushSuccess++;
+      } catch (e, st) {
+        _diagAudioPushFailures++;
+        debugPrint('NativeLiveKitCallSession: push audio failed: $e\n$st');
+      }
+    });
+  }
+
+  void _updateMicLevelFromInt16(Int16List samples) {
+    if (_tornDown || _micMuted || samples.isEmpty) return;
+    var peak = 0;
+    for (var i = 0; i < samples.length; i++) {
+      final a = samples[i].abs();
+      if (a > peak) peak = a;
+    }
+    final instant = (peak / 32768.0).clamp(0.0, 1.0);
+    _micCaptureLevel = (_micCaptureLevel * 0.8 + instant * 0.2).clamp(0.0, 1.0);
+    _maybeNotifyMicLevel();
+  }
+
+  void _maybeNotifyMicLevel() {
+    final now = DateTime.now();
+    final last = _lastMicLevelNotify;
+    if (last == null || now.difference(last) >= const Duration(milliseconds: 33)) {
+      _lastMicLevelNotify = now;
+      notifyListeners();
     }
   }
 
@@ -518,13 +641,15 @@ class NativeLiveKitCallSession extends ChangeNotifier {
       sampleRate: _audioSampleRate,
       numChannels: _audioChannels,
     );
-    _pcmSub = pcmStream.listen((chunk) {
-      _handlePcm16Chunk(chunk);
-    }, onError: (_) {});
+    _pcmSub = pcmStream.listen(
+      _handlePcm16Chunk,
+      onError: (Object e, StackTrace st) {
+        debugPrint('NativeLiveKitCallSession: mic PCM stream error: $e\n$st');
+      },
+    );
   }
 
   Future<void> _pauseMicStream() async {
-    _pcmQueue.clear();
     await _pcmSub?.cancel();
     _pcmSub = null;
     try {
@@ -578,6 +703,17 @@ class NativeLiveKitCallSession extends ChangeNotifier {
   }
 
   Future<void> _connect() async {
+    _diagMicPcmEvents = 0;
+    _diagAudioPushSuccess = 0;
+    _diagAudioPushFailures = 0;
+    _audioUplinkDiagTimer?.cancel();
+    _audioUplinkDiagTimer = null;
+    _micLevelDecayTimer?.cancel();
+    _micLevelDecayTimer = null;
+    _micCaptureLevel = 0;
+    _lastPcmChunkAt = null;
+    _lastMicLevelNotify = null;
+
     _phase = NativeLiveKitCallPhase.connecting;
     _error = null;
     notifyListeners();
@@ -683,6 +819,39 @@ class NativeLiveKitCallSession extends ChangeNotifier {
       _error = null;
       notifyListeners();
 
+      unawaited(_startRemoteDownlinkPlayback());
+
+      if (kDebugMode) {
+        _audioUplinkDiagTimer?.cancel();
+        _audioUplinkDiagTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+          if (_tornDown || _phase != NativeLiveKitCallPhase.connected) return;
+          developer.log(
+            'uplink micPcmEvents=$_diagMicPcmEvents pushOk=$_diagAudioPushSuccess '
+            'pushFail=$_diagAudioPushFailures micMuted=$_micMuted',
+            name: 'matrix_native_livekit',
+          );
+        });
+      }
+
+      _micLevelDecayTimer?.cancel();
+      _micLevelDecayTimer = Timer.periodic(const Duration(milliseconds: 120), (_) {
+        if (_tornDown || _phase != NativeLiveKitCallPhase.connected || _micMuted) {
+          return;
+        }
+        final last = _lastPcmChunkAt;
+        final now = DateTime.now();
+        if (last != null && now.difference(last) < const Duration(milliseconds: 320)) {
+          return;
+        }
+        if (_micCaptureLevel > 0.02) {
+          _micCaptureLevel = (_micCaptureLevel * 0.88).clamp(0.0, 1.0);
+          _maybeNotifyMicLevel();
+        } else if (_micCaptureLevel > 0) {
+          _micCaptureLevel = 0;
+          _maybeNotifyMicLevel();
+        }
+      });
+
       try {
         final initialRemote = await _lk.remoteParticipantCount();
         _remoteParticipantCount = initialRemote;
@@ -732,6 +901,7 @@ class NativeLiveKitCallSession extends ChangeNotifier {
     try {
       final s = await _lk.connectionState();
       final n = await _lk.remoteParticipantCount();
+      final prevRemote = _remoteParticipantCount;
       _connectionState = s;
       _remoteParticipantCount = n;
       notifyListeners();
@@ -742,6 +912,15 @@ class NativeLiveKitCallSession extends ChangeNotifier {
         await _stopRingback();
         _aloneTimer?.cancel();
         _aloneTimer = null;
+        // Ringback + `just_audio` can leave the platform session in a state where WebRTC never
+        // binds remote playout; re-apply the same route used for the call after ringback stops.
+        await _applyCallAudioRoute();
+      }
+
+      // First remote joins: refresh voice session so recv path (remote audio) is not stuck after
+      // mic/`record` started (common on iOS when playout never attached until route is reset).
+      if (n > 0 && prevRemote == 0 && _phase == NativeLiveKitCallPhase.connected) {
+        await _applyCallAudioRoute();
       }
 
       if (n > 0) {
@@ -846,7 +1025,7 @@ class NativeLiveKitCallSession extends ChangeNotifier {
 
   Future<void> _stopLocalMedia() async {
     await _stopRingback();
-    _pcmQueue.clear();
+    await _stopRemoteDownlinkPlayback();
     _pcmPushChain = Future<void>.value();
     await _pcmSub?.cancel();
     _pcmSub = null;
@@ -861,6 +1040,10 @@ class NativeLiveKitCallSession extends ChangeNotifier {
   Future<void> _tearDown({String? historyEndReason}) async {
     if (_tornDown) return;
     _tornDown = true;
+    _audioUplinkDiagTimer?.cancel();
+    _audioUplinkDiagTimer = null;
+    _micLevelDecayTimer?.cancel();
+    _micLevelDecayTimer = null;
     _callHeld = false;
     _consecutiveRemoteZeroPolls = 0;
     _aloneTimer?.cancel();

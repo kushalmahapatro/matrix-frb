@@ -104,8 +104,11 @@ Future<void> main(List<String> args) async {
         registerDesktopIncomingRingWindowCloser(
           DesktopIncomingCallWindowOpener.closeActive,
         );
-        await registerDesktopIncomingCallMainBridge();
-        await registerDesktopOngoingCallMainBridge();
+        // Do not register [WindowMethodChannel] handlers here: they hit the
+        // `desktop_multi_window` embedder channel before [runApp] attaches a valid
+        // engine handle (Flutter macOS "merged UI and platform thread" logs
+        // `kInvalidArguments` / stuck bootstrap). Registered from [_AppBootstrapState]
+        // on the first frame instead.
       }
     } catch (e, st) {
       debugPrint('desktop_multi_window routing: $e\n$st');
@@ -150,7 +153,24 @@ class _AppBootstrapState extends State<_AppBootstrap> {
         unawaited(_syncMacOsKeyboardFromEngine());
       });
     }
+    if (!kIsWeb && isDesktopTargetPlatform()) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_registerDesktopMainWindowMethodBridges());
+      });
+    }
     unawaited(_bootstrap());
+  }
+
+  /// [WindowMethodChannel] from `desktop_multi_window` must register after the first
+  /// frame so the embedder has a valid engine for `mixin.one/desktop_multi_window`.
+  Future<void> _registerDesktopMainWindowMethodBridges() async {
+    if (kIsWeb || !isDesktopTargetPlatform()) return;
+    try {
+      await registerDesktopIncomingCallMainBridge();
+      await registerDesktopOngoingCallMainBridge();
+    } catch (e, st) {
+      debugPrint('_registerDesktopMainWindowMethodBridges: $e\n$st');
+    }
   }
 
   Future<void> _bootstrap() async {
@@ -160,7 +180,8 @@ class _AppBootstrapState extends State<_AppBootstrap> {
             await AndroidCallLaunch.takePendingCallAcceptIfAny();
         if (_androidCallAcceptPayload != null) {
           AndroidCallOnlyMode.markActive();
-          MatrixCallKitCoordinator.instance.scheduleSuppressPluginAcceptDuplicate();
+          MatrixCallKitCoordinator.instance
+              .scheduleSuppressPluginAcceptDuplicate();
         }
       }
 
@@ -238,10 +259,7 @@ class _AppBootstrapState extends State<_AppBootstrap> {
         showHomeServerForUsername: AppConfig.showHomeServerForUsername,
       );
       var initOk = false;
-      init.fold(
-        (_) => initOk = true,
-        (_) => initOk = false,
-      );
+      init.fold((_) => initOk = true, (_) => initOk = false);
       if (!initOk) return false;
       final logged = await MatrixService().isUserLoggedIn();
       return logged.fold((v) => v, (_) => false);

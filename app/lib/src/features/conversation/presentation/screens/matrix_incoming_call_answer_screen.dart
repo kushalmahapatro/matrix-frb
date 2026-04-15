@@ -45,8 +45,13 @@ class _MatrixIncomingCallAnswerScreenState
   @override
   void dispose() {
     _timer?.cancel();
-    IncomingCallBannerController.instance.setIncomingAnswerRouteActive(false);
-    IncomingCallBannerController.instance.resumeAutoDeclineIfStillPending();
+    // Avoid notifying [IncomingCallBannerController] listeners during unmount:
+    // the framework locks the tree and [ListenableBuilder] cannot rebuild yet.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctrl = IncomingCallBannerController.instance;
+      ctrl.setIncomingAnswerRouteActive(false);
+      ctrl.resumeAutoDeclineIfStillPending();
+    });
     super.dispose();
   }
 

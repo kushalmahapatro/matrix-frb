@@ -1,7 +1,7 @@
 name: matrix
 description: "Matrix chat Application"
 publish_to: 'none'
-version: 0.0.1+2
+version: 0.0.1+4
 
 environment:
   sdk: ^3.10.0
@@ -48,6 +48,7 @@ dependencies:
   firebase_messaging: ^15.2.0
   flutter_local_notifications: ^18.0.1
   just_audio: ^0.10.5
+  flutter_sound: ^9.30.0
   desktop_multi_window: ^0.3.0
   uuid: ^4.5.1
   flutter_inappwebview: ^6.1.5

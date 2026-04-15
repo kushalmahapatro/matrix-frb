@@ -65,6 +65,7 @@ Map<String, dynamic> _snapshot() {
     'waiting': waiting,
     'connecting': connecting,
     'micMuted': s.micMuted,
+    'micCaptureLevel': s.micCaptureLevel,
     'speakerOn': s.speakerOn,
     'cameraMuted': s.cameraMuted,
     'voiceOnly': s.voiceOnly,

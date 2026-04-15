@@ -740,6 +740,9 @@ void frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_c
 
 void frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_publish_local_camera_track(int64_t port_);
 
+void frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_pull_remote_audio_pcm16(int64_t port_,
+                                                                                                       uintptr_t max_samples);
+
 void frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_push_audio_pcm16(int64_t port_,
                                                                                                 struct wire_cst_list_prim_i_16_loose *pcm,
                                                                                                 uint32_t sample_rate,
@@ -852,6 +855,12 @@ struct wire_cst_list_user *frbgen_matrix_sdk_cst_new_list_user(int32_t len);
  * class `dev.inve.matrixchat.RustlsInit`.
  */
 void Java_dev_inve_matrixchat_RustlsInit_init(void *raw_env, void *_class, void *raw_context);
+
+/**
+ * JNI: `dev.inve.matrixchat.WebRtcAndroidInit.init()` — call once from the **main** thread after
+ * `super.onCreate` (same activity as [`Java_dev_inve_matrixchat_RustlsInit_init`]).
+ */
+void Java_dev_inve_matrixchat_WebRtcAndroidInit_init(void *_raw_env, void *_class);
 static int64_t dummy_method_to_enforce_bundling(void) {
     int64_t dummy_var = 0;
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_cst_new_box_autoadd_bool);
@@ -893,6 +902,7 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_connect);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_connection_state);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_publish_local_camera_track);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_pull_remote_audio_pcm16);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_push_audio_pcm16);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_push_video_i420);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_remote_participant_count);

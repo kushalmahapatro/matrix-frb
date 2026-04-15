@@ -6,7 +6,7 @@
 import '../../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `dispose_held`, `expected_i420_len`, `flush_audio`, `map_rotation`, `push_i420_tight`, `set_local_track_muted`
+// These functions are ignored because they are not marked as `pub`: `attach_remote_track_if_new`, `attach_remote_tracks_from_participant`, `dispose_held`, `ensure_remote_publication_desired`, `ensure_webrtc_android_ready_for_connect`, `expected_i420_len`, `flush_audio`, `map_rotation`, `push_i16_to_remote_ring`, `push_i420_tight`, `set_local_track_muted`, `spawn_remote_media_playout_task`, `spawn_remote_video_stream_consumer`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `LiveKitHeld`
 
 Future<void> livekitSessionConnect({
@@ -67,3 +67,11 @@ Future<void> livekitSessionPushVideoI420({
   timestampUs: timestampUs,
   rotationDegrees: rotationDegrees,
 );
+
+/// Pops up to [max_samples] mono PCM16 @ 48 kHz from the first remote microphone ring buffer.
+Future<Int16List> livekitSessionPullRemoteAudioPcm16({
+  required BigInt maxSamples,
+}) => RustLib.instance.api
+    .crateApiLivekitSessionImpLivekitSessionPullRemoteAudioPcm16(
+      maxSamples: maxSamples,
+    );

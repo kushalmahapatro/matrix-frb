@@ -56,20 +56,22 @@ final class LiveNativeLiveKitCallLocalAudio implements NativeLiveKitCallLocalAud
   Future<Stream<Uint8List>> openMicPcmStream({
     required int sampleRate,
     required int numChannels,
-  }) {
-    // On mobile, PCM is pushed into a custom WebRTC [NativeAudioSource] with AEC/AGC/NS already
-    // disabled in Rust. `record`'s built-in AEC/NS — especially with speakerphone — often drives
-    // uplink toward silence; keep capture "dry" here and let the stack handle echo if needed.
-    final useBuiltInNsAec = kIsWeb ||
-        (!Platform.isAndroid && !Platform.isIOS);
+  }) async {
+    // Keep PCM "dry" on mobile + macOS: Rust [NativeAudioSource] already disables WebRTC AEC/NS
+    // on injected frames; stacking `record`'s voice processing often zeros uplink. Same idea as
+    // the standalone LiveKit demo (minimal capture), plus explicit off on Apple/Google.
+    final dryCapture = !kIsWeb &&
+        (Platform.isAndroid || Platform.isIOS || Platform.isMacOS);
+    if (Platform.isIOS) {
+      await _rec.ios?.manageAudioSession(false);
+    }
     return _rec.startStream(
       RecordConfig(
         encoder: AudioEncoder.pcm16bits,
         sampleRate: sampleRate,
         numChannels: numChannels,
-        echoCancel: useBuiltInNsAec,
-        noiseSuppress: useBuiltInNsAec,
-        streamBufferSize: 1920,
+        echoCancel: !dryCapture,
+        noiseSuppress: !dryCapture,
       ),
     );
   }

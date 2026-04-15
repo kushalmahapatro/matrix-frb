@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:matrix/src/core/calls/call_mic_activity_waveform.dart';
 import 'package:matrix/src/core/calls/call_proximity_controller.dart';
 import 'package:matrix/src/core/calls/native_livekit_call_host.dart';
 import 'package:matrix/src/core/calls/native_livekit_call_session.dart';
@@ -266,6 +267,15 @@ class _VoiceCallBody extends StatelessWidget {
                         ),
                       ),
                     ],
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
+                      child: CallMicActivityWaveform(
+                        level: session.micCaptureLevel,
+                        muted: session.micMuted,
+                        height: 40,
+                        activeColor: MatrixTheme.matrixLightGreen.withValues(alpha: 0.9),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -369,6 +379,17 @@ class _VideoCallBody extends StatelessWidget {
                       ),
                     ),
                   ),
+                ),
+              ),
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 96,
+                child: CallMicActivityWaveform(
+                  level: session.micCaptureLevel,
+                  muted: session.micMuted,
+                  height: 32,
+                  activeColor: MatrixTheme.matrixLightGreen.withValues(alpha: 0.85),
                 ),
               ),
               Positioned(

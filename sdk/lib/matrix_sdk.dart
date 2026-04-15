@@ -28,6 +28,7 @@ export 'src/bindings/api/livekit_session/imp.dart'
         livekitSessionConnect,
         livekitSessionConnectionState,
         livekitSessionPublishLocalCameraTrack,
+        livekitSessionPullRemoteAudioPcm16,
         livekitSessionPushAudioPcm16,
         livekitSessionPushVideoI420,
         livekitSessionRemoteParticipantCount,

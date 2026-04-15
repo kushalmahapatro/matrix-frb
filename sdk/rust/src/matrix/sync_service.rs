@@ -5,7 +5,9 @@ use tracing::{error, warn};
 use crate::frb_generated::StreamSink;
 use crate::matrix::client::format_user_id_for_display;
 use crate::matrix::rooms::{ExtraRoomInfo, RoomInfos, RoomList, Rooms};
-use crate::matrix::sync_notifications::SyncNotificationSummary;
+use crate::matrix::sync_notifications::{
+    SyncNotificationSummary, RTC_INCOMING_RING_NOTIFY_MAX_AGE_MS,
+};
 use crate::matrix::timelines::{self, Timeline, Timelines};
 use eyeball_im::Vector;
 use flutter_rust_bridge::frb;
@@ -179,9 +181,6 @@ impl App {
                 let rtc_tx = rtc_notify_tx.clone();
                 let own_user_id = client.user_id().map(|u| u.to_string());
                 let timeline_task = spawn(async move {
-                    // Ignore rings older than this when the timeline hydrates (backfill).
-                    const STALE_RING_MS: u64 = 120_000;
-
                     fn now_ms() -> u64 {
                         SystemTime::now()
                             .duration_since(UNIX_EPOCH)
@@ -233,7 +232,8 @@ impl App {
                             }
 
                             let stale = m.timestamp == 0
-                                || now.saturating_sub(m.timestamp) > STALE_RING_MS;
+                                || now.saturating_sub(m.timestamp)
+                                    > RTC_INCOMING_RING_NOTIFY_MAX_AGE_MS;
                             if stale {
                                 seen_ring_event_ids.insert(eid);
                                 continue;

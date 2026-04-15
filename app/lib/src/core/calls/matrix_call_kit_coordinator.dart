@@ -29,6 +29,13 @@ class _PendingCall {
   final String rtcEventId;
 }
 
+class _DeferredIncomingAccept {
+  _DeferredIncomingAccept({required this.roomId, required this.roomName});
+
+  final String roomId;
+  final String roomName;
+}
+
 void _showLiveKitConfigSnack(String message) {
   final ctx = AppNavigation.rootNavigatorKey.currentContext;
   if (ctx == null || !ctx.mounted) return;
@@ -49,6 +56,9 @@ class MatrixCallKitCoordinator {
   final IncomingCallPresentDedupe _presentDedupe = IncomingCallPresentDedupe();
   StreamSubscription<CallEvent?>? _eventSub;
   MatrixClient? _client;
+
+  /// Accept arrived before [bindClient] (e.g. VoIP cold start). Flushed when the Matrix client is bound.
+  _DeferredIncomingAccept? _deferredIncomingAccept;
 
   /// After Android cold-starts via [TransparentActivity] + accept intent, we open the call from
   /// [main] before the plugin event stream delivers [Event.actionCallAccept]; suppress one duplicate.
@@ -82,11 +92,44 @@ class MatrixCallKitCoordinator {
       return;
     }
     _eventSub ??= FlutterCallkitIncoming.onEvent.listen(_onCallKitEvent);
+    unawaited(_flushDeferredIncomingAcceptIfReady());
+  }
+
+  Future<void> _flushDeferredIncomingAcceptIfReady() async {
+    final pending = _deferredIncomingAccept;
+    final c = _client;
+    if (pending == null || c == null) return;
+    _deferredIncomingAccept = null;
+    try {
+      await openAcceptedIncomingNativeLiveKit(
+        client: c,
+        roomId: pending.roomId,
+        roomName: pending.roomName,
+      );
+    } catch (e, st) {
+      debugPrint(
+        'MatrixCallKitCoordinator: deferred incoming accept failed: $e\n$st',
+      );
+    }
+  }
+
+  /// CallKit accept can run before the first [MaterialApp] frame attaches [AppNavigation.rootNavigatorKey].
+  Future<NavigatorState?> _waitForRootNavigator({
+    Duration timeout = const Duration(seconds: 20),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      final nav = AppNavigation.rootNavigatorKey.currentState;
+      if (nav != null && nav.mounted) {
+        return nav;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    return AppNavigation.rootNavigatorKey.currentState;
   }
 
   void _onCallKitEvent(CallEvent? e) {
-    final client = _client;
-    if (e == null || client == null) return;
+    if (e == null) return;
     final body = e.body;
     if (body is! Map) return;
     final bodyMap = Map<String, dynamic>.from(body);
@@ -109,6 +152,7 @@ class MatrixCallKitCoordinator {
       roomName = extra['roomName']?.toString() ?? '';
     }
     roomName = roomName.isNotEmpty ? roomName : roomId;
+    final client = _client;
     switch (e.event) {
       case Event.actionCallAccept:
         if (roomId.isNotEmpty && rtcEventId.isNotEmpty) {
@@ -119,13 +163,25 @@ class MatrixCallKitCoordinator {
         }
         final skipOpen = _consumePluginAcceptIfSuppressed();
         if (roomId.isNotEmpty && !skipOpen) {
-          unawaited(
-            openAcceptedIncomingNativeLiveKit(
-              client: client,
+          final c = _client;
+          if (c != null) {
+            unawaited(
+              openAcceptedIncomingNativeLiveKit(
+                client: c,
+                roomId: roomId,
+                roomName: roomName,
+              ),
+            );
+          } else {
+            _deferredIncomingAccept = _DeferredIncomingAccept(
               roomId: roomId,
               roomName: roomName,
-            ),
-          );
+            );
+            debugPrint(
+              'MatrixCallKitCoordinator: CallKit accept before Matrix client bound; '
+              'will join LiveKit when session is ready (room=$roomId).',
+            );
+          }
         }
         unawaited(FlutterCallkitIncoming.endCall(id));
         _byCallKitId.remove(id);
@@ -137,7 +193,7 @@ class MatrixCallKitCoordinator {
             rtcEventId: rtcEventId,
           );
         }
-        if (roomId.isNotEmpty && rtcEventId.isNotEmpty) {
+        if (roomId.isNotEmpty && rtcEventId.isNotEmpty && client != null) {
           unawaited(
             client.declineRtcCall(
               roomId: roomId,
@@ -172,7 +228,7 @@ class MatrixCallKitCoordinator {
               rtcEventId: rtcEventId,
             );
           }
-          if (roomId.isNotEmpty && rtcEventId.isNotEmpty) {
+          if (roomId.isNotEmpty && rtcEventId.isNotEmpty && client != null) {
             unawaited(
               client.declineRtcCall(
                 roomId: roomId,
@@ -243,8 +299,19 @@ class MatrixCallKitCoordinator {
     required bool joinExistingCall,
     required bool voiceOnly,
   }) async {
-    final nav = AppNavigation.rootNavigatorKey.currentState;
-    if (nav == null) return;
+    var nav = AppNavigation.rootNavigatorKey.currentState;
+    if (nav == null || !nav.mounted) {
+      nav = await _waitForRootNavigator();
+    }
+    if (nav == null || !nav.mounted) {
+      debugPrint(
+        'MatrixCallKitCoordinator: root navigator not ready; cannot open incoming call.',
+      );
+      _showLiveKitConfigSnack(
+        'Could not open the call — the app is still starting. Open the app and try again.',
+      );
+      return;
+    }
     if (!AppConfig.isNativeLiveKitConfigurable) {
       debugPrint(
         'MatrixCallKitCoordinator: LiveKit not configured; cannot open incoming call.',
@@ -271,7 +338,8 @@ class MatrixCallKitCoordinator {
         );
         return;
       }
-      if (!nav.mounted) return;
+      nav = AppNavigation.rootNavigatorKey.currentState;
+      if (nav == null || !nav.mounted) return;
       final rootCtx = AppNavigation.rootNavigatorKey.currentContext;
       if (rootCtx != null && rootCtx.mounted) {
         if (voiceOnly) {
@@ -286,9 +354,11 @@ class MatrixCallKitCoordinator {
           if (!ok) return;
         }
       }
-      if (!nav.mounted) return;
+      nav = AppNavigation.rootNavigatorKey.currentState;
+      if (nav == null || !nav.mounted) return;
       await NativeLiveKitCallHost.instance.prepareForNewCall();
-      if (!nav.mounted) return;
+      nav = AppNavigation.rootNavigatorKey.currentState;
+      if (nav == null || !nav.mounted) return;
       String? localDisplayName;
       try {
         final n = await client.getDisplayName();
@@ -320,7 +390,9 @@ class MatrixCallKitCoordinator {
       NativeLiveKitCallHost.instance.beginCall(session);
       NativeLiveKitCallHost.instance.markCallScreenRouteOpening();
       try {
-        await nav.push<void>(matrixNativeLiveKitCallRoute());
+        final pushNav = AppNavigation.rootNavigatorKey.currentState;
+        if (pushNav == null || !pushNav.mounted) return;
+        await pushNav.push<void>(matrixNativeLiveKitCallRoute());
       } finally {
         NativeLiveKitCallHost.instance.markCallScreenRouteClosed();
       }

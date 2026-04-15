@@ -5215,6 +5215,25 @@ class RustLibWire implements BaseWire {
       _wire__crate__api__livekit_session__imp__livekit_session_publish_local_camera_trackPtr
           .asFunction<void Function(int)>();
 
+  void
+  wire__crate__api__livekit_session__imp__livekit_session_pull_remote_audio_pcm16(
+    int port_,
+    int max_samples,
+  ) {
+    return _wire__crate__api__livekit_session__imp__livekit_session_pull_remote_audio_pcm16(
+      port_,
+      max_samples,
+    );
+  }
+
+  late final _wire__crate__api__livekit_session__imp__livekit_session_pull_remote_audio_pcm16Ptr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64, ffi.UintPtr)>>(
+        'frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_pull_remote_audio_pcm16',
+      );
+  late final _wire__crate__api__livekit_session__imp__livekit_session_pull_remote_audio_pcm16 =
+      _wire__crate__api__livekit_session__imp__livekit_session_pull_remote_audio_pcm16Ptr
+          .asFunction<void Function(int, int)>();
+
   void wire__crate__api__livekit_session__imp__livekit_session_push_audio_pcm16(
     int port_,
     ffi.Pointer<wire_cst_list_prim_i_16_loose> pcm,
@@ -6018,6 +6037,24 @@ class RustLibWire implements BaseWire {
           ffi.Pointer<ffi.Void>,
           ffi.Pointer<ffi.Void>,
         )
+      >();
+
+  void Java_dev_inve_matrixchat_WebRtcAndroidInit_init(
+    ffi.Pointer<ffi.Void> _raw_env,
+    ffi.Pointer<ffi.Void> _class,
+  ) {
+    return _Java_dev_inve_matrixchat_WebRtcAndroidInit_init(_raw_env, _class);
+  }
+
+  late final _Java_dev_inve_matrixchat_WebRtcAndroidInit_initPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Void>)
+        >
+      >('Java_dev_inve_matrixchat_WebRtcAndroidInit_init');
+  late final _Java_dev_inve_matrixchat_WebRtcAndroidInit_init =
+      _Java_dev_inve_matrixchat_WebRtcAndroidInit_initPtr.asFunction<
+        void Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Void>)
       >();
 
   int dummy_method_to_enforce_bundling() {

@@ -104,6 +104,100 @@ private let kMatrixSygnalVoipPushKeyDefaultsKey = "MatrixSygnalVoipPushKeyB64"
     }
   }
 
+  // MARK: - VoIP → CallKit (Sygnal / Matrix)
+
+  /// Sygnal `ApnsPushkin` sets `aps.alert` to a localized alert dict with `loc-key` / `loc-args`.
+  private static func apnsAlertLocKey(from dict: [String: Any]) -> String? {
+    guard let aps = dict["aps"] as? [String: Any] else { return nil }
+    if let alert = aps["alert"] as? [String: Any] {
+      return alert["loc-key"] as? String ?? alert["loc_key"] as? String
+    }
+    return nil
+  }
+
+  /// Matrix message / invite pushes reuse the same VoIP topic on some setups; only real calls
+  /// should hit CallKit. Mirrors Dart `_fcmDataLooksLikeRtcNotification` when `type` is present.
+  private static func shouldPresentCallKitForVoipPayload(_ dict: [String: Any]) -> Bool {
+    if let t = dict["type"] as? String, looksLikeRtcNotificationType(t) {
+      return rtcNotificationIsRing(dict)
+    }
+
+    // Non-Sygnal backends: CallKit fields without `aps.alert.loc-key`.
+    if dict["callkit"] is [String: Any] {
+      return true
+    }
+    if apnsAlertLocKey(from: dict) == nil,
+      dict["id"] != nil,
+      let name = dict["nameCaller"] as? String,
+      !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    {
+      return true
+    }
+
+    let locKey = apnsAlertLocKey(from: dict)
+
+    // Sygnal legacy WebRTC `m.call.invite`.
+    if locKey == "VOICE_CALL_FROM_USER" || locKey == "VIDEO_CALL_FROM_USER" {
+      return true
+    }
+
+    // Sygnal maps unknown `n.type` (including `m.rtc.notification`) to `MSG_FROM_USER` with
+    // `[sender]` — allow that for MatrixRTC; normal `m.room.message` uses longer loc-keys.
+    if locKey == "MSG_FROM_USER" {
+      return true
+    }
+
+    // Message-style and invite loc-keys must never wake CallKit.
+    let denylistedLocKeys: Set<String> = [
+      "MSG_FROM_USER_IN_ROOM",
+      "MSG_FROM_USER_IN_ROOM_WITH_CONTENT",
+      "MSG_FROM_USER_WITH_CONTENT",
+      "IMAGE_FROM_USER",
+      "IMAGE_FROM_USER_IN_ROOM",
+      "ACTION_FROM_USER",
+      "ACTION_FROM_USER_IN_ROOM",
+      "USER_INVITE_TO_CHAT",
+      "USER_INVITE_TO_NAMED_ROOM",
+    ]
+    if let locKey, denylistedLocKeys.contains(locKey) {
+      return false
+    }
+
+    // Event-id-only sync payloads (no alert) or other non-call pushes: never CallKit.
+    if locKey == nil || locKey?.isEmpty == true {
+      return false
+    }
+
+    return false
+  }
+
+  private static func looksLikeRtcNotificationType(_ typeField: String) -> Bool {
+    let t = typeField.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    if t.isEmpty { return false }
+    if t == "m.rtc.notification" { return true }
+    if t.hasSuffix(".rtc.notification") { return true }
+    if t.contains("msc4075.rtc.notification") { return true }
+    return false
+  }
+
+  private static func rtcNotificationIsRing(_ dict: [String: Any]) -> Bool {
+    if let flat = dict["content_notification_type"] as? String {
+      let nt = flat.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+      if nt == "ring" { return true }
+      if nt == "notification" { return false }
+    }
+    if let raw = dict["content"] as? String, !raw.isEmpty,
+      let data = raw.data(using: .utf8),
+      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+      let nt = json["notification_type"] as? String
+    {
+      let v = nt.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+      if v == "ring" { return true }
+      if v == "notification" { return false }
+    }
+    return true
+  }
+
   // MARK: - PKPushRegistryDelegate
 
   func pushRegistry(_ registry: PKPushRegistry, didUpdate credentials: PKPushCredentials, for type: PKPushType) {
@@ -151,6 +245,16 @@ private let kMatrixSygnalVoipPushKeyDefaultsKey = "MatrixSygnalVoipPushKeyB64"
     }
     guard let plugin = SwiftFlutterCallkitIncomingPlugin.sharedInstance else {
       NSLog("AppDelegate: VoIP push before CallKit plugin init; cannot report incoming call.")
+      completion()
+      return
+    }
+
+    let dict = payload.dictionaryPayload as? [String: Any] ?? [:]
+    if !Self.shouldPresentCallKitForVoipPayload(dict) {
+      NSLog(
+        "AppDelegate: ignoring VoIP push for CallKit (not an incoming call payload); "
+          + "aps.loc-key=\(Self.apnsAlertLocKey(from: dict) ?? "(nil)")"
+      )
       completion()
       return
     }

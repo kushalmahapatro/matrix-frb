@@ -3,14 +3,17 @@ import 'dart:io';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 
-/// Routes call audio (ringback + WebRTC) between earpiece vs speaker on mobile.
+/// Routes call audio (ringback + WebRTC) between earpiece vs speaker on mobile,
+/// and activates a VoIP-friendly session on **macOS** (desktop LiveKit playout + `record`).
 abstract final class CallAudioRoute {
-  static bool get _isIosAndroid =>
-      !kIsWeb && (Platform.isIOS || Platform.isAndroid);
+  /// iOS/Android full session; macOS uses the same Darwin category via `audio_session` plugin.
+  static bool get _shouldConfigureSession =>
+      !kIsWeb &&
+      (Platform.isIOS || Platform.isAndroid || Platform.isMacOS);
 
   /// [speakerOn]: `false` → earpiece/receiver (typical phone ear); `true` → loudspeaker.
   static Future<void> applyForCall({required bool speakerOn}) async {
-    if (!_isIosAndroid) return;
+    if (!_shouldConfigureSession) return;
 
     final session = await AudioSession.instance;
     final bt = AVAudioSessionCategoryOptions.allowBluetooth |
@@ -43,10 +46,11 @@ abstract final class CallAudioRoute {
     } else if (Platform.isAndroid) {
       await AndroidAudioManager().setSpeakerphoneOn(speakerOn);
     }
+    // macOS: category/mode is set via `configure` + `setActive`; default output device is used.
   }
 
   static Future<void> releaseAfterCall() async {
-    if (!_isIosAndroid) return;
+    if (!_shouldConfigureSession) return;
     try {
       if (Platform.isAndroid) {
         await AndroidAudioManager().setSpeakerphoneOn(false);

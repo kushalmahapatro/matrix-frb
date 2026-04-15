@@ -41,7 +41,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueNom,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 656535884;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1254404172;
 
 // Section: executor
 
@@ -4157,6 +4157,16 @@ fn wire__crate__api__livekit_session__imp__livekit_session_publish_local_camera_
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "livekit_session_publish_local_camera_track", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || {  move |context| async move {
                     transform_result_dco::<_, _, String>((move || async move {
                          let output_ok = crate::api::livekit_session::imp::livekit_session_publish_local_camera_track().await?;   Ok(output_ok)
+                    })().await)
+                } })
+}
+fn wire__crate__api__livekit_session__imp__livekit_session_pull_remote_audio_pcm16_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    max_samples: impl CstDecode<usize>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "livekit_session_pull_remote_audio_pcm16", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_max_samples = max_samples.cst_decode(); move |context| async move {
+                    transform_result_dco::<_, _, ()>((move || async move {
+                         let output_ok = Result::<_,()>::Ok(crate::api::livekit_session::imp::livekit_session_pull_remote_audio_pcm16(api_max_samples).await)?;   Ok(output_ok)
                     })().await)
                 } })
 }
@@ -10268,6 +10278,17 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_pull_remote_audio_pcm16(
+        port_: i64,
+        max_samples: usize,
+    ) {
+        wire__crate__api__livekit_session__imp__livekit_session_pull_remote_audio_pcm16_impl(
+            port_,
+            max_samples,
+        )
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_push_audio_pcm16(
         port_: i64,
         pcm: *mut wire_cst_list_prim_i_16_loose,
@@ -13428,6 +13449,17 @@ mod web {
     ) {
         wire__crate__api__livekit_session__imp__livekit_session_publish_local_camera_track_impl(
             port_,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__livekit_session__imp__livekit_session_pull_remote_audio_pcm16(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        max_samples: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) {
+        wire__crate__api__livekit_session__imp__livekit_session_pull_remote_audio_pcm16_impl(
+            port_,
+            max_samples,
         )
     }
 

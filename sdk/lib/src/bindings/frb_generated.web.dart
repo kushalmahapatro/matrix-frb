@@ -3192,6 +3192,16 @@ class RustLibWire implements BaseWire {
         port_,
       );
 
+  void
+  wire__crate__api__livekit_session__imp__livekit_session_pull_remote_audio_pcm16(
+    NativePortType port_,
+    JSAny max_samples,
+  ) => wasmModule
+      .wire__crate__api__livekit_session__imp__livekit_session_pull_remote_audio_pcm16(
+        port_,
+        max_samples,
+      );
+
   void wire__crate__api__livekit_session__imp__livekit_session_push_audio_pcm16(
     NativePortType port_,
     JSAny pcm,
@@ -3975,6 +3985,12 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
   external void
   wire__crate__api__livekit_session__imp__livekit_session_publish_local_camera_track(
     NativePortType port_,
+  );
+
+  external void
+  wire__crate__api__livekit_session__imp__livekit_session_pull_remote_audio_pcm16(
+    NativePortType port_,
+    JSAny max_samples,
   );
 
   external void

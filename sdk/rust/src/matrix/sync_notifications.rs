@@ -1,5 +1,11 @@
 //! Push-rule-driven sync notifications forwarded to Dart via FRB streams.
 
+/// Ignore MatrixRTC `ring` rows older than this when turning timeline history into CallKit/UI rings.
+///
+/// Without this, opening a room (initial pagination / cache fill) replays every past
+/// `m.rtc.notification` ring in the loaded window as a new incoming call.
+pub const RTC_INCOMING_RING_NOTIFY_MAX_AGE_MS: u64 = 120_000;
+
 use matrix_sdk::{
     deserialized_responses::RawAnySyncOrStrippedTimelineEvent,
     ruma::events::{
