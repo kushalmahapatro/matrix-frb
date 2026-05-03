@@ -64,6 +64,9 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
   double? _videoTranscodeLinear;
   bool _videoTranscodePastEstimate = false;
   String? _videoTranscodeMsg;
+  int? _transcodeOutputBytes;
+  int? _sendOutboundBytes;
+  bool? _uploadIsTranscodedOutput;
 
   int? _originalFileBytes;
   bool _videoThumbLoading = false;
@@ -185,6 +188,9 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
       _videoTranscodeLinear = null;
       _videoTranscodePastEstimate = false;
       _videoTranscodeMsg = null;
+      _transcodeOutputBytes = null;
+      _sendOutboundBytes = null;
+      _uploadIsTranscodedOutput = null;
     });
     AppTimelineSendPrep? prep;
     try {
@@ -217,6 +223,9 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
             if (c.message != null) {
               _videoTranscodeMsg = c.message;
             }
+            if (c.outputBytes != null) {
+              _transcodeOutputBytes = c.outputBytes;
+            }
           });
         },
         videoQuality: _videoQuality,
@@ -230,6 +239,13 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
       return;
     }
 
+    if (!mounted) return;
+    setState(() {
+      _sendOutboundBytes = prep?.outboundFileBytes;
+      _uploadIsTranscodedOutput = prep != null &&
+          prep.filePathToSend != widget.filePath;
+    });
+
     if (await isTimelineVideoSendCandidate(
       widget.filePath,
       mimeType: widget.mimeType,
@@ -240,7 +256,7 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
         if (!mounted) return;
         setState(() {
           _error =
-              'Video send requires a JPEG thumbnail. Preparation failed — try another clip.';
+              'Video preparation failed — compression or thumbnail generation did not complete. Try another clip or format.';
           _sending = false;
         });
         return;
@@ -315,6 +331,23 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
   String _bytesLabel(FileSendProgress p) {
     if (p.total <= BigInt.zero) return 'Working…';
     return '${p.current} / ${p.total} bytes';
+  }
+
+  bool get _showOutboundAsCompressed =>
+      _uploadIsTranscodedOutput == true ||
+      (_uploadIsTranscodedOutput != false && _transcodeOutputBytes != null);
+
+  String? _outboundProgressSizeLabel() {
+    final ob = _sendOutboundBytes ?? _transcodeOutputBytes;
+    if (ob == null) return null;
+    if (_showOutboundAsCompressed) {
+      return 'Compressed file: ${_formatSize(ob)}';
+    }
+    if (_originalFileBytes != null &&
+        _originalFileBytes! < kVideoTranscodeMinBytes) {
+      return 'File to upload: ${_formatSize(ob)} (original; under 2 MB — no re-encode)';
+    }
+    return 'File to upload: ${_formatSize(ob)}';
   }
 
   String _formatSize(int? bytes) {
@@ -476,17 +509,17 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
             ),
             Center(
               child: Material(
-                color: Colors.black45,
+                color: Colors.black.withValues(alpha: 0.55),
                 shape: const CircleBorder(),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
                   onTap: () => setState(() => _videoPlayback = true),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
+                  child: const Padding(
+                    padding: EdgeInsets.all(20),
                     child: Icon(
                       Icons.play_arrow_rounded,
                       size: 56,
-                      color: theme.colorScheme.onPrimary,
+                      color: Colors.white,
                     ),
                   ),
                 ),
@@ -508,17 +541,17 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
           ),
           Center(
             child: Material(
-              color: Colors.black45,
+              color: Colors.black.withValues(alpha: 0.55),
               shape: const CircleBorder(),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
                 onTap: () => setState(() => _videoPlayback = true),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
+                child: const Padding(
+                  padding: EdgeInsets.all(20),
                   child: Icon(
                     Icons.play_arrow_rounded,
                     size: 56,
-                    color: theme.colorScheme.onPrimary,
+                    color: Colors.white,
                   ),
                 ),
               ),
@@ -667,6 +700,14 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: SegmentedButton<VideoSendQuality>(
+                    style: SegmentedButton.styleFrom(
+                      selectedBackgroundColor:
+                          theme.colorScheme.primaryContainer,
+                      selectedForegroundColor:
+                          theme.colorScheme.onPrimaryContainer,
+                      backgroundColor: theme.colorScheme.surfaceContainerHigh,
+                      foregroundColor: theme.colorScheme.onSurfaceVariant,
+                    ),
                     segments: const [
                       ButtonSegment<VideoSendQuality>(
                         value: VideoSendQuality.sd,
@@ -700,49 +741,114 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _estimateRow(
-                        theme,
-                        label: 'HD (720p)',
-                        bytes: _estimateHd720Bytes,
-                        emphasize: _videoQuality == VideoSendQuality.hd,
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 108, top: 2, bottom: 4),
-                        child: Text(
-                          _estimatingVideo
-                              ? '…'
-                              : 'Wall time (est.): ${_formatEncodeEta(_encodeEstHd720)}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontSize: 11,
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: _videoQuality == VideoSendQuality.hd
+                              ? theme.colorScheme.primaryContainer
+                                  .withValues(alpha: 0.45)
+                              : theme.colorScheme.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
                             color: _videoQuality == VideoSendQuality.hd
                                 ? theme.colorScheme.primary
-                                : theme.colorScheme.outline,
-                            fontWeight: _videoQuality == VideoSendQuality.hd
-                                ? FontWeight.w600
-                                : FontWeight.normal,
+                                : theme.colorScheme.outlineVariant,
+                            width:
+                                _videoQuality == VideoSendQuality.hd ? 2 : 1,
+                          ),
+                        ),
+                        child: Padding(
+                          padding:
+                              const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _estimateRow(
+                                theme,
+                                label: 'HD (720p)',
+                                bytes: _estimateHd720Bytes,
+                                emphasize:
+                                    _videoQuality == VideoSendQuality.hd,
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  left: 108,
+                                  top: 2,
+                                  bottom: 0,
+                                ),
+                                child: Text(
+                                  _estimatingVideo
+                                      ? '…'
+                                      : 'Wall time (est.): ${_formatEncodeEta(_encodeEstHd720)}',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontSize: 11,
+                                    color: _videoQuality ==
+                                            VideoSendQuality.hd
+                                        ? theme.colorScheme.primary
+                                        : theme.colorScheme.outline,
+                                    fontWeight: _videoQuality ==
+                                            VideoSendQuality.hd
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                      _estimateRow(
-                        theme,
-                        label: 'SD (480p)',
-                        bytes: _estimateSd480Bytes,
-                        emphasize: _videoQuality == VideoSendQuality.sd,
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 108, top: 2, bottom: 4),
-                        child: Text(
-                          _estimatingVideo
-                              ? '…'
-                              : 'Wall time (est.): ${_formatEncodeEta(_encodeEstSd480)}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontSize: 11,
+                      const SizedBox(height: 8),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: _videoQuality == VideoSendQuality.sd
+                              ? theme.colorScheme.primaryContainer
+                                  .withValues(alpha: 0.45)
+                              : theme.colorScheme.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
                             color: _videoQuality == VideoSendQuality.sd
                                 ? theme.colorScheme.primary
-                                : theme.colorScheme.outline,
-                            fontWeight: _videoQuality == VideoSendQuality.sd
-                                ? FontWeight.w600
-                                : FontWeight.normal,
+                                : theme.colorScheme.outlineVariant,
+                            width:
+                                _videoQuality == VideoSendQuality.sd ? 2 : 1,
+                          ),
+                        ),
+                        child: Padding(
+                          padding:
+                              const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _estimateRow(
+                                theme,
+                                label: 'SD (480p)',
+                                bytes: _estimateSd480Bytes,
+                                emphasize:
+                                    _videoQuality == VideoSendQuality.sd,
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  left: 108,
+                                  top: 2,
+                                  bottom: 0,
+                                ),
+                                child: Text(
+                                  _estimatingVideo
+                                      ? '…'
+                                      : 'Wall time (est.): ${_formatEncodeEta(_encodeEstSd480)}',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontSize: 11,
+                                    color: _videoQuality ==
+                                            VideoSendQuality.sd
+                                        ? theme.colorScheme.primary
+                                        : theme.colorScheme.outline,
+                                    fontWeight: _videoQuality ==
+                                            VideoSendQuality.sd
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -781,6 +887,17 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
                     ),
                   ),
                 ),
+                if (_originalFileBytes != null &&
+                    _originalFileBytes! < kVideoTranscodeMinBytes)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Text(
+                      'Videos under 2 MB are sent without re-encoding.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
               ],
               if (widget.caption != null && widget.caption!.trim().isNotEmpty)
                 Padding(
@@ -812,6 +929,17 @@ class _MediaOutgoingSendScreenState extends State<MediaOutgoingSendScreen> {
                     ),
                   ),
                 if (_prepStage != null) _prepStageProgressBar(theme),
+                if (_sending && _outboundProgressSizeLabel() != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: Text(
+                      _outboundProgressSizeLabel()!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ),
                 if (_rustProgress != null) ...[
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),

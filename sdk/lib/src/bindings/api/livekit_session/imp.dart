@@ -4,9 +4,10 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../../frb_generated.dart';
+import '../livekit_session.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `attach_remote_track_if_new`, `attach_remote_tracks_from_participant`, `dispose_held`, `ensure_remote_publication_desired`, `ensure_webrtc_android_ready_for_connect`, `expected_i420_len`, `flush_audio`, `map_rotation`, `push_i16_to_remote_ring`, `push_i420_tight`, `set_local_track_muted`, `spawn_remote_media_playout_task`, `spawn_remote_video_stream_consumer`
+// These functions are ignored because they are not marked as `pub`: `attach_remote_track_if_new`, `attach_remote_tracks_from_participant`, `dispose_held`, `ensure_remote_publication_desired`, `ensure_webrtc_android_ready_for_connect`, `expected_i420_len`, `flush_audio`, `map_rotation`, `pack_i420_buffer_to_tight`, `push_i16_to_remote_ring`, `push_i420_tight`, `set_local_track_muted`, `spawn_remote_media_playout_task`, `spawn_remote_video_stream_consumer`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `LiveKitHeld`
 
 Future<void> livekitSessionConnect({
@@ -75,3 +76,9 @@ Future<Int16List> livekitSessionPullRemoteAudioPcm16({
     .crateApiLivekitSessionImpLivekitSessionPullRemoteAudioPcm16(
       maxSamples: maxSamples,
     );
+
+/// Pops the latest decoded remote camera frame (tight I420), if any, since the last pull.
+Future<LivekitRemoteVideoI420> livekitSessionTryPullRemoteVideoI420() => RustLib
+    .instance
+    .api
+    .crateApiLivekitSessionImpLivekitSessionTryPullRemoteVideoI420();

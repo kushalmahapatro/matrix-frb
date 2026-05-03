@@ -5,9 +5,23 @@
 //!
 //! **First remote microphone** is decoded in Rust via [`NativeAudioStream`], pushed into a bounded ring buffer,
 //! and consumed by Flutter through [`livekit_session_pull_remote_audio_pcm16`] (see app `flutter_sound` downlink).
+//!
+//! **Remote camera** frames are decoded in Rust, kept as the latest tightly packed I420 buffer, and pulled from
+//! Flutter through [`livekit_session_try_pull_remote_video_i420`].
+
+/// Latest remote video frame as tightly packed I420 (full Y, then U, then V), matching the layout used for
+/// [`imp::livekit_session_push_video_i420`].
+#[derive(Clone, Debug, Default)]
+pub struct LivekitRemoteVideoI420 {
+    pub width: u32,
+    pub height: u32,
+    pub data: Vec<u8>,
+}
 
 #[cfg(target_arch = "wasm32")]
 pub mod imp {
+    use super::LivekitRemoteVideoI420;
+
     pub async fn livekit_session_connect(
         _url: String,
         _token: String,
@@ -61,10 +75,15 @@ pub mod imp {
     pub async fn livekit_session_pull_remote_audio_pcm16(_max_samples: usize) -> Vec<i16> {
         Vec::new()
     }
+
+    pub async fn livekit_session_try_pull_remote_video_i420() -> LivekitRemoteVideoI420 {
+        LivekitRemoteVideoI420::default()
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod imp {
+    use super::LivekitRemoteVideoI420;
     use std::borrow::Cow;
     use std::collections::{HashSet, VecDeque};
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -78,7 +97,9 @@ pub mod imp {
     use livekit::webrtc::audio_source::native::NativeAudioSource;
     use livekit::webrtc::audio_source::AudioSourceOptions;
     use livekit::webrtc::audio_stream::native::NativeAudioStream;
-    use livekit::webrtc::prelude::{AudioFrame, RtcAudioSource, RtcVideoSource, VideoRotation};
+    use livekit::webrtc::prelude::{
+        AudioFrame, RtcAudioSource, RtcVideoSource, VideoBuffer, VideoRotation,
+    };
     use livekit::webrtc::video_frame::{I420Buffer, VideoFrame};
     use livekit::webrtc::video_source::native::NativeVideoSource;
     use livekit::webrtc::video_source::VideoResolution;
@@ -98,6 +119,8 @@ pub mod imp {
         _remote_media_playout: JoinHandle<()>,
         /// Mono i16 @ 48 kHz from the first remote mic (`NativeAudioStream`); Flutter pulls and plays.
         remote_pcm_ring: Arc<Mutex<VecDeque<i16>>>,
+        /// Latest decoded remote camera frame (tight I420); replaced on each decoded frame.
+        remote_video_latest: Arc<Mutex<Option<LivekitRemoteVideoI420>>>,
         remote_play_cancel: CancellationToken,
     }
 
@@ -159,6 +182,39 @@ pub mod imp {
         let cw = ((width + 1) / 2) as usize;
         let ch = ((height + 1) / 2) as usize;
         (width as usize) * (height as usize) + 2 * cw * ch
+    }
+
+    /// Tight I420 (Y, U, V) from a decoded libwebrtc [`I420Buffer`] (strides may be padded).
+    fn pack_i420_buffer_to_tight(buf: &I420Buffer) -> Result<Vec<u8>, String> {
+        let width = buf.width();
+        let height = buf.height();
+        let expected = expected_i420_len(width, height);
+        let (stride_y, stride_u, stride_v) = buf.strides();
+        let (y_src, u_src, v_src) = buf.data();
+        let mut out = vec![0u8; expected];
+        let cw = ((width + 1) / 2) as usize;
+        let ch = ((height + 1) / 2) as usize;
+        let y_size = (width as usize) * (height as usize);
+
+        for row in 0..height as usize {
+            let s = row * stride_y as usize;
+            let d = row * width as usize;
+            out[d..d + width as usize]
+                .copy_from_slice(&y_src[s..s + width as usize]);
+        }
+
+        let mut off = y_size;
+        for row in 0..ch {
+            let s = row * stride_u as usize;
+            out[off..off + cw].copy_from_slice(&u_src[s..s + cw]);
+            off += cw;
+        }
+        for row in 0..ch {
+            let s = row * stride_v as usize;
+            out[off..off + cw].copy_from_slice(&v_src[s..s + cw]);
+            off += cw;
+        }
+        Ok(out)
     }
 
     /// Copy tightly packed I420 (Y, then U, then V) into a new buffer and push to the video source.
@@ -258,6 +314,7 @@ pub mod imp {
         attached: &mut HashSet<TrackSid>,
         first_remote_audio_drain: &mut Option<TrackSid>,
         ring: &Arc<Mutex<VecDeque<i16>>>,
+        video_latest: &Arc<Mutex<Option<LivekitRemoteVideoI420>>>,
         play_cancel: &CancellationToken,
         participant: &RemoteParticipant,
     ) {
@@ -268,6 +325,7 @@ pub mod imp {
                     attached,
                     first_remote_audio_drain,
                     ring,
+                    video_latest,
                     play_cancel,
                     track,
                 );
@@ -278,6 +336,7 @@ pub mod imp {
     fn spawn_remote_media_playout_task(
         room: Arc<Room>,
         ring: Arc<Mutex<VecDeque<i16>>>,
+        video_latest: Arc<Mutex<Option<LivekitRemoteVideoI420>>>,
         play_cancel: CancellationToken,
     ) -> JoinHandle<()> {
         tokio::spawn(async move {
@@ -287,14 +346,22 @@ pub mod imp {
 
             // `RoomEvent::Connected` is dispatched *during* `Room::connect` before this task
             // subscribes, so we often miss it. Catch up on any remote tracks that already exist.
-            for p in room.remote_participants().values() {
-                attach_remote_tracks_from_participant(
-                    &mut attached,
-                    &mut first_remote_audio_drain,
-                    &ring,
-                    &play_cancel,
-                    p,
-                );
+            //
+            // Sort identities so the "first remote mic" drain target is deterministic when more
+            // than one remote is already present (HashMap iteration order is undefined).
+            let mut identities: Vec<_> = room.remote_participants().keys().cloned().collect();
+            identities.sort_by(|a, b| a.to_string().cmp(&b.to_string()));
+            for id in identities {
+                if let Some(p) = room.remote_participants().get(&id) {
+                    attach_remote_tracks_from_participant(
+                        &mut attached,
+                        &mut first_remote_audio_drain,
+                        &ring,
+                        &video_latest,
+                        &play_cancel,
+                        p,
+                    );
+                }
             }
             if !attached.is_empty() {
                 tracing::info!(
@@ -321,6 +388,7 @@ pub mod imp {
                                                 &mut attached,
                                                 &mut first_remote_audio_drain,
                                                 &ring,
+                                                &video_latest,
                                                 &play_cancel,
                                                 track,
                                             );
@@ -333,6 +401,7 @@ pub mod imp {
                                     &mut attached,
                                     &mut first_remote_audio_drain,
                                     &ring,
+                                    &video_latest,
                                     &play_cancel,
                                     &p,
                                 );
@@ -342,6 +411,7 @@ pub mod imp {
                                     &mut attached,
                                     &mut first_remote_audio_drain,
                                     &ring,
+                                    &video_latest,
                                     &play_cancel,
                                     &p,
                                 );
@@ -353,6 +423,7 @@ pub mod imp {
                                         &mut attached,
                                         &mut first_remote_audio_drain,
                                         &ring,
+                                        &video_latest,
                                         &play_cancel,
                                         track,
                                     );
@@ -366,6 +437,7 @@ pub mod imp {
                                     &mut attached,
                                     &mut first_remote_audio_drain,
                                     &ring,
+                                    &video_latest,
                                     &play_cancel,
                                     track,
                                 );
@@ -383,6 +455,7 @@ pub mod imp {
         attached: &mut HashSet<TrackSid>,
         first_remote_audio_drain: &mut Option<TrackSid>,
         ring: &Arc<Mutex<VecDeque<i16>>>,
+        video_latest: &Arc<Mutex<Option<LivekitRemoteVideoI420>>>,
         play_cancel: &CancellationToken,
         track: RemoteTrack,
     ) {
@@ -440,16 +513,36 @@ pub mod imp {
                 if !attached.insert(sid) {
                     return;
                 }
-                spawn_remote_video_stream_consumer(video);
+                spawn_remote_video_stream_consumer(video, video_latest.clone());
             }
         }
     }
 
-    fn spawn_remote_video_stream_consumer(video: RemoteVideoTrack) {
+    fn spawn_remote_video_stream_consumer(
+        video: RemoteVideoTrack,
+        latest: Arc<Mutex<Option<LivekitRemoteVideoI420>>>,
+    ) {
         tokio::spawn(async move {
             let rtc = video.rtc_track();
             let mut stream = NativeVideoStream::new(rtc);
-            while let Some(_frame) = stream.next().await {}
+            while let Some(frame) = stream.next().await {
+                let width = frame.buffer.width();
+                let height = frame.buffer.height();
+                if width == 0 || height == 0 {
+                    continue;
+                }
+                let i420 = frame.buffer.to_i420();
+                let data = match pack_i420_buffer_to_tight(&i420) {
+                    Ok(d) => d,
+                    Err(_) => continue,
+                };
+                let mut g = latest.lock().await;
+                *g = Some(LivekitRemoteVideoI420 {
+                    width,
+                    height,
+                    data,
+                });
+            }
         });
     }
 
@@ -498,10 +591,12 @@ pub mod imp {
         let room = Arc::new(room);
 
         let remote_pcm_ring = Arc::new(Mutex::new(VecDeque::new()));
+        let remote_video_latest = Arc::new(Mutex::new(None));
         let remote_play_cancel = CancellationToken::new();
         let remote_media = spawn_remote_media_playout_task(
             room.clone(),
             remote_pcm_ring.clone(),
+            remote_video_latest.clone(),
             remote_play_cancel.clone(),
         );
 
@@ -509,11 +604,13 @@ pub mod imp {
 
         // Flutter should feed dry PCM16 (see app `RecordConfig` on mobile). First remote mic is
         // drained in Rust and pulled from Dart (see [livekit_session_pull_remote_audio_pcm16]).
+        // PCM is captured in Flutter (`record`) and pushed here; do not stack WebRTC AEC/NS/AGC
+        // on top — on Android/iOS that path has been observed to classify the stream as silence.
         let audio_source = NativeAudioSource::new(
             AudioSourceOptions {
-                echo_cancellation: true,
-                noise_suppression: true,
-                auto_gain_control: true,
+                echo_cancellation: false,
+                noise_suppression: false,
+                auto_gain_control: false,
             },
             AUDIO_SAMPLE_RATE,
             AUDIO_CHANNELS,
@@ -571,6 +668,7 @@ pub mod imp {
             _drain_events: drain,
             _remote_media_playout: remote_media,
             remote_pcm_ring,
+            remote_video_latest,
             remote_play_cancel,
         });
         Ok(())
@@ -736,6 +834,16 @@ pub mod imp {
         }
         q.drain(0..take).collect()
     }
+
+    /// Pops the latest decoded remote camera frame (tight I420), if any, since the last pull.
+    pub async fn livekit_session_try_pull_remote_video_i420() -> LivekitRemoteVideoI420 {
+        let guard = SESSION.lock().await;
+        let Some(ref held) = *guard else {
+            return LivekitRemoteVideoI420::default();
+        };
+        let mut slot = held.remote_video_latest.lock().await;
+        slot.take().unwrap_or_default()
+    }
 }
 
 pub use imp::livekit_session_close;
@@ -743,6 +851,7 @@ pub use imp::livekit_session_connect;
 pub use imp::livekit_session_connection_state;
 pub use imp::livekit_session_publish_local_camera_track;
 pub use imp::livekit_session_pull_remote_audio_pcm16;
+pub use imp::livekit_session_try_pull_remote_video_i420;
 pub use imp::livekit_session_push_audio_pcm16;
 pub use imp::livekit_session_push_video_i420;
 pub use imp::livekit_session_remote_participant_count;

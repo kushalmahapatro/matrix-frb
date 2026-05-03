@@ -7,6 +7,7 @@
 // ignore_for_file: argument_type_not_assignable
 
 import 'api/document_preview.dart';
+import 'api/livekit_session.dart';
 import 'api/livekit_session/imp.dart';
 import 'api/matrix_client.dart';
 import 'dart:async';
@@ -259,6 +260,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<User> dco_decode_list_user(dynamic raw);
+
+  @protected
+  LivekitRemoteVideoI420 dco_decode_livekit_remote_video_i_420(dynamic raw);
 
   @protected
   LogLevel dco_decode_log_level(dynamic raw);
@@ -638,6 +642,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<User> sse_decode_list_user(SseDeserializer deserializer);
+
+  @protected
+  LivekitRemoteVideoI420 sse_decode_livekit_remote_video_i_420(
+    SseDeserializer deserializer,
+  );
 
   @protected
   LogLevel sse_decode_log_level(SseDeserializer deserializer);
@@ -1172,6 +1181,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  JSAny cst_encode_livekit_remote_video_i_420(LivekitRemoteVideoI420 raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_u_32(raw.width),
+      cst_encode_u_32(raw.height),
+      cst_encode_list_prim_u_8_strict(raw.data),
+    ].jsify()!;
+  }
+
+  @protected
   JSAny cst_encode_message(Message raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return [
@@ -1471,6 +1490,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_bool(raw.isNoisy),
       cst_encode_String(raw.eventId),
       cst_encode_bool(raw.incomingCallRing),
+      cst_encode_u_64(raw.originServerTsMs),
     ].jsify()!;
   }
 
@@ -1930,6 +1950,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_user(List<User> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_livekit_remote_video_i_420(
+    LivekitRemoteVideoI420 self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_log_level(LogLevel self, SseSerializer serializer);
@@ -3158,6 +3184,13 @@ class RustLibWire implements BaseWire {
     use_lightweight_tokio_runtime,
   );
 
+  void wire__crate__api__livekit_session__livekit_remote_video_i_420_default(
+    NativePortType port_,
+  ) => wasmModule
+      .wire__crate__api__livekit_session__livekit_remote_video_i_420_default(
+        port_,
+      );
+
   void wire__crate__api__livekit_session__imp__livekit_session_close(
     NativePortType port_,
   ) => wasmModule.wire__crate__api__livekit_session__imp__livekit_session_close(
@@ -3257,6 +3290,14 @@ class RustLibWire implements BaseWire {
       .wire__crate__api__livekit_session__imp__livekit_session_set_microphone_muted(
         port_,
         muted,
+      );
+
+  void
+  wire__crate__api__livekit_session__imp__livekit_session_try_pull_remote_video_i420(
+    NativePortType port_,
+  ) => wasmModule
+      .wire__crate__api__livekit_session__imp__livekit_session_try_pull_remote_video_i420(
+        port_,
       );
 
   void wire__crate__logger__tracing__log_event(
@@ -3966,6 +4007,11 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     bool use_lightweight_tokio_runtime,
   );
 
+  external void
+  wire__crate__api__livekit_session__livekit_remote_video_i_420_default(
+    NativePortType port_,
+  );
+
   external void wire__crate__api__livekit_session__imp__livekit_session_close(
     NativePortType port_,
   );
@@ -4026,6 +4072,11 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
   wire__crate__api__livekit_session__imp__livekit_session_set_microphone_muted(
     NativePortType port_,
     bool muted,
+  );
+
+  external void
+  wire__crate__api__livekit_session__imp__livekit_session_try_pull_remote_video_i420(
+    NativePortType port_,
   );
 
   external void wire__crate__logger__tracing__log_event(

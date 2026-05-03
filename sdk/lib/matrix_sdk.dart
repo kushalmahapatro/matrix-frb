@@ -22,6 +22,7 @@ export 'src/http_console_interceptor.dart';
 
 export 'src/bindings/api/matrix_client.dart';
 export 'src/bindings/api/document_preview.dart' show documentPreviewJson;
+export 'src/bindings/api/livekit_session.dart' show LivekitRemoteVideoI420;
 export 'src/bindings/api/livekit_session/imp.dart'
     show
         livekitSessionClose,
@@ -33,7 +34,8 @@ export 'src/bindings/api/livekit_session/imp.dart'
         livekitSessionPushVideoI420,
         livekitSessionRemoteParticipantCount,
         livekitSessionSetCameraMuted,
-        livekitSessionSetMicrophoneMuted;
+        livekitSessionSetMicrophoneMuted,
+        livekitSessionTryPullRemoteVideoI420;
 
 export 'src/native_media_env_keys.dart';
 

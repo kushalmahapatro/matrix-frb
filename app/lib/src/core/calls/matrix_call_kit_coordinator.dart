@@ -15,6 +15,7 @@ import 'package:matrix/src/core/permissions/app_runtime_permissions.dart';
 import 'package:matrix/src/core/calls/native_livekit_call_host.dart';
 import 'package:matrix/src/features/settings/domain/profile_prefs.dart';
 import 'package:matrix/src/core/calls/native_livekit_call_session.dart';
+import 'package:matrix/src/core/notifications/missed_call_tray_notifier.dart';
 import 'package:matrix/src/core/desktop/desktop_incoming_call_window_opener.dart';
 import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
 import 'package:matrix/src/core/domain/services/app_config.dart';
@@ -30,10 +31,17 @@ class _PendingCall {
 }
 
 class _DeferredIncomingAccept {
-  _DeferredIncomingAccept({required this.roomId, required this.roomName});
+  _DeferredIncomingAccept({
+    required this.roomId,
+    required this.roomName,
+    required this.voiceOnly,
+    required this.preferVideoCallUi,
+  });
 
   final String roomId;
   final String roomName;
+  final bool voiceOnly;
+  final bool preferVideoCallUi;
 }
 
 void _showLiveKitConfigSnack(String message) {
@@ -93,6 +101,7 @@ class MatrixCallKitCoordinator {
     }
     _eventSub ??= FlutterCallkitIncoming.onEvent.listen(_onCallKitEvent);
     unawaited(_flushDeferredIncomingAcceptIfReady());
+    unawaited(_scheduleRecoverAcceptedCallIfMissed());
   }
 
   Future<void> _flushDeferredIncomingAcceptIfReady() async {
@@ -105,6 +114,8 @@ class MatrixCallKitCoordinator {
         client: c,
         roomId: pending.roomId,
         roomName: pending.roomName,
+        voiceOnly: pending.voiceOnly,
+        preferVideoCallUi: pending.preferVideoCallUi,
       );
     } catch (e, st) {
       debugPrint(
@@ -176,6 +187,8 @@ class MatrixCallKitCoordinator {
             _deferredIncomingAccept = _DeferredIncomingAccept(
               roomId: roomId,
               roomName: roomName,
+              voiceOnly: true,
+              preferVideoCallUi: false,
             );
             debugPrint(
               'MatrixCallKitCoordinator: CallKit accept before Matrix client bound; '
@@ -246,6 +259,16 @@ class MatrixCallKitCoordinator {
                 endReason: 'Missed call',
               ),
             );
+            final callerLabel = bodyMap['nameCaller']?.toString();
+            unawaited(
+              MissedCallTrayNotifier.instance.showMissedCall(
+                roomId: roomId,
+                roomTitle: roomName.isNotEmpty ? roomName : null,
+                callerLabel: (callerLabel != null && callerLabel.trim().isNotEmpty)
+                    ? callerLabel.trim()
+                    : null,
+              ),
+            );
           }
         } else {
           debugPrint(
@@ -278,17 +301,23 @@ class MatrixCallKitCoordinator {
   }
 
   /// After the user accepts (answer screen or CallKit), join the LiveKit room.
+  ///
+  /// [voiceOnly]: join without publishing camera (audio-only / voice answer on a video ring).
+  /// [preferVideoCallUi]: use the video call shell (e.g. self preview) even when [voiceOnly] is true.
   Future<void> openAcceptedIncomingNativeLiveKit({
     required MatrixClient client,
     required String roomId,
     required String roomName,
+    bool voiceOnly = true,
+    bool preferVideoCallUi = false,
   }) async {
     await _openNativeLiveKit(
       client: client,
       roomId: roomId,
       roomName: roomName,
       joinExistingCall: true,
-      voiceOnly: true,
+      voiceOnly: voiceOnly,
+      preferVideoCallUi: preferVideoCallUi,
     );
   }
 
@@ -298,6 +327,7 @@ class MatrixCallKitCoordinator {
     required String roomName,
     required bool joinExistingCall,
     required bool voiceOnly,
+    required bool preferVideoCallUi,
   }) async {
     var nav = AppNavigation.rootNavigatorKey.currentState;
     if (nav == null || !nav.mounted) {
@@ -374,7 +404,7 @@ class MatrixCallKitCoordinator {
           title: roomName,
           matrixRoomId: roomId,
           voiceOnly: voiceOnly,
-          preferVideoCallUi: false,
+          preferVideoCallUi: preferVideoCallUi,
           localDisplayName: localDisplayName,
           localAvatarMxc: ProfilePrefs.instance.ownAvatarMxc,
           isDirectRoom: false,
@@ -412,6 +442,26 @@ class MatrixCallKitCoordinator {
     _byCallKitId[callKitId] = _PendingCall(
       roomId: roomId,
       rtcEventId: rtcEventId,
+    );
+  }
+
+  /// Tray / FCM tap on an **active ring**: join LiveKit immediately (no second in-app answer step).
+  Future<void> acceptIncomingCallFromNotificationIfPossible(
+    SyncNotificationSummary s,
+  ) async {
+    if (kIsWeb) return;
+    if (s.kind != SyncNotificationKind.incomingCall) return;
+    if (!s.incomingCallRing) return;
+    final client = _client;
+    if (client == null) return;
+    if (s.roomId.trim().isEmpty || s.eventId.trim().isEmpty) return;
+    final roomName = s.roomDisplayName?.trim().isNotEmpty == true
+        ? s.roomDisplayName!.trim()
+        : s.roomId;
+    await openAcceptedIncomingNativeLiveKit(
+      client: client,
+      roomId: s.roomId,
+      roomName: roomName,
     );
   }
 
@@ -467,6 +517,108 @@ class MatrixCallKitCoordinator {
     }
 
     unawaited(showMatrixIncomingCallKit(callKitId: callKitId, s: s));
+  }
+
+  /// CallKit can deliver [Event.actionCallAccept] before Dart subscribes to the plugin event
+  /// channel (cold start / resume). [FlutterCallkitIncoming.activeCalls] still reflects an
+  /// answered call with `extra` — join LiveKit from that snapshot.
+  Future<void> _scheduleRecoverAcceptedCallIfMissed() async {
+    if (kIsWeb) return;
+    if (defaultTargetPlatform != TargetPlatform.iOS &&
+        defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
+    if (!AppConfig.isNativeLiveKitConfigurable) return;
+
+    const delays = <Duration>[
+      Duration.zero,
+      Duration(milliseconds: 500),
+      Duration(milliseconds: 1800),
+      Duration(milliseconds: 3800),
+    ];
+    for (final d in delays) {
+      if (d > Duration.zero) {
+        await Future<void>.delayed(d);
+      }
+      await _tryRecoverAcceptedCallIfMissedOnce();
+    }
+  }
+
+  Future<void> _tryRecoverAcceptedCallIfMissedOnce() async {
+    final client = _client;
+    if (client == null) return;
+    try {
+      final raw = await FlutterCallkitIncoming.activeCalls();
+      if (raw is! List) return;
+
+      for (final item in raw) {
+        if (item is! Map) continue;
+        final m = _stringKeyedMapFromCallKit(Map<dynamic, dynamic>.from(item));
+
+        final extra = _stringMapFromNested(m['extra']);
+        final compliance = extra['matrixVoipPushCompliance'];
+        if (compliance == 'true' || compliance == '1') continue;
+
+        var roomId = extra['roomId']?.trim() ?? '';
+        var rtcEventId = extra['rtcEventId']?.trim() ?? '';
+        if (roomId.isEmpty || rtcEventId.isEmpty) continue;
+
+        final accepted =
+            _coerceTruthy(m['accepted']) || _coerceTruthy(m['isAccepted']);
+        if (!accepted) continue;
+
+        final sess = NativeLiveKitCallHost.instance.session;
+        if (sess != null &&
+            sess.args.matrixRoomId == roomId &&
+            (sess.phase == NativeLiveKitCallPhase.connecting ||
+                sess.phase == NativeLiveKitCallPhase.connected)) {
+          return;
+        }
+
+        final roomName =
+            extra['roomName']?.trim().isNotEmpty == true ? extra['roomName']!.trim() : roomId;
+        final callKitId = m['id']?.toString().trim() ?? '';
+
+        await openAcceptedIncomingNativeLiveKit(
+          client: client,
+          roomId: roomId,
+          roomName: roomName,
+        );
+        if (callKitId.isNotEmpty) {
+          await endCallKitIncomingIfStored(callKitId);
+        }
+        return;
+      }
+    } catch (e, st) {
+      debugPrint(
+        'MatrixCallKitCoordinator: recover accepted CallKit call: $e\n$st',
+      );
+    }
+  }
+
+  Map<String, dynamic> _stringKeyedMapFromCallKit(Map raw) {
+    return Map<String, dynamic>.from(
+      raw.map((k, v) => MapEntry(k.toString(), v)),
+    );
+  }
+
+  Map<String, String> _stringMapFromNested(Object? raw) {
+    if (raw is! Map) return {};
+    final out = <String, String>{};
+    for (final e in raw.entries) {
+      out[e.key.toString()] = e.value?.toString() ?? '';
+    }
+    return out;
+  }
+
+  bool _coerceTruthy(Object? v) {
+    if (v is bool) return v;
+    if (v is num) return v != 0;
+    if (v is String) {
+      final s = v.toLowerCase();
+      return s == '1' || s == 'true' || s == 'yes';
+    }
+    return false;
   }
 }
 

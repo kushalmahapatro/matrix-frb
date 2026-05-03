@@ -70,6 +70,7 @@ class VideoTranscodeProgressChunk {
     this.linearProgress,
     this.pastEstimate,
     this.message,
+    this.outputBytes,
   });
 
   /// 0–1 when time-based and still within ETA; ignored when `null` (keep UI value).
@@ -81,6 +82,9 @@ class VideoTranscodeProgressChunk {
 
   /// Native encoder status line; `null` means unchanged.
   final String? message;
+
+  /// Set on successful encode completion: output file size in bytes.
+  final int? outputBytes;
 }
 
 typedef VideoTranscodeProgressCallback =
@@ -203,11 +207,15 @@ class VideoSendMediaPrep {
     required this.filePathToSend,
     required this.appThumbnailJpegPath,
     required this.filesToCleanup,
+    this.outboundFileBytes,
   });
 
   final String filePathToSend;
   final String? appThumbnailJpegPath;
   final List<File> filesToCleanup;
+
+  /// Size of [filePathToSend] (compressed output or original when no transcode).
+  final int? outboundFileBytes;
 
   void dispose() {
     for (final f in filesToCleanup) {
@@ -242,11 +250,15 @@ class AppTimelineSendPrep {
     required this.filePathToSend,
     this.appThumbnailJpegPath,
     required List<File> filesToCleanup,
+    this.outboundFileBytes,
   }) : _filesToCleanup = List<File>.from(filesToCleanup);
 
   final String filePathToSend;
   final String? appThumbnailJpegPath;
   final List<File> _filesToCleanup;
+
+  /// Bytes of the file that will be uploaded ([filePathToSend]).
+  final int? outboundFileBytes;
 
   /// Runs [prepareVideoForTimelineSend], [prepareRasterImageThumbnailForTimelineSend], or
   /// [prepareDocumentThumbnailForTimelineSend] when the file looks like video, raster image, or a
@@ -272,7 +284,13 @@ class AppTimelineSendPrep {
   }) async {
     final m = mimeType?.toLowerCase().trim();
     if (m != null && m.startsWith('video/')) {
-      return _fromVideo(path, onStage: onStage, quality: videoQuality);
+      return _fromVideo(
+        path,
+        onStage: onStage,
+        onVideoTranscodeProgress: onVideoTranscodeProgress,
+        quality: videoQuality,
+        encodeWallClockEstimate: encodeWallClockEstimate,
+      );
     }
     if (m != null && m.startsWith('image/')) {
       return _fromImage(path, onStage: onStage);
@@ -326,6 +344,7 @@ class AppTimelineSendPrep {
       filePathToSend: v.filePathToSend,
       appThumbnailJpegPath: v.appThumbnailJpegPath,
       filesToCleanup: v.filesToCleanup,
+      outboundFileBytes: v.outboundFileBytes,
     );
   }
 
@@ -348,10 +367,15 @@ class AppTimelineSendPrep {
         'basename=${p.basename(path)}',
       );
     }
+    int? outboundLen;
+    try {
+      outboundLen = await File(path).length();
+    } catch (_) {}
     return AppTimelineSendPrep._(
       filePathToSend: path,
       appThumbnailJpegPath: jp,
       filesToCleanup: thumb?.filesToCleanup ?? <File>[],
+      outboundFileBytes: outboundLen,
     );
   }
 
@@ -374,10 +398,15 @@ class AppTimelineSendPrep {
         'basename=${p.basename(path)}',
       );
     }
+    int? outboundLen;
+    try {
+      outboundLen = await File(path).length();
+    } catch (_) {}
     return AppTimelineSendPrep._(
       filePathToSend: path,
       appThumbnailJpegPath: jp,
       filesToCleanup: thumb?.filesToCleanup ?? <File>[],
+      outboundFileBytes: outboundLen,
     );
   }
 
@@ -892,9 +921,10 @@ Future<String?> _tryTranscodeToMp4({
       'transcodeVideoStream OK wallMs=$wallMs outBytes=$outLen out=${p.basename(outMp4)}',
     );
     onVideoTranscodeProgress?.call(
-      const VideoTranscodeProgressChunk(
+      VideoTranscodeProgressChunk(
         linearProgress: 1.0,
         pastEstimate: false,
+        outputBytes: outLen,
       ),
     );
     return outMp4;
@@ -950,8 +980,26 @@ Future<VideoSendMediaPrep?> prepareVideoForTimelineSend(
       if (transcoded != null) {
         pathToSend = transcoded;
         temps.add(File(transcoded));
+      } else {
+        LoggingService.warn(
+          kMediaLibLogTag,
+          'prepareVideoForTimelineSend: transcode required but failed basename=$base',
+        );
+        return null;
       }
-    } catch (_) {}
+    } catch (e, st) {
+      LoggingService.warn(
+        kMediaLibLogTag,
+        'prepareVideoForTimelineSend: transcode error basename=$base error=$e',
+      );
+      developer.log(
+        'video transcode (prepare)',
+        error: e,
+        stackTrace: st,
+        name: 'matrix.timeline_send',
+      );
+      return null;
+    }
   }
 
   onStage?.call(MediaOutboundPrepStage.generatingThumbnail);
@@ -1049,9 +1097,15 @@ Future<VideoSendMediaPrep?> prepareVideoForTimelineSend(
     'thumb=${p.basename(thumbPath)}',
   );
 
+  int? outboundLen;
+  try {
+    outboundLen = await File(pathToSend).length();
+  } catch (_) {}
+
   return VideoSendMediaPrep(
     filePathToSend: pathToSend,
     appThumbnailJpegPath: thumbPath,
     filesToCleanup: temps,
+    outboundFileBytes: outboundLen,
   );
 }

@@ -7,9 +7,19 @@ import 'package:matrix/src/core/desktop/desktop_ui_helpers.dart';
 
 import 'native_livekit_call_session.dart';
 
+/// How long [NativeLiveKitCallPhase.connecting] may last before the host reclaims the session.
+///
+/// Active calls ([connected]) are never touched. Incoming / outgoing / ringing flows that already
+/// reached [connected] (including ring‑back with zero remotes) stay protected.
+const Duration kNativeLiveKitHostStaleConnectingGrace = Duration(seconds: 90);
+
 /// Global holder for the single native LiveKit call + whether the full-screen route is on top.
 class NativeLiveKitCallHost extends ChangeNotifier {
-  NativeLiveKitCallHost._();
+  NativeLiveKitCallHost._() {
+    Timer.periodic(const Duration(seconds: 45), (_) {
+      unawaited(_reclaimStaleSessionIfNeeded());
+    });
+  }
   static final NativeLiveKitCallHost instance = NativeLiveKitCallHost._();
 
   NativeLiveKitCallSession? _session;
@@ -95,6 +105,48 @@ class NativeLiveKitCallHost extends ChangeNotifier {
     _session = session;
     _routeVisible = true;
     notifyListeners();
+  }
+
+  /// Drops a leaked host pointer when the session already finished teardown.
+  ///
+  /// Does **not** call [NativeLiveKitCallSession.hangUp] (no second teardown). Never runs for
+  /// [NativeLiveKitCallPhase.connected] or in‑progress [connecting] within [kNativeLiveKitHostStaleConnectingGrace].
+  Future<void> _reclaimStaleSessionIfNeeded() async {
+    final s = _session;
+    if (s == null) return;
+
+    if (s.phase == NativeLiveKitCallPhase.connected) {
+      return;
+    }
+
+    if (s.phase == NativeLiveKitCallPhase.ended) {
+      detachSession(s);
+      return;
+    }
+
+    if (s.phase != NativeLiveKitCallPhase.connecting) {
+      return;
+    }
+
+    final elapsed = s.connectingElapsed;
+    if (elapsed == null || elapsed < kNativeLiveKitHostStaleConnectingGrace) {
+      return;
+    }
+
+    try {
+      await s
+          .hangUp(historyEndReason: 'Stale connecting session')
+          .timeout(const Duration(seconds: 25));
+    } on TimeoutException {
+      debugPrint(
+        'NativeLiveKitCallHost: stale connect hangUp timed out after 25s',
+      );
+    } catch (e, st) {
+      debugPrint('NativeLiveKitCallHost: stale connect reclaim: $e\n$st');
+    }
+    if (_session == s) {
+      detachSession(s);
+    }
   }
 
   /// Desktop: start the session without pushing [NativeLiveKitCallScreen] on the main navigator;

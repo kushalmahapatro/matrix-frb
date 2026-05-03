@@ -25,6 +25,8 @@ class CallProximityController {
     }
 
     try {
+      // Subscribing enables iOS `UIDevice` proximity monitoring inside the plugin; do not skip
+      // based on [isProximitySensorAvailable] (false negatives leave the screen fully on at ear).
       _sub = ProximitySensor.events.listen((_) {});
     } catch (e) {
       debugPrint('CallProximityController: events.listen: $e');

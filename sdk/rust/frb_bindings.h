@@ -14,6 +14,14 @@ void store_dart_post_cobject(DartPostCObjectFnType ptr);
 // EXTRA END
 typedef struct _Dart_Handle* Dart_Handle;
 
+/**
+ * Ignore MatrixRTC `ring` rows older than this when turning timeline history into CallKit/UI rings.
+ *
+ * Without this, opening a room (initial pagination / cache fill) replays every past
+ * `m.rtc.notification` ring in the loaded window as a new incoming call.
+ */
+#define RTC_INCOMING_RING_NOTIFY_MAX_AGE_MS 120000
+
 
 
 typedef struct wire_cst_list_prim_u_8_strict {
@@ -287,6 +295,12 @@ typedef struct wire_cst_file_send_progress {
   struct wire_cst_list_prim_u_8_strict *message;
 } wire_cst_file_send_progress;
 
+typedef struct wire_cst_livekit_remote_video_i_420 {
+  uint32_t width;
+  uint32_t height;
+  struct wire_cst_list_prim_u_8_strict *data;
+} wire_cst_livekit_remote_video_i_420;
+
 typedef struct wire_cst_message_update {
   int32_t message_update_type;
   struct wire_cst_list_message *messages;
@@ -330,6 +344,7 @@ typedef struct wire_cst_sync_notification_summary {
   bool is_noisy;
   struct wire_cst_list_prim_u_8_strict *event_id;
   bool incoming_call_ring;
+  uint64_t origin_server_ts_ms;
 } wire_cst_sync_notification_summary;
 
 typedef struct wire_cst_user_search_result {
@@ -729,6 +744,8 @@ void frbgen_matrix_sdk_wire__crate__logger__platform__init_platform(int64_t port
                                                                     struct wire_cst_tracing_configuration *config,
                                                                     bool use_lightweight_tokio_runtime);
 
+void frbgen_matrix_sdk_wire__crate__api__livekit_session__livekit_remote_video_i_420_default(int64_t port_);
+
 void frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_close(int64_t port_);
 
 void frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_connect(int64_t port_,
@@ -762,6 +779,8 @@ void frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_s
 
 void frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_set_microphone_muted(int64_t port_,
                                                                                                     bool muted);
+
+void frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_try_pull_remote_video_i420(int64_t port_);
 
 void frbgen_matrix_sdk_wire__crate__logger__tracing__log_event(int64_t port_,
                                                                struct wire_cst_list_prim_u_8_strict *file,
@@ -908,6 +927,8 @@ static int64_t dummy_method_to_enforce_bundling(void) {
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_remote_participant_count);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_set_camera_muted);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_set_microphone_muted);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_try_pull_remote_video_i420);
+    dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__livekit_session__livekit_remote_video_i_420_default);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_active_call_participant_ids);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_apply_room_power_level_settings);
     dummy_var ^= ((int64_t) (void*) frbgen_matrix_sdk_wire__crate__api__matrix_client__MatrixClient_backup_exists_on_server);

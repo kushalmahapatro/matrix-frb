@@ -15,11 +15,15 @@ import 'package:matrix/src/features/key_recovery/domain/key_recovery_prefs.dart'
 import 'package:matrix/src/features/key_recovery/presentation/key_recovery_copy.dart';
 import 'package:matrix/src/features/key_recovery/presentation/screens/login_recovery_unlock_screen.dart';
 import 'package:matrix/src/features/key_recovery/presentation/screens/setup_key_recovery_screen.dart';
+import 'package:matrix/src/core/diagnostics/app_log_export_actions.dart';
+import 'package:matrix/src/features/settings/presentation/screens/app_information_screen.dart';
 import 'package:matrix/src/features/settings/presentation/screens/profile_screen.dart';
 import 'package:matrix/src/features/splash/domain/services/matrix_service.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 String _notificationsSettingsSubtitle() {
-  final mobile = !kIsWeb &&
+  final mobile =
+      !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.iOS ||
           defaultTargetPlatform == TargetPlatform.android);
   if (!mobile) {
@@ -34,7 +38,8 @@ String _notificationsSettingsSubtitle() {
 }
 
 Future<void> _onNotificationsSettingsTap(BuildContext context) async {
-  final mobile = !kIsWeb &&
+  final mobile =
+      !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.iOS ||
           defaultTargetPlatform == TargetPlatform.android);
   if (!mobile) return;
@@ -54,7 +59,8 @@ Future<void> _onNotificationsSettingsTap(BuildContext context) async {
   messenger.showSnackBar(
     const SnackBar(content: Text('Re-registering push with the homeserver…')),
   );
-  await MatrixNotificationsCoordinator.instance.requestOsNotificationPermissions();
+  await MatrixNotificationsCoordinator.instance
+      .requestOsNotificationPermissions();
   final ok = await MatrixService().refreshMatrixPushRegistration();
   if (!context.mounted) return;
   messenger.hideCurrentSnackBar();
@@ -64,7 +70,7 @@ Future<void> _onNotificationsSettingsTap(BuildContext context) async {
         ok
             ? 'Push registration updated. You should receive notifications again.'
             : 'Push registration did not succeed. Check device logs (MatrixNotifications) or try '
-                'logging out and back in.',
+                  'logging out and back in.',
       ),
     ),
   );
@@ -101,11 +107,7 @@ Widget _settingsListTile({
               ],
             ),
           ),
-          Icon(
-            Icons.chevron_right,
-            color: theme.colorScheme.primary,
-            size: 20,
-          ),
+          Icon(Icons.chevron_right, color: theme.colorScheme.primary, size: 20),
         ],
       ),
     ),
@@ -121,7 +123,8 @@ class _EncryptionKeyBackupSection extends StatefulWidget {
       _EncryptionKeyBackupSectionState();
 }
 
-class _EncryptionKeyBackupSectionState extends State<_EncryptionKeyBackupSection> {
+class _EncryptionKeyBackupSectionState
+    extends State<_EncryptionKeyBackupSection> {
   bool? _backupEnabled;
 
   @override
@@ -236,7 +239,8 @@ class SettingsScreen extends StatelessWidget {
                       icon: Icons.person,
                       title: 'Profile',
                       subtitle: 'Manage your profile information',
-                      onTap: () => NavigatorService.push(context, const ProfileScreen()),
+                      onTap: () =>
+                          NavigatorService.push(context, const ProfileScreen()),
                     ),
                     _settingsListTile(
                       context: context,
@@ -338,7 +342,8 @@ class SettingsScreen extends StatelessWidget {
                           value: ConversationMessageStyle.auto,
                           groupValue: messageStyleNotifier.value,
                           onChanged: (v) {
-                            if (v != null) unawaited(messageStyleNotifier.set(v));
+                            if (v != null)
+                              unawaited(messageStyleNotifier.set(v));
                           },
                         ),
                         RadioListTile<ConversationMessageStyle>(
@@ -350,7 +355,8 @@ class SettingsScreen extends StatelessWidget {
                           value: ConversationMessageStyle.threaded,
                           groupValue: messageStyleNotifier.value,
                           onChanged: (v) {
-                            if (v != null) unawaited(messageStyleNotifier.set(v));
+                            if (v != null)
+                              unawaited(messageStyleNotifier.set(v));
                           },
                         ),
                         RadioListTile<ConversationMessageStyle>(
@@ -362,7 +368,8 @@ class SettingsScreen extends StatelessWidget {
                           value: ConversationMessageStyle.leftRight,
                           groupValue: messageStyleNotifier.value,
                           onChanged: (v) {
-                            if (v != null) unawaited(messageStyleNotifier.set(v));
+                            if (v != null)
+                              unawaited(messageStyleNotifier.set(v));
                           },
                         ),
                       ],
@@ -382,9 +389,8 @@ class SettingsScreen extends StatelessWidget {
                       icon: Icons.notifications,
                       title: 'Notifications',
                       subtitle: _notificationsSettingsSubtitle(),
-                      onTap: () => unawaited(
-                        _onNotificationsSettingsTap(context),
-                      ),
+                      onTap: () =>
+                          unawaited(_onNotificationsSettingsTap(context)),
                     ),
                     _settingsListTile(
                       context: context,
@@ -409,11 +415,7 @@ class SettingsScreen extends StatelessWidget {
                         'New chat / create room',
                         '⌘ N  /  Ctrl+N',
                       ),
-                      _shortcutRow(
-                        theme,
-                        'Open settings',
-                        '⌘ ,  /  Ctrl+,',
-                      ),
+                      _shortcutRow(theme, 'Open settings', '⌘ ,  /  Ctrl+,'),
                       _shortcutRow(
                         theme,
                         'Close conversation or clear selection',
@@ -440,22 +442,54 @@ class SettingsScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('ABOUT', style: theme.textTheme.titleLarge),
-                    const SizedBox(height: 16),
-                    _settingsListTile(
-                      context: context,
-                      icon: Icons.info,
-                      title: 'Version',
-                      subtitle: 'Matrix Terminal v1.0.0',
-                      onTap: () {},
+                    Text('APP INFORMATION', style: theme.textTheme.titleLarge),
+                    const SizedBox(height: 12),
+                    FutureBuilder<PackageInfo>(
+                      future: PackageInfo.fromPlatform(),
+                      builder: (context, snap) {
+                        if (!snap.hasData) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Text(
+                              'Loading version…',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          );
+                        }
+                        final p = snap.data!;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Text(
+                            'Version ${p.version} · Build ${p.buildNumber}',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                     _settingsListTile(
                       context: context,
-                      icon: Icons.code,
-                      title: 'Source Code',
-                      subtitle: 'View on GitHub',
-                      onTap: () {},
+                      icon: Icons.info_outline,
+                      title: 'Details, FAQs & credits',
+                      subtitle: 'Version, help, acknowledgements, log export',
+                      onTap: () => NavigatorService.push(
+                        context,
+                        const AppInformationScreen(),
+                      ),
                     ),
+                    if (!kIsWeb)
+                      _settingsListTile(
+                        context: context,
+                        icon: Icons.ios_share_outlined,
+                        title: 'Share app logs',
+                        subtitle:
+                            'Compress Rust rolling logs and open the share sheet',
+                        onTap: () =>
+                            unawaited(AppLogExportActions.shareLogs(context)),
+                      ),
                   ],
                 ),
               ),
@@ -474,10 +508,7 @@ class SettingsScreen extends StatelessWidget {
         children: [
           Expanded(
             flex: 3,
-            child: Text(
-              action,
-              style: theme.textTheme.bodyMedium,
-            ),
+            child: Text(action, style: theme.textTheme.bodyMedium),
           ),
           Expanded(
             flex: 2,
@@ -530,10 +561,9 @@ class SettingsScreen extends StatelessWidget {
                 (_) {
                   ProfilePrefs.instance.clear();
                   unawaited(KeyRecoveryPrefs.clearBannerDontShowAgain());
-                  Navigator.of(parentContext).pushNamedAndRemoveUntil(
-                    '/',
-                    (route) => false,
-                  );
+                  Navigator.of(
+                    parentContext,
+                  ).pushNamedAndRemoveUntil('/', (route) => false);
                 },
                 (failure) {
                   messenger.showSnackBar(

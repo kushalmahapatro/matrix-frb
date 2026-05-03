@@ -72,14 +72,33 @@ final class LiveNativeLiveKitCallLocalAudio implements NativeLiveKitCallLocalAud
         numChannels: numChannels,
         echoCancel: !dryCapture,
         noiseSuppress: !dryCapture,
+        // `record` defaults to [AudioInterruptionMode.pause]: on Android it requests focus and
+        // pauses capture on any transient loss. After LiveKit + [audio_session] configure, that
+        // often fires once and never resumes (flat waveform, silent uplink). VoIP focus is owned
+        // by [CallAudioRoute] / WebRTC instead.
+        audioInterruption: AudioInterruptionMode.none,
+        // Default Android source/mode is not tuned for VoIP; uplink can stay silent while
+        // WebRTC holds communication focus. Match voiceCommunication + inCommunication.
+        androidConfig: Platform.isAndroid
+            ? AndroidRecordConfig(
+                audioSource: AndroidAudioSource.voiceCommunication,
+                audioManagerMode: AudioManagerMode.modeInCommunication,
+              )
+            : const AndroidRecordConfig(),
       ),
     );
   }
 
   @override
   Future<void> stopMicCapture() async {
+    final r = _recorder;
+    _recorder = null;
+    if (r == null) return;
     try {
-      await _recorder?.stop();
+      await r.stop();
+    } catch (_) {}
+    try {
+      await r.dispose();
     } catch (_) {}
   }
 

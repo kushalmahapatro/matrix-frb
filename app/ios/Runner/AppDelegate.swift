@@ -1,9 +1,58 @@
 import AVFoundation
+import CallKit
 import Flutter
 import PushKit
 import UIKit
 import UserNotifications
 import flutter_callkit_incoming
+
+// MARK: - PushKit / CallKit (iOS 13+)
+//
+// Apple requires that every VoIP push result in a CallKit `reportNewIncomingCall` before the
+// PushKit `completion` handler runs. Calling `completion()` alone for “message” payloads on
+// the VoIP channel causes SIGABRT (see PushKit in crash stack).
+
+/// When `SwiftFlutterCallkitIncomingPlugin` is not ready yet, VoIP pushes still must hit CallKit.
+private final class VoipPushCallKitPolicyFallback: NSObject, CXProviderDelegate {
+  static let shared = VoipPushCallKitPolicyFallback()
+  private var provider: CXProvider?
+  private let lock = NSLock()
+
+  func reportIncomingThenComplete(completion: @escaping () -> Void) {
+    lock.lock()
+    defer { lock.unlock() }
+    let localizedName =
+      (Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)?.trimmingCharacters(
+        in: .whitespacesAndNewlines)
+      ?? (Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String)?.trimmingCharacters(
+        in: .whitespacesAndNewlines)
+      ?? "App"
+    let config = CXProviderConfiguration(localizedName: localizedName)
+    config.supportsVideo = false
+    config.maximumCallsPerCallGroup = 1
+    config.includesCallsInRecents = false
+    if provider == nil {
+      let p = CXProvider(configuration: config)
+      p.setDelegate(self, queue: nil)
+      provider = p
+    }
+    guard let provider else {
+      completion()
+      return
+    }
+    let uuid = UUID()
+    let update = CXCallUpdate()
+    update.hasVideo = false
+    update.localizedCallerName = localizedName
+    update.remoteHandle = CXHandle(type: .generic, value: "message")
+    provider.reportNewIncomingCall(with: uuid, update: update) { _ in
+      provider.reportCall(with: uuid, endedAt: Date(), reason: .failed)
+      completion()
+    }
+  }
+
+  func providerDidReset(_: CXProvider) {}
+}
 
 /// UserDefaults key used by `flutter_callkit_incoming` for the VoIP token (`DevicePushTokenVoIP`).
 private let kFlutterCallKitVoipTokenDefaultsKey = "DevicePushTokenVoIP"
@@ -29,19 +78,21 @@ private let kMatrixSygnalVoipPushKeyDefaultsKey = "MatrixSygnalVoipPushKeyB64"
     // calls [FirebaseMessaging.getAPNSToken] / [getToken] (see matrix_notifications_coordinator).
     UNUserNotificationCenter.current().delegate = self
 
-    // VoIP push for CallKit when the app is suspended or not running (see PUSHKIT.md in
-    // flutter_callkit_incoming). Server must use apns-push-type: voip and topic <bundle-id>.voip.
-    let registry = PKPushRegistry(queue: DispatchQueue.main)
-    registry.delegate = self
-    registry.desiredPushTypes = [PKPushType.voIP]
-    voipRegistry = registry
-
     application.registerForRemoteNotifications()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    // Register PushKit only after plugins load so `SwiftFlutterCallkitIncomingPlugin.sharedInstance`
+    // exists before any VoIP payload is handled (see PUSHKIT.md in flutter_callkit_incoming).
+    if voipRegistry == nil {
+      let registry = PKPushRegistry(queue: DispatchQueue.main)
+      registry.delegate = self
+      registry.desiredPushTypes = [PKPushType.voIP]
+      voipRegistry = registry
+    }
     let messenger = engineBridge.applicationRegistrar.messenger()
     let channel = FlutterMethodChannel(
       name: AppDelegate.microphoneChannelName,
@@ -115,22 +166,25 @@ private let kMatrixSygnalVoipPushKeyDefaultsKey = "MatrixSygnalVoipPushKeyB64"
     return nil
   }
 
+  /// Matrix event type hint on the push root (Sygnal often omits `type`; see `shouldPresentCallKitForVoipPayload`).
+  private static func resolvedMatrixEventTypeField(from dict: [String: Any]) -> String? {
+    for key in ["type", "content_type", "content_msgtype"] {
+      guard let t = dict[key] as? String else { continue }
+      let s = t.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !s.isEmpty { return s }
+    }
+    return nil
+  }
+
   /// Matrix message / invite pushes reuse the same VoIP topic on some setups; only real calls
-  /// should hit CallKit. Mirrors Dart `_fcmDataLooksLikeRtcNotification` when `type` is present.
+  /// should hit CallKit. Mirrors Dart `_fcmDataLooksLikeRtcNotification` when a type field is present.
   private static func shouldPresentCallKitForVoipPayload(_ dict: [String: Any]) -> Bool {
-    if let t = dict["type"] as? String, looksLikeRtcNotificationType(t) {
+    if let t = resolvedMatrixEventTypeField(from: dict), looksLikeRtcNotificationType(t) {
       return rtcNotificationIsRing(dict)
     }
 
-    // Non-Sygnal backends: CallKit fields without `aps.alert.loc-key`.
+    // Non-Sygnal backends: explicit CallKit object on the push root.
     if dict["callkit"] is [String: Any] {
-      return true
-    }
-    if apnsAlertLocKey(from: dict) == nil,
-      dict["id"] != nil,
-      let name = dict["nameCaller"] as? String,
-      !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    {
       return true
     }
 
@@ -141,14 +195,13 @@ private let kMatrixSygnalVoipPushKeyDefaultsKey = "MatrixSygnalVoipPushKeyB64"
       return true
     }
 
-    // Sygnal maps unknown `n.type` (including `m.rtc.notification`) to `MSG_FROM_USER` with
-    // `[sender]` — allow that for MatrixRTC; normal `m.room.message` uses longer loc-keys.
-    if locKey == "MSG_FROM_USER" {
-      return true
-    }
+    // Sygnal `ApnsPushkin` uses `MSG_FROM_USER` for *any* unknown `n.type` **and** for minimal
+    // `m.room.message` / `m.room.encrypted` (no room display + no body extract). It does not put
+    // `type` on the wire by default, so this loc-key is not a reliable “incoming call” signal.
 
     // Message-style and invite loc-keys must never wake CallKit.
     let denylistedLocKeys: Set<String> = [
+      "MSG_FROM_USER",
       "MSG_FROM_USER_IN_ROOM",
       "MSG_FROM_USER_IN_ROOM_WITH_CONTENT",
       "MSG_FROM_USER_WITH_CONTENT",
@@ -198,6 +251,113 @@ private let kMatrixSygnalVoipPushKeyDefaultsKey = "MatrixSygnalVoipPushKeyB64"
     return true
   }
 
+  /// Same window as Rust `RTC_INCOMING_RING_NOTIFY_MAX_AGE_MS` (120s).
+  private static let voipRtcRingMaxAgeMs: UInt64 = 120_000
+
+  private static func isMatrixRtcRingVoipPayload(_ dict: [String: Any]) -> Bool {
+    guard let t = resolvedMatrixEventTypeField(from: dict), looksLikeRtcNotificationType(t) else {
+      return false
+    }
+    return rtcNotificationIsRing(dict)
+  }
+
+  private static func voipPushOriginServerTsMs(_ dict: [String: Any]) -> UInt64? {
+    let keys = ["origin_server_ts", "event_ts", "event_origin_server_ts", "server_ts", "ts"]
+    for k in keys {
+      if let s = dict[k] as? String {
+        let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let v = UInt64(t) { return v }
+      }
+      if let n = dict[k] as? NSNumber {
+        return n.uint64Value
+      }
+      if let i = dict[k] as? Int {
+        return UInt64(i)
+      }
+      if let i = dict[k] as? Int64 {
+        return UInt64(i)
+      }
+    }
+    return nil
+  }
+
+  private static func voipRtcRingPayloadIsStale(_ dict: [String: Any]) -> Bool {
+    guard isMatrixRtcRingVoipPayload(dict) else { return false }
+    guard let ts = voipPushOriginServerTsMs(dict) else { return false }
+    let nowMs = UInt64(Date().timeIntervalSince1970 * 1_000)
+    if ts == 0 { return true }
+    return nowMs > ts && nowMs - ts > voipRtcRingMaxAgeMs
+  }
+
+  private static func missedCallTitleFromVoipPayload(_ dict: [String: Any]) -> String {
+    if let s = dict["room_name"] as? String {
+      let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !t.isEmpty { return t }
+    }
+    if let s = dict["sender_display_name"] as? String {
+      let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !t.isEmpty { return t }
+    }
+    return (Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)?
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+      ?? (Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String)?
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+      ?? "Matrix"
+  }
+
+  private static func scheduleLocalMissedCallNotificationFromVoipPayload(_ dict: [String: Any]) {
+    let caller =
+      (dict["sender_display_name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+      ?? (dict["sender"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+      ?? ""
+    let content = UNMutableNotificationContent()
+    content.title = missedCallTitleFromVoipPayload(dict)
+    content.body = caller.isEmpty ? "Missed call" : "Missed call from \(caller)"
+    content.sound = .default
+    let rawEventId =
+      (dict["event_id"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    let reqId =
+      rawEventId.isEmpty
+      ? "matrix_missed_voip:\(UUID().uuidString)"
+      : "matrix_missed_voip:\(rawEventId)"
+    let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.5, repeats: false)
+    let request = UNNotificationRequest(identifier: reqId, content: content, trigger: trigger)
+    UNUserNotificationCenter.current().add(request) { error in
+      if let error {
+        NSLog("AppDelegate: missed-call local notification failed: \(error)")
+      }
+    }
+  }
+
+  /// Sygnal may deliver room-message pushes on the VoIP Matrix pusher. iOS still requires
+  /// CallKit `reportNewIncomingCall` for those pushes; use a minimal call the plugin ends
+  /// immediately (no missed-call UI). Prefer routing messages to the non-VoIP pusher on the server.
+  private static func callKitArgsForNonCallVoipCompliancePush() -> [String: Any?] {
+    let appName =
+      (Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)?.trimmingCharacters(
+        in: .whitespacesAndNewlines)
+      ?? (Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String)?.trimmingCharacters(
+        in: .whitespacesAndNewlines)
+      ?? "App"
+    return [
+      "id": UUID().uuidString,
+      "nameCaller": appName,
+      "handle": "message",
+      "type": 0,
+      "duration": 1,
+      "extra": ["matrixVoipPushCompliance": true] as NSDictionary,
+      "missedCallNotification": [
+        "showNotification": false,
+        "isShowCallback": false,
+      ] as [String: Any],
+      "ios": [
+        "includesCallsInRecents": false,
+        "configureAudioSession": false,
+        "audioSessionActive": false,
+      ] as [String: Any],
+    ]
+  }
+
   // MARK: - PKPushRegistryDelegate
 
   func pushRegistry(_ registry: PKPushRegistry, didUpdate credentials: PKPushCredentials, for type: PKPushType) {
@@ -244,18 +404,57 @@ private let kMatrixSygnalVoipPushKeyDefaultsKey = "MatrixSygnalVoipPushKeyB64"
       return
     }
     guard let plugin = SwiftFlutterCallkitIncomingPlugin.sharedInstance else {
-      NSLog("AppDelegate: VoIP push before CallKit plugin init; cannot report incoming call.")
-      completion()
+      NSLog(
+        "AppDelegate: VoIP push before CallKit plugin init; retrying next run loop (PushKit policy)."
+      )
+      DispatchQueue.main.async {
+        if let plugin = SwiftFlutterCallkitIncomingPlugin.sharedInstance {
+          Self.deliverVoipPushToCallKit(
+            payload: payload,
+            plugin: plugin,
+            completion: completion
+          )
+        } else {
+          NSLog(
+            "AppDelegate: CallKit plugin still nil after deferral; using CXProvider fallback for PushKit policy."
+          )
+          VoipPushCallKitPolicyFallback.shared.reportIncomingThenComplete(completion: completion)
+        }
+      }
       return
     }
 
+    Self.deliverVoipPushToCallKit(
+      payload: payload,
+      plugin: plugin,
+      completion: completion
+    )
+  }
+
+  private static func deliverVoipPushToCallKit(
+    payload: PKPushPayload,
+    plugin: SwiftFlutterCallkitIncomingPlugin,
+    completion: @escaping () -> Void
+  ) {
     let dict = payload.dictionaryPayload as? [String: Any] ?? [:]
-    if !Self.shouldPresentCallKitForVoipPayload(dict) {
+    if voipRtcRingPayloadIsStale(dict) {
       NSLog(
-        "AppDelegate: ignoring VoIP push for CallKit (not an incoming call payload); "
-          + "aps.loc-key=\(Self.apnsAlertLocKey(from: dict) ?? "(nil)")"
+        "AppDelegate: stale MatrixRTC VoIP ring (origin ts); posting missed-call notification + "
+          + "minimal CallKit for PushKit policy."
       )
-      completion()
+      scheduleLocalMissedCallNotificationFromVoipPayload(dict)
+      let data = flutter_callkit_incoming.Data(args: callKitArgsForNonCallVoipCompliancePush())
+      plugin.showCallkitIncoming(data, fromPushKit: true, completion: completion)
+      return
+    }
+    if !shouldPresentCallKitForVoipPayload(dict) {
+      NSLog(
+        "AppDelegate: VoIP push is not a MatrixRTC ring; reporting minimal CallKit per PushKit policy "
+          + "(aps.loc-key=\(apnsAlertLocKey(from: dict) ?? "(nil)")). "
+          + "Prefer non-VoIP pusher for messages."
+      )
+      let data = flutter_callkit_incoming.Data(args: callKitArgsForNonCallVoipCompliancePush())
+      plugin.showCallkitIncoming(data, fromPushKit: true, completion: completion)
       return
     }
 
@@ -286,6 +485,39 @@ private let kMatrixSygnalVoipPushKeyDefaultsKey = "MatrixSygnalVoipPushKeyB64"
       } else if let n = args["isVideo"] as? Int {
         args["type"] = n != 0 ? 1 : 0
       }
+    }
+
+    // Matrix → Dart expects `extra.roomId` / `extra.rtcEventId` (see [showMatrixIncomingCallKit]).
+    // Sygnal VoIP payloads often put `room_id` / `event_id` on the push root instead.
+    func pickRootString(_ keys: [String]) -> String {
+      for k in keys {
+        guard let s = args[k] as? String else { continue }
+        let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !t.isEmpty { return t }
+      }
+      return ""
+    }
+    var extra = (args["extra"] as? [String: Any]) ?? [:]
+    let roomFromRoot = pickRootString(["room_id", "roomId"])
+    let rtcFromRoot = pickRootString(["event_id", "eventId", "rtcEventId"])
+    let nameFromRoot = pickRootString(["room_name", "roomName"])
+    let existingRoom =
+      (extra["roomId"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    let existingRtc =
+      (extra["rtcEventId"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    let existingName =
+      (extra["roomName"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    if existingRoom.isEmpty, !roomFromRoot.isEmpty {
+      extra["roomId"] = roomFromRoot
+    }
+    if existingRtc.isEmpty, !rtcFromRoot.isEmpty {
+      extra["rtcEventId"] = rtcFromRoot
+    }
+    if existingName.isEmpty, !nameFromRoot.isEmpty {
+      extra["roomName"] = nameFromRoot
+    }
+    if !extra.isEmpty {
+      args["extra"] = extra
     }
 
     let data = flutter_callkit_incoming.Data(args: args)

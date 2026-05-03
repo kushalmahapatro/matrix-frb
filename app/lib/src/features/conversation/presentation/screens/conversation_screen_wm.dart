@@ -16,6 +16,7 @@ import 'package:matrix/src/core/permissions/app_runtime_permissions.dart';
 import 'package:matrix/src/core/logging_service.dart';
 import 'package:matrix/src/core/navigation/navigator_service.dart';
 import 'package:matrix/src/core/muted_chats_store.dart';
+import 'package:matrix/src/core/notifications/notification_foreground_scope.dart';
 import 'package:matrix/src/core/timeline_local_hidden_store.dart';
 import 'package:matrix/src/core/presentation/widgets/terminal_container.dart';
 import 'package:matrix/src/core/presentation/widgets/typing_dots_indicator.dart';
@@ -459,6 +460,7 @@ class ConversationScreenWM
   @override
   void initWidgetModel() {
     super.initWidgetModel();
+    NotificationForegroundScope.registerVisibleRoom(widget.roomId);
     unawaited(MutedChatsStore.instance.ensureLoaded());
     _messageController = TextEditingController();
     _messageController.addListener(_syncComposerHasText);
@@ -710,6 +712,7 @@ class ConversationScreenWM
     memberDisplayNamesByUserId.dispose();
     roomTypingUserIds.dispose();
     _typingIdleTimer?.cancel();
+    NotificationForegroundScope.unregisterVisibleRoom(widget.roomId);
     _disposed = true;
     super.dispose();
   }

@@ -522,15 +522,9 @@ impl MatrixClient {
     /// Stores the App in this client; rooms/timeline/sync state use it instead of global state.
     pub async fn start_sync_service(&self) -> Result<bool, String> {
         self.ensure_sync_notification_handler().await?;
-        let rtc_tx = self
-            .sync_notification_hub
-            .lock()
-            .await
-            .as_ref()
-            .map(|h| h.sender());
         let client = self.client.clone();
         let app_mutex = self.app.clone(); // same Arc as self.app
-        let app = sync_service::start_sync_service(client, rtc_tx).await?;
+        let app = sync_service::start_sync_service(client).await?;
         *app_mutex.lock().await = Some(app); // updates self.app (shared Arc)
         file_upload_cache_redaction::register_redaction_cleanup(
             &self.client,

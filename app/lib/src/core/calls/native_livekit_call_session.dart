@@ -1,7 +1,13 @@
+// audio_session marks [AudioDeviceType] experimental; we use it only for output labels/icons.
+// ignore_for_file: experimental_member_use
+
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:io' show Platform;
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
+import 'package:audio_session/audio_session.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +18,7 @@ import 'package:matrix/src/core/calls/call_audio_route.dart';
 import 'package:matrix/src/core/calls/call_history_store.dart';
 import 'package:matrix/src/core/calls/android_call_launch.dart';
 import 'package:matrix/src/core/calls/livekit_camera_i420.dart';
+import 'package:matrix/src/core/calls/livekit_i420_rgba.dart';
 import 'package:matrix/src/core/calls/livekit_native_bridge.dart';
 import 'package:matrix/src/core/calls/native_livekit_call_local_audio.dart';
 import 'package:matrix/src/core/calls/native_livekit_call_host.dart';
@@ -104,10 +111,7 @@ class NativeLiveKitCallArgs {
 /// Owns LiveKit connection, local capture, ringback, and in-call toggles. Survives popping the UI route.
 class NativeLiveKitCallSession extends ChangeNotifier {
   NativeLiveKitCallSession(this.args)
-    : _speakerOn =
-          args.historyDirection == CallHistoryDirection.incoming ||
-          !args.voiceOnly ||
-          args.preferVideoCallUi,
+    : _speakerOn = !args.voiceOnly || args.preferVideoCallUi,
       _lk = args.liveKitBridge ?? DefaultLiveKitNativeBridge.instance,
       _localAudio = args.localAudioForTest ??
           createNativeLiveKitCallLocalAudio(
@@ -149,6 +153,10 @@ class NativeLiveKitCallSession extends ChangeNotifier {
   Future<void> _remoteDownlinkChain = Future<void>.value();
   Timer? _remoteAudioPullTimer;
   FlutterSoundPlayer? _remoteDownlinkPlayer;
+
+  Timer? _remoteVideoPullTimer;
+  Future<void> _remoteVideoDecodeChain = Future<void>.value();
+  ui.Image? _remoteVideoImage;
   StreamSubscription<Uint8List>? _pcmSub;
   CameraController? _camera;
   bool _cameraStreamRunning = false;
@@ -159,6 +167,7 @@ class NativeLiveKitCallSession extends ChangeNotifier {
   bool _historyStarted = false;
   bool _tornDown = false;
   bool _connectStarted = false;
+  DateTime? _connectBeganAt;
   Object? _error;
   NativeLiveKitCallPhase _phase = NativeLiveKitCallPhase.idle;
   String _connectionState = 'idle';
@@ -187,8 +196,15 @@ class NativeLiveKitCallSession extends ChangeNotifier {
   /// Local hold: mic + camera publishing paused (Matrix/LiveKit “hold” UX).
   bool _callHeld = false;
 
-  /// Earpiece when `false` (voice default); loudspeaker when `true` (video default).
+  /// `false`: earpiece / wired / Bluetooth (OS picks output). `true`: loudspeaker.
+  /// Defaults: pure voice calls → earpiece; any video-style call → speaker.
   bool _speakerOn;
+  StreamSubscription<AudioDevicesChangedEvent>? _audioRouteDeviceSub;
+  Timer? _audioRouteRefreshDebounce;
+  String? _audioRouteLabel;
+  AudioDeviceType? _audioRoutePrimaryType;
+  /// When not on speaker: id of the active external output from [AudioSession], if any.
+  String? _audioRouteActiveOutputDeviceId;
   StreamSubscription<String>? _declineSub;
   String? _userVisibleOutcome;
 
@@ -200,6 +216,51 @@ class NativeLiveKitCallSession extends ChangeNotifier {
   bool get cameraMuted => _cameraMuted;
   bool get callHeld => _callHeld;
   bool get speakerOn => _speakerOn;
+
+  /// Short label for the current **output** route (Speaker, Earpiece, Bluetooth name, …).
+  String get audioRouteShortLabel =>
+      _audioRouteLabel ?? (_speakerOn ? 'Speaker' : 'Earpiece');
+
+  /// Icon for the audio-route control (matches [audioRouteShortLabel]).
+  IconData get audioRouteIcon {
+    if (_speakerOn) return Icons.volume_up;
+    switch (_audioRoutePrimaryType ?? AudioDeviceType.builtInEarpiece) {
+      case AudioDeviceType.bluetoothA2dp:
+      case AudioDeviceType.bluetoothSco:
+      case AudioDeviceType.bluetoothLe:
+        return Icons.headset;
+      case AudioDeviceType.wiredHeadphones:
+      case AudioDeviceType.wiredHeadset:
+      case AudioDeviceType.headsetMic:
+      case AudioDeviceType.usbAudio:
+        return Icons.headphones;
+      case AudioDeviceType.airPlay:
+        return Icons.airplay;
+      default:
+        return Icons.phone_in_talk;
+    }
+  }
+
+  /// True when the user is on a **hold phone to ear** path (not loudspeaker, not wired/BT/USB).
+  ///
+  /// We intentionally do **not** require [AudioDeviceType.builtInEarpiece]: some Android stacks
+  /// report the receiver leg as [builtInSpeaker] or leave type stale while [_speakerOn] is false,
+  /// which previously skipped proximity and left the screen fully on against the ear.
+  bool get shouldUseEarpieceProximity {
+    if (_speakerOn) return false;
+    final t = _audioRoutePrimaryType;
+    if (t == null || t == AudioDeviceType.unknown) return true;
+    return !_isExternalCallOutput(t);
+  }
+
+  String? get audioRouteActiveOutputDeviceId => _audioRouteActiveOutputDeviceId;
+
+  /// Built-in earpiece path (receiver), not speaker and not routed to a headset profile.
+  bool get audioRouteIsBuiltInEarpiecePath =>
+      !_speakerOn &&
+      (_audioRoutePrimaryType == null ||
+          _audioRoutePrimaryType == AudioDeviceType.builtInEarpiece);
+
   bool get voiceOnly => args.voiceOnly;
   bool get preferVideoCallUi => args.preferVideoCallUi;
   String get title => args.title;
@@ -213,6 +274,9 @@ class NativeLiveKitCallSession extends ChangeNotifier {
       _cameraStreamRunning;
   CameraController? get cameraController => _camera;
   int get videoRotation => _videoRotation;
+
+  /// Remote camera, decoded for the video-call shell ([args.preferVideoCallUi]).
+  ui.Image? get remoteVideoImage => _remoteVideoImage;
   String? get userVisibleOutcome => _userVisibleOutcome;
 
   /// PiP / preview while minimized: local camera preview is active.
@@ -257,6 +321,16 @@ class NativeLiveKitCallSession extends ChangeNotifier {
   bool get isFullyConnected =>
       _phase == NativeLiveKitCallPhase.connected && _error == null;
 
+  /// Elapsed time since [NativeLiveKitCallPhase.connecting] began; null when not connecting.
+  Duration? get connectingElapsed {
+    if (_phase != NativeLiveKitCallPhase.connecting) return null;
+    final start = _connectBeganAt;
+    if (start == null) return null;
+    return DateTime.now().difference(start);
+  }
+
+  bool get _shouldAbortConnect => _tornDown || _hangUpInFlight;
+
   /// Whether popping the route should tear down an in-progress or failed connect (not minimize).
   bool get shouldAbortOnRoutePop =>
       !_tornDown &&
@@ -295,7 +369,13 @@ class NativeLiveKitCallSession extends ChangeNotifier {
     try {
       await _silenceRingbackImmediately();
       if (!_tornDown) {
-        // Pop the call route first so the UI closes immediately; teardown can take hundreds of ms.
+        // Drop `record` / camera before popping the route so the OS mic/camera indicators clear
+        // immediately (route pop used to run first and left capture active during teardown).
+        try {
+          await _stopLocalMedia();
+        } catch (e, st) {
+          debugPrint('NativeLiveKitCallSession: pre-tearDown stopLocalMedia: $e\n$st');
+        }
         if (shouldPopRoute) {
           _popRootCallRouteIfPossible();
         }
@@ -373,6 +453,67 @@ class NativeLiveKitCallSession extends ChangeNotifier {
     _speakerOn = on;
     notifyListeners();
     await _applyCallAudioRoute();
+    await _refreshAudioRouteSnapshot();
+  }
+
+  /// Output picker: loudspeaker (clears any explicit Android communication device).
+  Future<void> pickCallAudioOutputSpeaker() async {
+    await setSpeakerOn(true);
+  }
+
+  /// Output picker: phone receiver / system default (clears explicit communication device).
+  Future<void> pickCallAudioOutputPhone() async {
+    await CallAudioRoute.androidClearCommunicationDevice();
+    if (_speakerOn) {
+      await setSpeakerOn(false);
+    } else {
+      await _applyCallAudioRoute();
+      await _refreshAudioRouteSnapshot();
+    }
+  }
+
+  /// Output picker: wired or Bluetooth device (Android 12+ [setCommunicationDevice] when available).
+  /// On iOS this only disables speaker override; routing follows the system for that device.
+  Future<bool> pickCallAudioOutputExternal(AudioDevice device) async {
+    await CallAudioRoute.androidClearCommunicationDevice();
+    if (_speakerOn) {
+      _speakerOn = false;
+      notifyListeners();
+    }
+    final ok = await CallAudioRoute.androidTrySetCommunicationDevice(device.id);
+    await _applyCallAudioRoute();
+    // Bounce session active so WebRTC + downlink player pick up the new communication device.
+    if (ok && Platform.isAndroid) {
+      try {
+        final session = await AudioSession.instance;
+        await session.setActive(false);
+        await session.setActive(true);
+      } catch (_) {}
+    }
+    await _refreshAudioRouteSnapshot();
+    return ok;
+  }
+
+  /// Headsets / USB audio the OS exposes for this call (deduped by id).
+  Future<List<AudioDevice>> fetchSelectableAudioOutputs() async {
+    if (kIsWeb || args.debugSkipPlatformAudioDevices) {
+      return const [];
+    }
+    try {
+      final session = await AudioSession.instance;
+      final outs = (await session.getDevices(includeInputs: false))
+          .where((d) => d.isOutput && _isExternalCallOutput(d.type))
+          .toList();
+      final seen = <String>{};
+      final list = <AudioDevice>[];
+      for (final d in outs) {
+        if (seen.add(d.id)) list.add(d);
+      }
+      list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      return list;
+    } catch (_) {
+      return const [];
+    }
   }
 
   /// Local hold: mute mic and stop camera publish/stream until resumed.
@@ -456,6 +597,144 @@ class NativeLiveKitCallSession extends ChangeNotifier {
     }
   }
 
+  bool get _shouldListenAudioRoutes =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
+  void _attachAudioRouteDeviceListener() {
+    if (kIsWeb || args.debugSkipPlatformAudioDevices || !_shouldListenAudioRoutes) {
+      return;
+    }
+    unawaited(_attachAudioRouteDeviceListenerAsync());
+  }
+
+  Future<void> _attachAudioRouteDeviceListenerAsync() async {
+    try {
+      await _audioRouteDeviceSub?.cancel();
+      final session = await AudioSession.instance;
+      _audioRouteDeviceSub = session.devicesChangedEventStream.listen((_) {
+        _scheduleAudioRouteRefreshFromDevices();
+      });
+      await _refreshAudioRouteSnapshot();
+    } catch (e, st) {
+      debugPrint('NativeLiveKitCallSession: audio route listener: $e\n$st');
+    }
+  }
+
+  void _detachAudioRouteDeviceListener() {
+    _audioRouteRefreshDebounce?.cancel();
+    _audioRouteRefreshDebounce = null;
+    final sub = _audioRouteDeviceSub;
+    _audioRouteDeviceSub = null;
+    if (sub != null) {
+      unawaited(sub.cancel());
+    }
+  }
+
+  void _scheduleAudioRouteRefreshFromDevices() {
+    if (_tornDown) return;
+    _audioRouteRefreshDebounce?.cancel();
+    _audioRouteRefreshDebounce = Timer(const Duration(milliseconds: 220), () {
+      if (_tornDown) return;
+      unawaited(_refreshAudioRouteSnapshotAndReapply());
+    });
+  }
+
+  Future<void> _refreshAudioRouteSnapshotAndReapply() async {
+    await _refreshAudioRouteSnapshot();
+    // Do not call [_applyCallAudioRoute] here: device-change churn + [getDevices] on Android
+    // enumerates *all* outputs in arbitrary order; re-applying routes was fighting WebRTC/`record`
+    // and could mute uplink or break speaker toggle. User-driven route changes go through
+    // [setSpeakerOn] / [pickCallAudioOutput*] only.
+  }
+
+  Future<void> _refreshAudioRouteSnapshot() async {
+    if (kIsWeb || args.debugSkipPlatformAudioDevices) return;
+    try {
+      final session = await AudioSession.instance;
+      final outs = (await session.getDevices(includeInputs: false))
+          .where((d) => d.isOutput)
+          .toList();
+
+      late final String nextLabel;
+      late final AudioDeviceType nextType;
+      late final String? nextActiveId;
+
+      if (_speakerOn) {
+        nextLabel = 'Speaker';
+        nextType = AudioDeviceType.builtInSpeaker;
+        nextActiveId = null;
+      } else {
+        AudioDevice? chosen;
+        if (Platform.isAndroid) {
+          try {
+            final comm = await AndroidAudioManager().getCommunicationDevice();
+            if (comm != null && comm.isSink) {
+              chosen = AudioDevice(
+                id: comm.id.toString(),
+                name: comm.productName,
+                isInput: comm.isSource,
+                isOutput: comm.isSink,
+                type: _mapAndroidNativeDeviceType(comm.type),
+              );
+            }
+          } catch (_) {}
+        }
+        if (chosen == null && defaultTargetPlatform == TargetPlatform.iOS) {
+          final ext = outs.where((d) => _isExternalCallOutput(d.type)).toList();
+          if (ext.isNotEmpty) {
+            chosen = ext.first;
+          }
+        } else if (chosen == null && Platform.isAndroid) {
+          final ext = outs.where((d) => _isExternalCallOutput(d.type)).toList();
+          final wired = ext
+              .where(
+                (d) =>
+                    d.type == AudioDeviceType.wiredHeadphones ||
+                    d.type == AudioDeviceType.wiredHeadset ||
+                    d.type == AudioDeviceType.headsetMic ||
+                    d.type == AudioDeviceType.usbAudio,
+              )
+              .toList();
+          final bt = ext
+              .where(
+                (d) =>
+                    d.type == AudioDeviceType.bluetoothA2dp ||
+                    d.type == AudioDeviceType.bluetoothSco ||
+                    d.type == AudioDeviceType.bluetoothLe,
+              )
+              .toList();
+          if (wired.isNotEmpty) {
+            chosen = wired.first;
+          } else if (bt.isNotEmpty) {
+            chosen = bt.first;
+          }
+        }
+        if (chosen != null) {
+          nextType = chosen.type;
+          nextLabel = _humanNameForOutputDevice(chosen);
+          nextActiveId = chosen.id;
+        } else {
+          nextType = AudioDeviceType.builtInEarpiece;
+          nextLabel = 'Earpiece';
+          nextActiveId = null;
+        }
+      }
+
+      if (_audioRouteLabel != nextLabel ||
+          _audioRoutePrimaryType != nextType ||
+          _audioRouteActiveOutputDeviceId != nextActiveId) {
+        _audioRouteLabel = nextLabel;
+        _audioRoutePrimaryType = nextType;
+        _audioRouteActiveOutputDeviceId = nextActiveId;
+        notifyListeners();
+      }
+    } catch (e, st) {
+      debugPrint('NativeLiveKitCallSession: audio route snapshot: $e\n$st');
+    }
+  }
+
   /// Stop ringback as fast as possible (volume + stop) so end-call feels instant.
   Future<void> _silenceRingbackImmediately() async {
     try {
@@ -478,8 +757,13 @@ class NativeLiveKitCallSession extends ChangeNotifier {
         interleaved: true,
         numChannels: _audioChannels,
         sampleRate: _audioSampleRate,
-        bufferSize: 8192,
+        // Smaller buffer + full gain: large default buffer added noticeable playout delay on
+        // phones; earpiece path can also sound very quiet if player volume stays at default.
+        bufferSize: 2048,
       );
+      try {
+        await p.setVolume(1.0);
+      } catch (_) {}
       if (_tornDown || _phase != NativeLiveKitCallPhase.connected) {
         await p.closePlayer();
         return;
@@ -487,7 +771,7 @@ class NativeLiveKitCallSession extends ChangeNotifier {
       _remoteDownlinkPlayer = p;
       p = null;
       _remoteAudioPullTimer?.cancel();
-      _remoteAudioPullTimer = Timer.periodic(const Duration(milliseconds: 10), (_) {
+      _remoteAudioPullTimer = Timer.periodic(const Duration(milliseconds: 5), (_) {
         _enqueueRemoteDownlinkPull();
       });
     } catch (e, st) {
@@ -512,7 +796,7 @@ class NativeLiveKitCallSession extends ChangeNotifier {
       return;
     }
     try {
-      final chunk = await _lk.pullRemoteAudioPcm16(maxSamples: 960);
+      final chunk = await _lk.pullRemoteAudioPcm16(maxSamples: 480);
       if (chunk.isEmpty) return;
       final bytes = Uint8List(chunk.length * 2);
       Int16List.sublistView(bytes).setRange(0, chunk.length, chunk);
@@ -520,6 +804,65 @@ class NativeLiveKitCallSession extends ChangeNotifier {
     } catch (e, st) {
       if (!_tornDown) {
         debugPrint('NativeLiveKitCallSession: remote downlink pull: $e\n$st');
+      }
+    }
+  }
+
+  void _startRemoteVideoPullIfNeeded() {
+    if (_remoteVideoPullTimer != null) return;
+    if (!args.preferVideoCallUi) return;
+    _remoteVideoPullTimer = Timer.periodic(const Duration(milliseconds: 33), (_) {
+      _enqueueRemoteVideoPull();
+    });
+  }
+
+  void _enqueueRemoteVideoPull() {
+    if (_tornDown || _phase != NativeLiveKitCallPhase.connected || !args.preferVideoCallUi) {
+      return;
+    }
+    _remoteVideoDecodeChain = _remoteVideoDecodeChain
+        .then((_) => _pullRemoteVideoFrameOnce())
+        .catchError((Object e, StackTrace st) {
+          if (!_tornDown) {
+            debugPrint('NativeLiveKitCallSession: remote video decode chain: $e\n$st');
+          }
+        });
+  }
+
+  Future<ui.Image> _decodeRgbaToUiImage(Uint8List rgba, int width, int height) {
+    final c = Completer<ui.Image>();
+    ui.decodeImageFromPixels(
+      rgba,
+      width,
+      height,
+      ui.PixelFormat.rgba8888,
+      (ui.Image image) {
+        if (!c.isCompleted) {
+          c.complete(image);
+        }
+      },
+    );
+    return c.future;
+  }
+
+  Future<void> _pullRemoteVideoFrameOnce() async {
+    if (_tornDown || _phase != NativeLiveKitCallPhase.connected) return;
+    try {
+      final frame = await _lk.tryPullRemoteVideoI420();
+      if (frame.width <= 0 || frame.height <= 0) return;
+      final rgba = tightI420ToRgba8888(frame.data, frame.width, frame.height);
+      if (rgba.isEmpty) return;
+      final img = await _decodeRgbaToUiImage(rgba, frame.width, frame.height);
+      if (_tornDown) {
+        img.dispose();
+        return;
+      }
+      _remoteVideoImage?.dispose();
+      _remoteVideoImage = img;
+      notifyListeners();
+    } catch (e, st) {
+      if (!_tornDown) {
+        debugPrint('NativeLiveKitCallSession: remote video pull/decode: $e\n$st');
       }
     }
   }
@@ -560,20 +903,24 @@ class NativeLiveKitCallSession extends ChangeNotifier {
     _lastPcmChunkAt = DateTime.now();
     _updateMicLevelFromInt16(samples);
     final pcm = List<int>.from(samples);
-    _pcmPushChain = _pcmPushChain.then((_) async {
-      if (_tornDown || _micMuted) return;
-      try {
-        await _lk.pushAudioPcm16(
-          pcm: pcm,
-          sampleRate: _audioSampleRate,
-          numChannels: _audioChannels,
-        );
-        _diagAudioPushSuccess++;
-      } catch (e, st) {
-        _diagAudioPushFailures++;
-        debugPrint('NativeLiveKitCallSession: push audio failed: $e\n$st');
-      }
-    });
+    _pcmPushChain = _pcmPushChain
+        .then((_) async {
+          if (_tornDown || _micMuted) return;
+          try {
+            await _lk.pushAudioPcm16(
+              pcm: pcm,
+              sampleRate: _audioSampleRate,
+              numChannels: _audioChannels,
+            );
+            _diagAudioPushSuccess++;
+          } catch (e, st) {
+            _diagAudioPushFailures++;
+            debugPrint('NativeLiveKitCallSession: push audio failed: $e\n$st');
+          }
+        })
+        .catchError((Object e, StackTrace st) {
+          debugPrint('NativeLiveKitCallSession: pcm push chain: $e\n$st');
+        });
   }
 
   void _updateMicLevelFromInt16(Int16List samples) {
@@ -713,6 +1060,7 @@ class NativeLiveKitCallSession extends ChangeNotifier {
     _micCaptureLevel = 0;
     _lastPcmChunkAt = null;
     _lastMicLevelNotify = null;
+    _connectBeganAt = DateTime.now();
 
     _phase = NativeLiveKitCallPhase.connecting;
     _error = null;
@@ -720,10 +1068,16 @@ class NativeLiveKitCallSession extends ChangeNotifier {
     if (!_deferCallAudioUntilAfterLiveKitConnect) {
       await _applyCallAudioRoute();
     }
+    if (_shouldAbortConnect) {
+      return;
+    }
 
     CameraController? preparedCam;
     try {
       await _prepareMicPrerequisites();
+      if (_shouldAbortConnect) {
+        return;
+      }
 
       var effectiveVoiceOnly = args.voiceOnly;
       if (!effectiveVoiceOnly) {
@@ -737,13 +1091,18 @@ class NativeLiveKitCallSession extends ChangeNotifier {
         }
       }
 
+      if (_shouldAbortConnect) {
+        await preparedCam?.dispose();
+        return;
+      }
+
       await _lk.connect(
         url: args.livekitUrl,
         token: args.accessToken,
         voiceOnly: effectiveVoiceOnly,
       );
 
-      if (_tornDown) {
+      if (_shouldAbortConnect) {
         await preparedCam?.dispose();
         try {
           await _lk.close();
@@ -758,6 +1117,13 @@ class NativeLiveKitCallSession extends ChangeNotifier {
       if (_deferCallAudioUntilAfterLiveKitConnect) {
         await _applyCallAudioRoute();
       }
+      if (_shouldAbortConnect) {
+        await preparedCam?.dispose();
+        try {
+          await _lk.close();
+        } catch (_) {}
+        return;
+      }
 
       // After LiveKit/WebRTC is up: register Matrix decline watcher. Doing this earlier
       // overlapped heavy Tokio work (event handlers + FRB stream) with `Room::connect`
@@ -769,6 +1135,14 @@ class NativeLiveKitCallSession extends ChangeNotifier {
       preparedCam = null;
       _cameraMuted = !(_videoTrackReadyInRust && _camera != null);
       _connectedAsVoiceOnly = effectiveVoiceOnly;
+
+      if (_shouldAbortConnect) {
+        await _stopLocalMedia();
+        try {
+          await _lk.close();
+        } catch (_) {}
+        return;
+      }
 
       try {
         if (!_micMuted) {
@@ -807,7 +1181,7 @@ class NativeLiveKitCallSession extends ChangeNotifier {
       // so WebRTC remote playout + voiceCommunication mode stay consistent.
       await _applyCallAudioRoute();
 
-      if (_tornDown) {
+      if (_shouldAbortConnect) {
         await _stopLocalMedia();
         try {
           await _lk.close();
@@ -816,10 +1190,14 @@ class NativeLiveKitCallSession extends ChangeNotifier {
       }
 
       _phase = NativeLiveKitCallPhase.connected;
+      _connectBeganAt = null;
       _error = null;
       notifyListeners();
 
       unawaited(_startRemoteDownlinkPlayback());
+      _startRemoteVideoPullIfNeeded();
+      _attachAudioRouteDeviceListener();
+      unawaited(_refreshAudioRouteSnapshot());
 
       if (kDebugMode) {
         _audioUplinkDiagTimer?.cancel();
@@ -890,6 +1268,7 @@ class NativeLiveKitCallSession extends ChangeNotifier {
       _error = e;
       _phase = NativeLiveKitCallPhase.idle;
       _connectStarted = false;
+      _connectBeganAt = null;
       notifyListeners();
     }
   }
@@ -933,16 +1312,15 @@ class NativeLiveKitCallSession extends ChangeNotifier {
       }
 
       final sl = s.toLowerCase();
+      // End as soon as the LiveKit room reports terminal disconnect (not `Reconnecting`).
       final roomDisconnected =
-          _phase == NativeLiveKitCallPhase.connected &&
-          _hadRemoteParticipant &&
-          sl.contains('disconnect');
+          _phase == NativeLiveKitCallPhase.connected && sl.contains('disconnect');
 
       final remoteLeftConfirmed =
           _phase == NativeLiveKitCallPhase.connected &&
           _hadRemoteParticipant &&
           n == 0 &&
-          _consecutiveRemoteZeroPolls >= 2;
+          _consecutiveRemoteZeroPolls >= 1;
 
       if (remoteLeftConfirmed || roomDisconnected) {
         _userVisibleOutcome = 'Call ended';
@@ -1026,6 +1404,12 @@ class NativeLiveKitCallSession extends ChangeNotifier {
   Future<void> _stopLocalMedia() async {
     await _stopRingback();
     await _stopRemoteDownlinkPlayback();
+    _remoteVideoPullTimer?.cancel();
+    _remoteVideoPullTimer = null;
+    await _remoteVideoDecodeChain;
+    _remoteVideoDecodeChain = Future<void>.value();
+    _remoteVideoImage?.dispose();
+    _remoteVideoImage = null;
     _pcmPushChain = Future<void>.value();
     await _pcmSub?.cancel();
     _pcmSub = null;
@@ -1040,6 +1424,8 @@ class NativeLiveKitCallSession extends ChangeNotifier {
   Future<void> _tearDown({String? historyEndReason}) async {
     if (_tornDown) return;
     _tornDown = true;
+    _connectBeganAt = null;
+    _detachAudioRouteDeviceListener();
     _audioUplinkDiagTimer?.cancel();
     _audioUplinkDiagTimer = null;
     _micLevelDecayTimer?.cancel();
@@ -1107,5 +1493,89 @@ class NativeLiveKitCallSession extends ChangeNotifier {
 
     _phase = NativeLiveKitCallPhase.ended;
     notifyListeners();
+  }
+}
+
+bool _isExternalCallOutput(AudioDeviceType t) {
+  return t != AudioDeviceType.builtInSpeaker &&
+      t != AudioDeviceType.builtInEarpiece &&
+      t != AudioDeviceType.unknown;
+}
+
+AudioDeviceType _mapAndroidNativeDeviceType(AndroidAudioDeviceType t) {
+  switch (t) {
+    case AndroidAudioDeviceType.unknown:
+      return AudioDeviceType.unknown;
+    case AndroidAudioDeviceType.builtInEarpiece:
+      return AudioDeviceType.builtInEarpiece;
+    case AndroidAudioDeviceType.builtInSpeaker:
+    case AndroidAudioDeviceType.builtInSpeakerSafe:
+      return AudioDeviceType.builtInSpeaker;
+    case AndroidAudioDeviceType.wiredHeadset:
+      return AudioDeviceType.wiredHeadset;
+    case AndroidAudioDeviceType.wiredHeadphones:
+      return AudioDeviceType.wiredHeadphones;
+    case AndroidAudioDeviceType.bluetoothSco:
+      return AudioDeviceType.bluetoothSco;
+    case AndroidAudioDeviceType.bluetoothA2dp:
+      return AudioDeviceType.bluetoothA2dp;
+    case AndroidAudioDeviceType.hdmi:
+      return AudioDeviceType.hdmi;
+    case AndroidAudioDeviceType.hdmiArc:
+      return AudioDeviceType.hdmiArc;
+    case AndroidAudioDeviceType.usbDevice:
+    case AndroidAudioDeviceType.usbAccessory:
+    case AndroidAudioDeviceType.usbHeadset:
+      return AudioDeviceType.usbAudio;
+    case AndroidAudioDeviceType.dock:
+      return AudioDeviceType.dock;
+    case AndroidAudioDeviceType.fm:
+      return AudioDeviceType.fm;
+    case AndroidAudioDeviceType.builtInMic:
+      return AudioDeviceType.builtInMic;
+    case AndroidAudioDeviceType.fmTuner:
+      return AudioDeviceType.fmTuner;
+    case AndroidAudioDeviceType.tvTuner:
+      return AudioDeviceType.tvTuner;
+    case AndroidAudioDeviceType.telephony:
+      return AudioDeviceType.telephony;
+    case AndroidAudioDeviceType.auxLine:
+      return AudioDeviceType.auxLine;
+    case AndroidAudioDeviceType.ip:
+      return AudioDeviceType.ip;
+    case AndroidAudioDeviceType.bus:
+      return AudioDeviceType.bus;
+    case AndroidAudioDeviceType.hearingAid:
+      return AudioDeviceType.hearingAid;
+    case AndroidAudioDeviceType.lineAnalog:
+      return AudioDeviceType.lineAnalog;
+    case AndroidAudioDeviceType.lineDigital:
+      return AudioDeviceType.lineDigital;
+    case AndroidAudioDeviceType.remoteSubmix:
+      return AudioDeviceType.remoteSubmix;
+  }
+}
+
+String _humanNameForOutputDevice(AudioDevice d) {
+  final n = d.name.trim();
+  if (n.isNotEmpty) {
+    return n.length > 22 ? '${n.substring(0, 21)}…' : n;
+  }
+  switch (d.type) {
+    case AudioDeviceType.bluetoothA2dp:
+    case AudioDeviceType.bluetoothSco:
+    case AudioDeviceType.bluetoothLe:
+      return 'Bluetooth';
+    case AudioDeviceType.wiredHeadphones:
+      return 'Headphones';
+    case AudioDeviceType.wiredHeadset:
+    case AudioDeviceType.headsetMic:
+      return 'Headset';
+    case AudioDeviceType.usbAudio:
+      return 'USB audio';
+    case AudioDeviceType.airPlay:
+      return 'AirPlay';
+    default:
+      return 'External';
   }
 }

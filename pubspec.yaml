@@ -31,5 +31,5 @@ dependency_overrides:
 
 hooks:
   user_defines:
-    media:
+    media_dart:
       localBuild: false

@@ -62,6 +62,12 @@ class MatrixService {
   bool _isInitialized = false;
   bool _notificationsStarted = false;
 
+  /// Directory passed to Rust [TracingFileConfiguration.path] after [initialize].
+  /// Used for diagnostics (e.g. zipping rolling log files). Null until [initialize]
+  /// has successfully called [platform.initPlatform].
+  String? _rustLogsDirectory;
+  String? get rustRollingLogsDirectory => _rustLogsDirectory;
+
   Future<Result<bool>> initialize({
     required String dbPath,
     required String logsPath,
@@ -100,6 +106,7 @@ class MatrixService {
           debugPrint(line);
         });
       }
+      _rustLogsDirectory = logsPath;
     } catch (e) {
       LoggingService.error('InitializationService', e.toString());
       return Failure(Exception(e.toString()));

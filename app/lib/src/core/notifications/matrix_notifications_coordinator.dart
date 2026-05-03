@@ -5,15 +5,19 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:matrix/firebase_options.dart';
 import 'package:matrix/src/core/domain/services/app_config.dart';
-import 'package:matrix/src/core/logging_service.dart';
 import 'package:matrix/src/core/calls/matrix_call_kit_coordinator.dart';
+import 'package:matrix/src/core/navigation/app_navigation.dart';
+import 'package:matrix/src/core/notifications/missed_call_tray_notifier.dart';
+import 'package:matrix/src/core/notifications/notification_foreground_scope.dart';
 import 'package:matrix/src/core/matrix_app_lifecycle.dart';
 import 'package:matrix/src/core/muted_chats_store.dart';
+import 'package:matrix/src/features/chat_lisitng/domain/models/chat_state.dart';
+import 'package:matrix/src/features/conversation/presentation/screens/conversation_screen.dart';
 import 'package:matrix_sdk/matrix_sdk.dart';
 
 const String _androidChannelId = 'matrix_messages';
@@ -25,6 +29,25 @@ const MethodChannel _voipMatrixPusherChannel =
 
 const String _androidCallChannelId = 'matrix_incoming_calls';
 const String _androidCallChannelName = 'Incoming calls';
+
+/// Match MatrixRTC ring staleness: do not surface tray alerts for older timeline / push rows.
+const Duration _maxTrayNotificationEventAge = Duration(seconds: 120);
+
+/// Fixed [logEvent] callsite (see `sdk/.../logger/tracing.dart`); do not vary `file`/`line`/`target`.
+const String _pushNotifyLogFile = 'matrix_notifications_coordinator.dart';
+const String _pushNotifyLogTarget = 'matrix_push_notifications';
+
+void _pushNotifyLog(LogLevel level, String message) {
+  logEvent(
+    file: _pushNotifyLogFile,
+    line: 1,
+    level: level,
+    target: _pushNotifyLogTarget,
+    message: message,
+  ).catchError((Object e, StackTrace _) {
+    debugPrint('matrix_push_notifications logEvent failed: $e');
+  });
+}
 
 /// [flutter_local_notifications] payload for taps / cold start (see [_onLocalNotificationResponse]).
 const String _incomingCallPayloadPrefix = 'matrix_call_v1:';
@@ -62,7 +85,63 @@ bool _fcmRtcNotificationIsRing(Map<String, String> data) {
       }
     } catch (_) {}
   }
+  // Identified as `m.rtc.notification` but no explicit type: treat as ring (Sygnal often
+  // omits `notification_type` on minimal payloads).
   return true;
+}
+
+int? _fcmEventOriginServerTsMs(Map<String, String> data) {
+  for (final k in const [
+    'origin_server_ts',
+    'event_ts',
+    'event_origin_server_ts',
+    'server_ts',
+    'ts',
+  ]) {
+    final v = data[k]?.trim();
+    if (v == null || v.isEmpty) continue;
+    final n = int.tryParse(v);
+    if (n != null && n > 0) {
+      return n;
+    }
+  }
+  return null;
+}
+
+bool _fcmRtcRingPayloadIsStale(Map<String, String> data) {
+  final ts = _fcmEventOriginServerTsMs(data);
+  if (ts == null) return false;
+  final now = DateTime.now().millisecondsSinceEpoch;
+  return now - ts > rtcIncomingRingMaxAge.inMilliseconds;
+}
+
+/// Device-safe FCM trace: no tokens, no full data map (room id length + key count only).
+void _logFcmRemoteMessage(String where, RemoteMessage message) {
+  final data = _fcmDataAsStrings(message.data);
+  final room = data['room_id']?.trim() ?? '';
+  var type = data['type']?.trim() ?? '';
+  if (type.isEmpty) {
+    type = data['content_msgtype']?.trim() ??
+        data['content_type']?.trim() ??
+        '';
+  }
+  final typeSnippet = type.isEmpty
+      ? '(none)'
+      : (type.length > 48 ? '${type.substring(0, 48)}…' : type);
+  final msgId = message.messageId ?? '';
+  final collapse = message.collapseKey ?? '';
+  final hasBlock = message.notification != null;
+  final rtc = _syncSummaryFromFcmData(data) != null;
+  final ts = _fcmEventOriginServerTsMs(data);
+  _pushNotifyLog(
+    LogLevel.info,
+    'FCM[$where] platform=$defaultTargetPlatform '
+    'fcmMsgId=${msgId.isEmpty ? "(empty)" : "len=${msgId.length}"} '
+    'collapseKey=${collapse.isEmpty ? "(empty)" : "len=${collapse.length}"} '
+    'apsNotificationBlock=$hasBlock dataKeys=${data.length} '
+    'roomId=${room.isEmpty ? "empty" : "len=${room.length}"} '
+    'originTsMs=${ts ?? "(none)"} type=$typeSnippet parsedRtc=$rtc',
+  );
 }
 
 /// FCM `data` values are string-like but typed as [Object] / [dynamic] in newer SDKs.
@@ -85,12 +164,25 @@ SyncNotificationSummary? _syncSummaryFromFcmData(Map<String, String> data) {
   }
   if (!_fcmDataLooksLikeRtcNotification(type)) return null;
 
-  final ring = _fcmRtcNotificationIsRing(data);
+  var ring = _fcmRtcNotificationIsRing(data);
+  final stale = ring && _fcmRtcRingPayloadIsStale(data);
+  if (stale) {
+    ring = false;
+  }
   final eventId = data['event_id']?.trim() ?? '';
   final sender = data['sender']?.trim() ?? '';
   final senderDn = data['sender_display_name']?.trim();
   final roomName = data['room_name']?.trim();
   final body = data['body']?.trim();
+
+  String bodyPreview;
+  if (body != null && body.isNotEmpty) {
+    bodyPreview = body;
+  } else if (stale) {
+    bodyPreview = 'Missed call';
+  } else {
+    bodyPreview = ring ? 'Incoming call' : 'Call';
+  }
 
   return SyncNotificationSummary(
     roomId: roomId,
@@ -100,13 +192,12 @@ SyncNotificationSummary? _syncSummaryFromFcmData(Map<String, String> data) {
     senderId: sender,
     senderDisplayName:
         senderDn != null && senderDn.isNotEmpty ? senderDn : null,
-    bodyPreview: body != null && body.isNotEmpty
-        ? body
-        : (ring ? 'Incoming call' : 'Call'),
+    bodyPreview: bodyPreview,
     isHighlight: true,
     isNoisy: ring,
     eventId: eventId,
     incomingCallRing: ring,
+    originServerTsMs: BigInt.from(_fcmEventOriginServerTsMs(data) ?? 0),
   );
 }
 
@@ -115,6 +206,7 @@ SyncNotificationSummary? _syncSummaryFromFcmData(Map<String, String> data) {
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Background isolate: must use the same Firebase options as the main app or FCM→APNs fails.
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  _logFcmRemoteMessage('onBackgroundMessage(isolate)', message);
   await MatrixNotificationsCoordinator.showRemoteMessageStatic(
     message,
     fromFirebaseBackgroundHandler: true,
@@ -217,8 +309,8 @@ class MatrixNotificationsCoordinator {
         onDidReceiveNotificationResponse: _onLocalNotificationResponse,
       );
     } catch (e) {
-      LoggingService.info(
-        'MatrixNotifications',
+      _pushNotifyLog(
+        LogLevel.warn,
         'local notification tap callback bind failed: $e',
       );
     }
@@ -229,6 +321,7 @@ class MatrixNotificationsCoordinator {
   /// so the app can show an in-app onboarding screen first.
   Future<void> _ensureLocalPluginReady() async {
     await _local.initialize(_notificationInitSettings());
+    MissedCallTrayNotifier.instance.attach(_local);
     if (_isAndroid()) {
       const channel = AndroidNotificationChannel(
         _androidChannelId,
@@ -282,8 +375,8 @@ class MatrixNotificationsCoordinator {
         badge: true,
         sound: true,
       );
-      LoggingService.info(
-        'MatrixNotifications',
+      _pushNotifyLog(
+        LogLevel.info,
         'Firebase notification permission: ${settings.authorizationStatus} '
         '(alert=${settings.alert}, badge=${settings.badge}, sound=${settings.sound})',
       );
@@ -295,8 +388,8 @@ class MatrixNotificationsCoordinator {
       try {
         await android?.requestFullScreenIntentPermission();
       } catch (e) {
-        LoggingService.info(
-          'MatrixNotifications',
+        _pushNotifyLog(
+          LogLevel.warn,
           'requestFullScreenIntentPermission: $e',
         );
       }
@@ -355,10 +448,29 @@ class MatrixNotificationsCoordinator {
         NotificationResponseType.selectedNotification) {
       return;
     }
-    if (response.payload == null) return;
-    final summary = _syncSummaryFromIncomingCallPayload(response.payload);
-    if (summary == null) return;
-    unawaited(MatrixCallKitCoordinator.instance.presentIncomingCall(summary));
+    final payload = response.payload;
+    if (payload == null) return;
+    final summary = _syncSummaryFromIncomingCallPayload(payload);
+    if (summary != null) {
+      if (summary.incomingCallRing) {
+        unawaited(
+          MatrixCallKitCoordinator.instance
+              .acceptIncomingCallFromNotificationIfPossible(summary),
+        );
+      } else {
+        unawaited(
+          _navigateToRoomForNotificationTap(
+            summary.roomId,
+            summary.roomDisplayName,
+          ),
+        );
+      }
+      return;
+    }
+    final roomId = payload.trim();
+    if (roomId.startsWith('!')) {
+      unawaited(_navigateToRoomForNotificationTap(roomId, null));
+    }
   }
 
   Future<void> _consumeColdStartNotificationLaunchTriggers() async {
@@ -368,29 +480,43 @@ class MatrixNotificationsCoordinator {
         await _handleRemoteMessageOpenedFromBackground(initial);
       }
     } catch (e) {
-      LoggingService.info('MatrixNotifications', 'getInitialMessage: $e');
+      _pushNotifyLog(LogLevel.warn, 'getInitialMessage: $e');
     }
 
     try {
       final details = await _local.getNotificationAppLaunchDetails();
       if (details?.didNotificationLaunchApp == true) {
         final payload = details?.notificationResponse?.payload;
+        _pushNotifyLog(
+          LogLevel.info,
+          'ColdStart localNotificationTap '
+          'payloadLen=${payload?.length ?? 0} '
+          'isCallPayload=${payload != null && payload.startsWith(_incomingCallPayloadPrefix)}',
+        );
         final summary = _syncSummaryFromIncomingCallPayload(payload);
         if (summary != null) {
-          await MatrixCallKitCoordinator.instance.presentIncomingCall(summary);
+          if (summary.incomingCallRing) {
+            await MatrixCallKitCoordinator.instance
+                .acceptIncomingCallFromNotificationIfPossible(summary);
+          } else {
+            await _navigateToRoomForNotificationTap(
+              summary.roomId,
+              summary.roomDisplayName,
+            );
+          }
+        } else if (payload != null && payload.trim().startsWith('!')) {
+          await _navigateToRoomForNotificationTap(payload.trim(), null);
         }
       }
     } catch (e) {
-      LoggingService.info(
-        'MatrixNotifications',
-        'getNotificationAppLaunchDetails: $e',
-      );
+      _pushNotifyLog(LogLevel.warn, 'getNotificationAppLaunchDetails: $e');
     }
   }
 
   Future<void> _handleRemoteMessageOpenedFromBackground(
     RemoteMessage message,
   ) async {
+    _logFcmRemoteMessage('openedAppOrInitial(getInitial/onMessageOpenedApp)', message);
     final data = _fcmDataAsStrings(message.data);
     await MutedChatsStore.instance.ensureLoaded();
     final roomId = data['room_id'] ?? '';
@@ -398,8 +524,25 @@ class MatrixNotificationsCoordinator {
       return;
     }
     final incoming = _syncSummaryFromFcmData(data);
-    if (incoming == null || !incoming.incomingCallRing) return;
-    await MatrixCallKitCoordinator.instance.presentIncomingCall(incoming);
+    if (incoming != null) {
+      if (incoming.incomingCallRing) {
+        await MatrixCallKitCoordinator.instance
+            .acceptIncomingCallFromNotificationIfPossible(incoming);
+      } else {
+        await _navigateToRoomForNotificationTap(
+          incoming.roomId,
+          incoming.roomDisplayName,
+        );
+      }
+      return;
+    }
+    if (roomId.trim().isNotEmpty) {
+      final title = data['room_name']?.trim();
+      await _navigateToRoomForNotificationTap(
+        roomId,
+        title != null && title.isNotEmpty ? title : null,
+      );
+    }
   }
 
   Future<void> _onSyncNotification(SyncNotificationSummary s) async {
@@ -414,9 +557,16 @@ class MatrixNotificationsCoordinator {
       unawaited(MatrixCallKitCoordinator.instance.presentIncomingCall(s));
     }
 
-    if (MatrixAppLifecycle.isForeground) {
-      if (s.kind != SyncNotificationKind.incomingCall) return;
-      if (s.incomingCallRing) return;
+    if (_isSyncNotificationTooOldForTray(s)) {
+      return;
+    }
+
+    if (MatrixAppLifecycle.isInteractiveLifecycle) {
+      if (s.kind == SyncNotificationKind.incomingCall) {
+        if (s.incomingCallRing) return;
+      } else if (NotificationForegroundScope.isRoomForegroundVisible(s.roomId)) {
+        return;
+      }
     } else if (s.kind == SyncNotificationKind.incomingCall &&
         s.incomingCallRing) {
       return;
@@ -443,6 +593,55 @@ class MatrixNotificationsCoordinator {
 
   /// Invites (and some events) have no [SyncNotificationSummary.eventId]; include kind/sender/body
   /// so different events are not merged into one dedupe key forever.
+  bool _isSyncNotificationTooOldForTray(SyncNotificationSummary s) {
+    if (s.incomingCallRing) return false;
+    if (s.originServerTsMs == BigInt.zero) return false;
+    final ts = s.originServerTsMs.toInt();
+    if (ts <= 0) return false;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return now - ts > _maxTrayNotificationEventAge.inMilliseconds;
+  }
+
+  bool _fcmPayloadTooOldForTray(Map<String, String> data) {
+    final ts = _fcmEventOriginServerTsMs(data);
+    if (ts == null || ts <= 0) return false;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return now - ts > _maxTrayNotificationEventAge.inMilliseconds;
+  }
+
+  Future<void> _waitForRootNavigator({
+    Duration timeout = const Duration(seconds: 20),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      final nav = AppNavigation.rootNavigatorKey.currentState;
+      if (nav != null && nav.mounted) return;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+  }
+
+  Future<void> _navigateToRoomForNotificationTap(
+    String roomId,
+    String? roomDisplayName,
+  ) async {
+    final id = roomId.trim();
+    if (id.isEmpty) return;
+    await _waitForRootNavigator();
+    final nav = AppNavigation.rootNavigatorKey.currentState;
+    if (nav == null || !nav.mounted) return;
+    final dn = roomDisplayName?.trim();
+    final name = (dn != null && dn.isNotEmpty) ? dn : id;
+    await nav.push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => ConversationScreen(
+          roomId: id,
+          roomName: name,
+          status: ChatRoomStatus.joined,
+        ),
+      ),
+    );
+  }
+
   String _syncSummaryDedupeKey(SyncNotificationSummary s) {
     if (s.eventId.isNotEmpty) {
       return 'sync:${s.roomId}\u0001${s.eventId}';
@@ -489,6 +688,7 @@ class MatrixNotificationsCoordinator {
           ? s.senderDisplayName!
           : s.senderId,
       'ring': s.incomingCallRing,
+      'originServerTsMs': s.originServerTsMs.toString(),
     };
     return '$_incomingCallPayloadPrefix${base64Encode(utf8.encode(jsonEncode(map)))}';
   }
@@ -508,6 +708,13 @@ class MatrixNotificationsCoordinator {
       final roomName = raw['roomName']?.toString().trim();
       final caller = raw['caller']?.toString().trim() ?? '';
       final ring = raw['ring'] == true;
+      BigInt originTs = BigInt.zero;
+      final tsRaw = raw['originServerTsMs']?.toString().trim();
+      if (tsRaw != null && tsRaw.isNotEmpty) {
+        try {
+          originTs = BigInt.parse(tsRaw);
+        } catch (_) {}
+      }
       return SyncNotificationSummary(
         roomId: roomId,
         roomDisplayName:
@@ -521,6 +728,7 @@ class MatrixNotificationsCoordinator {
         isNoisy: ring,
         eventId: eventId,
         incomingCallRing: ring,
+        originServerTsMs: originTs,
       );
     } catch (_) {
       return null;
@@ -567,6 +775,41 @@ class MatrixNotificationsCoordinator {
     );
   }
 
+  /// iOS: FCM background isolate cannot rely on CallKit UI alone; post a time-sensitive tray
+  /// alert (with the same tap payload as Android) so rings are visible when CallKit is delayed.
+  Future<void> _showIosIncomingCallFcmFallback(
+    SyncNotificationSummary incoming,
+  ) async {
+    if (!_isApple() || defaultTargetPlatform == TargetPlatform.macOS) return;
+    if (!incoming.incomingCallRing) return;
+
+    final title = incoming.roomDisplayName?.isNotEmpty == true
+        ? incoming.roomDisplayName!
+        : incoming.roomId;
+    final who = incoming.senderDisplayName?.isNotEmpty == true
+        ? incoming.senderDisplayName!
+        : incoming.senderId;
+    final body =
+        incoming.bodyPreview.isNotEmpty ? incoming.bodyPreview : 'Call from $who';
+
+    final groupKey = _notificationGroupKey(incoming.roomId);
+    final darwin = DarwinNotificationDetails(
+      threadIdentifier: groupKey,
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      interruptionLevel: InterruptionLevel.active,
+    );
+    final details = NotificationDetails(iOS: darwin);
+    await _local.show(
+      _stableAndroidIncomingCallNotificationId(incoming),
+      title,
+      body,
+      details,
+      payload: _encodeIncomingCallPayload(incoming),
+    );
+  }
+
   Future<void> _showFromRemoteMessage(
     RemoteMessage message, {
     bool fromFirebaseBackgroundHandler = false,
@@ -595,9 +838,22 @@ class MatrixNotificationsCoordinator {
         if (fromFirebaseBackgroundHandler) {
           await present;
           await _showAndroidFullScreenIncomingCallFallback(incoming);
+          await _showIosIncomingCallFcmFallback(incoming);
         } else {
           unawaited(present);
         }
+        return;
+      }
+      if (_fcmPayloadTooOldForTray(data)) {
+        return;
+      }
+    } else {
+      if (_fcmPayloadTooOldForTray(data)) {
+        return;
+      }
+      if (MatrixAppLifecycle.isInteractiveLifecycle &&
+          roomId.isNotEmpty &&
+          NotificationForegroundScope.isRoomForegroundVisible(roomId)) {
         return;
       }
     }
@@ -671,16 +927,16 @@ class MatrixNotificationsCoordinator {
     while (DateTime.now().isBefore(deadline)) {
       final apns = await FirebaseMessaging.instance.getAPNSToken();
       if (apns != null && apns.isNotEmpty) {
-        LoggingService.info(
-          'MatrixNotifications',
+        _pushNotifyLog(
+          LogLevel.info,
           'APNs token ok (len=${apns.length}), requesting FCM token…',
         );
         return;
       }
       await Future<void>.delayed(step);
     }
-    LoggingService.info(
-      'MatrixNotifications',
+    _pushNotifyLog(
+      LogLevel.warn,
       'APNs token missing after ${maxWait.inSeconds}s — check Push capability, '
       'signing profile, and notification permission; FCM may stay null.',
     );
@@ -703,21 +959,21 @@ class MatrixNotificationsCoordinator {
       _lastFcmToken = token;
       if (token != null) {
         final prefixLen = token.length > 24 ? 24 : token.length;
-        LoggingService.info(
-          'MatrixNotifications',
+        _pushNotifyLog(
+          LogLevel.info,
           'FCM token acquired (len=${token.length}, prefix=${token.substring(0, prefixLen)}…), '
           'registerPusher appId=${AppConfig.matrixPushAppId}',
         );
         await _registerPusher(c, pushKey: token);
       } else {
-        LoggingService.info(
-          'MatrixNotifications',
+        _pushNotifyLog(
+          LogLevel.warn,
           'FCM getToken is null — cannot register Matrix pusher on this device.',
         );
       }
     } catch (e) {
-      LoggingService.info(
-        'MatrixNotifications',
+      _pushNotifyLog(
+        LogLevel.warn,
         'FCM getToken failed (check Firebase config): $e',
       );
     }
@@ -756,8 +1012,8 @@ class MatrixNotificationsCoordinator {
         await _registerVoipPusher(c, pushKey: key);
       }
     } catch (e) {
-      LoggingService.info(
-        'MatrixNotifications',
+      _pushNotifyLog(
+        LogLevel.warn,
         'VoIP Sygnal push key not available yet: $e',
       );
     }
@@ -781,13 +1037,13 @@ class MatrixNotificationsCoordinator {
         appDisplayName: 'Matrix Terminal VoIP',
       );
       _lastVoipSygnalPushKey = pushKey;
-      LoggingService.info(
-        'MatrixNotifications',
+      _pushNotifyLog(
+        LogLevel.info,
         'registerPusher (VoIP/Sygnal) ok appId=$appId',
       );
     } catch (e) {
-      LoggingService.info(
-        'MatrixNotifications',
+      _pushNotifyLog(
+        LogLevel.warn,
         'registerPusher (VoIP/Sygnal) failed: $e',
       );
     }
@@ -808,7 +1064,7 @@ class MatrixNotificationsCoordinator {
     try {
       await c.unregisterPusher(pushKey: key, appId: appId);
     } catch (e) {
-      LoggingService.info('MatrixNotifications', 'unregisterPusher (VoIP): $e');
+      _pushNotifyLog(LogLevel.warn, 'unregisterPusher (VoIP): $e');
     }
     _lastVoipSygnalPushKey = null;
   }
@@ -818,8 +1074,8 @@ class MatrixNotificationsCoordinator {
     final appId = AppConfig.matrixPushAppId.trim();
     if (url.isEmpty || appId.isEmpty) {
       _matrixPushRegisteredOk = false;
-      LoggingService.info(
-        'MatrixNotifications',
+      _pushNotifyLog(
+        LogLevel.info,
         'Skipping registerPusher (set MATRIX_PUSH_GATEWAY_URL + MATRIX_PUSH_APP_ID_IOS / MATRIX_PUSH_APP_ID_ANDROID in dart-define-from-file) — keeping sync active when minimized',
       );
       return;
@@ -836,14 +1092,14 @@ class MatrixNotificationsCoordinator {
         appDisplayName: 'Matrix Terminal',
       );
       _matrixPushRegisteredOk = true;
-      LoggingService.info(
-        'MatrixNotifications',
+      _pushNotifyLog(
+        LogLevel.info,
         'registerPusher ok (background sync may pause when app minimized)',
       );
     } catch (e) {
       _matrixPushRegisteredOk = false;
-      LoggingService.info(
-        'MatrixNotifications',
+      _pushNotifyLog(
+        LogLevel.warn,
         'registerPusher failed — sync will stay running in background for notifications: $e',
       );
     }
@@ -897,7 +1153,7 @@ class MatrixNotificationsCoordinator {
       try {
         await c.unregisterPusher(pushKey: token, appId: appId);
       } catch (e) {
-        LoggingService.info('MatrixNotifications', 'unregisterPusher: $e');
+        _pushNotifyLog(LogLevel.warn, 'unregisterPusher: $e');
       }
     }
     _lastFcmToken = null;

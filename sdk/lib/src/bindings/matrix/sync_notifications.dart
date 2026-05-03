@@ -31,6 +31,9 @@ class SyncNotificationSummary {
   /// `true` when the RTC notification requests ringing (vs silent banner).
   final bool incomingCallRing;
 
+  /// Matrix `origin_server_ts` in milliseconds since epoch; `0` when unknown (e.g. stripped invite).
+  final BigInt originServerTsMs;
+
   const SyncNotificationSummary({
     required this.roomId,
     this.roomDisplayName,
@@ -42,6 +45,7 @@ class SyncNotificationSummary {
     required this.isNoisy,
     required this.eventId,
     required this.incomingCallRing,
+    required this.originServerTsMs,
   });
 
   @override
@@ -55,7 +59,8 @@ class SyncNotificationSummary {
       isHighlight.hashCode ^
       isNoisy.hashCode ^
       eventId.hashCode ^
-      incomingCallRing.hashCode;
+      incomingCallRing.hashCode ^
+      originServerTsMs.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -71,5 +76,6 @@ class SyncNotificationSummary {
           isHighlight == other.isHighlight &&
           isNoisy == other.isNoisy &&
           eventId == other.eventId &&
-          incomingCallRing == other.incomingCallRing;
+          incomingCallRing == other.incomingCallRing &&
+          originServerTsMs == other.originServerTsMs;
 }

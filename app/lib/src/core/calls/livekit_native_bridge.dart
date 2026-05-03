@@ -38,6 +38,10 @@ abstract class LiveKitNativeBridge {
 
   /// Mono PCM16 @ 48 kHz from the first remote mic (Rust ring buffer); empty if none pending.
   Future<Int16List> pullRemoteAudioPcm16({required int maxSamples});
+
+  /// Latest remote camera frame (tight I420) since the last pull; [LivekitRemoteVideoI420.width] is
+  /// zero when none is pending.
+  Future<LivekitRemoteVideoI420> tryPullRemoteVideoI420();
 }
 
 /// Default: delegates to generated [matrix_sdk] bindings.
@@ -105,6 +109,10 @@ class DefaultLiveKitNativeBridge implements LiveKitNativeBridge {
   @override
   Future<Int16List> pullRemoteAudioPcm16({required int maxSamples}) =>
       livekitSessionPullRemoteAudioPcm16(maxSamples: BigInt.from(maxSamples));
+
+  @override
+  Future<LivekitRemoteVideoI420> tryPullRemoteVideoI420() =>
+      livekitSessionTryPullRemoteVideoI420();
 }
 
 /// In-memory fake for widget/integration tests (no Rust).
@@ -186,4 +194,8 @@ class FakeLiveKitNativeBridge implements LiveKitNativeBridge {
   @override
   Future<Int16List> pullRemoteAudioPcm16({required int maxSamples}) async =>
       Int16List(0);
+
+  @override
+  Future<LivekitRemoteVideoI420> tryPullRemoteVideoI420() async =>
+      LivekitRemoteVideoI420(width: 0, height: 0, data: Uint8List(0));
 }

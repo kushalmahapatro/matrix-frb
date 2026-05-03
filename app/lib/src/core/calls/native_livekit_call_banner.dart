@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:matrix/src/core/calls/call_audio_output_sheet.dart';
 import 'package:matrix/src/core/calls/native_livekit_call_host.dart';
 import 'package:matrix/src/core/calls/native_livekit_call_session.dart';
 import 'package:matrix/src/core/calls/matrix_call_screen_route.dart';
@@ -292,7 +293,8 @@ class _CallBanner extends StatelessWidget {
                       unawaited(session.setMicrophoneMuted(!session.micMuted)),
                 ),
                 IconButton(
-                  tooltip: session.speakerOn ? 'Speaker on' : 'Earpiece',
+                  tooltip:
+                      '${session.audioRouteShortLabel} · tap: speaker toggle · long-press: list',
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
@@ -300,12 +302,13 @@ class _CallBanner extends StatelessWidget {
                     minHeight: 36,
                   ),
                   icon: Icon(
-                    session.speakerOn ? Icons.volume_up : Icons.phone_android,
+                    session.audioRouteIcon,
                     size: 22,
                     color: scheme.onPrimaryContainer.withValues(alpha: 0.9),
                   ),
                   onPressed: () =>
                       unawaited(session.setSpeakerOn(!session.speakerOn)),
+                  onLongPress: () => showCallAudioOutputSheet(context, session),
                 ),
                 if (session.preferVideoCallUi)
                   IconButton(

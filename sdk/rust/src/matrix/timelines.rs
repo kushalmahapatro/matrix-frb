@@ -21,7 +21,6 @@ use matrix_sdk_ui::Timeline as SdkTimeline;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::sync::Mutex as StdMutex;
 use tokio::sync::broadcast;
 use tokio::sync::Mutex as AsyncMutex;
@@ -33,7 +32,7 @@ use crate::frb_generated::StreamSink;
 use crate::matrix::client::format_user_id_for_display;
 use crate::matrix::rooms;
 use crate::matrix::sync_notifications::{
-    SyncNotificationKind, SyncNotificationSummary, RTC_INCOMING_RING_NOTIFY_MAX_AGE_MS,
+    rtc_ring_event_is_stale, SyncNotificationKind, SyncNotificationSummary,
 };
 use tracing::{debug, error};
 
@@ -1553,6 +1552,45 @@ pub(crate) fn summary_from_timeline_incoming_call_ring(
         is_noisy: true,
         event_id: event_id.to_owned(),
         incoming_call_ring: true,
+        origin_server_ts_ms: message.timestamp,
+    })
+}
+
+/// Stale MatrixRTC ring on the timeline → tray “missed call” instead of CallKit.
+pub(crate) fn summary_from_timeline_stale_missed_incoming_call(
+    room: &Room,
+    message: &Message,
+) -> Option<SyncNotificationSummary> {
+    if !timeline_message_is_peer_incoming_call_ring(message) {
+        return None;
+    }
+    let event_id = message.event_id.trim();
+    let room_id = room.room_id().to_string();
+    let room_display_name = room.cached_display_name().map(|n| n.to_string());
+    let sender_raw = message.sender_user_id.trim();
+    let sender_id = if sender_raw.is_empty() {
+        "Unknown".to_owned()
+    } else {
+        format_user_id_for_display(sender_raw)
+    };
+    let sender_display_name = if message.sender.trim().is_empty() {
+        None
+    } else {
+        Some(message.sender.clone())
+    };
+
+    Some(SyncNotificationSummary {
+        room_id,
+        room_display_name,
+        kind: SyncNotificationKind::IncomingCall,
+        sender_id,
+        sender_display_name,
+        body_preview: "Missed call".to_owned(),
+        is_highlight: true,
+        is_noisy: false,
+        event_id: event_id.to_owned(),
+        incoming_call_ring: false,
+        origin_server_ts_ms: message.timestamp,
     })
 }
 
@@ -1627,6 +1665,9 @@ pub(crate) async fn subscribe_to_timeline_list_loop(
 
     let (_events, mut diff_stream) = timeline.subscribe().await;
     let own = own_user_id.as_deref();
+    // First timeline diff after subscribe often replays paginated history; skip MatrixRTC tray
+    // broadcasts for that batch so opening a room does not fire stale/missed-call notifications.
+    let mut skip_rtc_broadcast_once = true;
 
     loop {
         tokio::select! {
@@ -1668,28 +1709,32 @@ pub(crate) async fn subscribe_to_timeline_list_loop(
                         .collect();
                     dedupe_stale_local_echoes(&mut messages);
                     if let Some(ref tx) = rtc_notify_tx {
-                        let now_ms = SystemTime::now()
-                            .duration_since(UNIX_EPOCH)
-                            .map(|d| d.as_millis() as u64)
-                            .unwrap_or(0);
-                        for m in &messages {
-                            let eid = m.event_id.trim();
-                            if eid.is_empty() || prev_event_ids.contains(eid) {
-                                continue;
-                            }
-                            if !timeline_message_is_peer_incoming_call_ring(m) {
-                                continue;
-                            }
-                            let stale = m.timestamp == 0
-                                || now_ms.saturating_sub(m.timestamp)
-                                    > RTC_INCOMING_RING_NOTIFY_MAX_AGE_MS;
-                            if stale {
-                                continue;
-                            }
-                            if let Some(summary) =
-                                summary_from_timeline_incoming_call_ring(&room, m)
-                            {
-                                let _ = tx.send(summary);
+                        if skip_rtc_broadcast_once {
+                            skip_rtc_broadcast_once = false;
+                        } else {
+                            for m in &messages {
+                                let eid = m.event_id.trim();
+                                if eid.is_empty() || prev_event_ids.contains(eid) {
+                                    continue;
+                                }
+                                if !timeline_message_is_peer_incoming_call_ring(m) {
+                                    continue;
+                                }
+                                let stale = m.timestamp == 0
+                                    || rtc_ring_event_is_stale(m.timestamp);
+                                if stale {
+                                    if let Some(summary) =
+                                        summary_from_timeline_stale_missed_incoming_call(&room, m)
+                                    {
+                                        let _ = tx.send(summary);
+                                    }
+                                    continue;
+                                }
+                                if let Some(summary) =
+                                    summary_from_timeline_incoming_call_ring(&room, m)
+                                {
+                                    let _ = tx.send(summary);
+                                }
                             }
                         }
                     }

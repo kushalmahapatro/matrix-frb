@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:matrix/src/core/calls/call_audio_output_sheet.dart';
 import 'package:matrix/src/core/calls/call_mic_activity_waveform.dart';
 import 'package:matrix/src/core/calls/call_proximity_controller.dart';
 import 'package:matrix/src/core/calls/native_livekit_call_host.dart';
@@ -45,13 +47,24 @@ class _NativeLiveKitCallScreenState extends State<NativeLiveKitCallScreen> {
   }
 
   void _onSession() {
+    final s = _session;
+    final cs = s?.connectionState.toLowerCase() ?? '';
+    if (s != null &&
+        s.phase == NativeLiveKitCallPhase.connected &&
+        cs.contains('disconnect')) {
+      unawaited(s.hangUp(historyEndReason: 'Disconnected'));
+    }
     unawaited(_syncCallHardware());
     if (mounted) setState(() {});
   }
 
   Future<void> _syncCallHardware() async {
     final s = _session;
-    if (s == null || s.phase != NativeLiveKitCallPhase.connected) {
+    final activeCall =
+        s != null &&
+        (s.phase == NativeLiveKitCallPhase.connected ||
+            s.phase == NativeLiveKitCallPhase.connecting);
+    if (!activeCall) {
       await _proximity.dispose();
       if (!kIsWeb) {
         try {
@@ -73,7 +86,11 @@ class _NativeLiveKitCallScreenState extends State<NativeLiveKitCallScreen> {
           await WakelockPlus.disable();
         } catch (_) {}
       }
-      await _proximity.activateEarpieceProximity();
+      if (s.shouldUseEarpieceProximity) {
+        await _proximity.activateEarpieceProximity();
+      } else {
+        await _proximity.dispose();
+      }
     }
   }
 
@@ -223,69 +240,99 @@ class _VoiceCallBody extends StatelessWidget {
 
         return ColoredBox(
           color: Colors.black,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+          child: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final bottomPad = MediaQuery.paddingOf(context).bottom;
+                const controlBarReserve = 112.0;
+                return Column(
                   children: [
-                    Icon(
-                      Icons.call,
-                      size: 88,
-                      color: scheme.onSurface.withValues(alpha: 0.65),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      status,
-                      style: TextStyle(
-                        fontFamily: MatrixTheme.fontFamily,
-                        fontSize: 18,
-                        color: scheme.onSurface.withValues(alpha: 0.9),
-                      ),
-                    ),
-                    if (!ringing) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        session.callDurationEpochStarted
-                            ? session.connectedCallDurationLabel
-                            : session.connectionState,
-                        style: TextStyle(
-                          fontFamily: MatrixTheme.fontFamily,
-                          fontSize: 12,
-                          color: scheme.onSurface.withValues(alpha: 0.5),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.fromLTRB(
+                            16,
+                            8,
+                            16,
+                            8 + bottomPad,
+                          ),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: 520,
+                              maxHeight: math.max(
+                                120,
+                                constraints.maxHeight - controlBarReserve - bottomPad,
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.call,
+                                  size: constraints.maxHeight < 360 ? 56 : 88,
+                                  color: scheme.onSurface.withValues(alpha: 0.65),
+                                ),
+                                SizedBox(height: constraints.maxHeight < 360 ? 12 : 20),
+                                Text(
+                                  status,
+                                  style: TextStyle(
+                                    fontFamily: MatrixTheme.fontFamily,
+                                    fontSize: constraints.maxHeight < 360 ? 16 : 18,
+                                    color: scheme.onSurface.withValues(alpha: 0.9),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                if (!ringing) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    session.callDurationEpochStarted
+                                        ? session.connectedCallDurationLabel
+                                        : session.connectionState,
+                                    style: TextStyle(
+                                      fontFamily: MatrixTheme.fontFamily,
+                                      fontSize: 12,
+                                      color: scheme.onSurface.withValues(alpha: 0.5),
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ] else ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Waiting for others to join…',
+                                    style: TextStyle(
+                                      fontFamily: MatrixTheme.fontFamily,
+                                      fontSize: 12,
+                                      color: scheme.onSurface.withValues(alpha: 0.5),
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(8, 20, 8, 0),
+                                  child: CallMicActivityWaveform(
+                                    level: session.micCaptureLevel,
+                                    muted: session.micMuted,
+                                    height: constraints.maxHeight < 360 ? 32 : 40,
+                                    activeColor: MatrixTheme.matrixLightGreen.withValues(
+                                      alpha: 0.9,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                    ] else ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'Waiting for others to join…',
-                        style: TextStyle(
-                          fontFamily: MatrixTheme.fontFamily,
-                          fontSize: 12,
-                          color: scheme.onSurface.withValues(alpha: 0.5),
-                        ),
-                      ),
-                    ],
+                    ),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
-                      child: CallMicActivityWaveform(
-                        level: session.micCaptureLevel,
-                        muted: session.micMuted,
-                        height: 40,
-                        activeColor: MatrixTheme.matrixLightGreen.withValues(alpha: 0.9),
-                      ),
+                      padding: EdgeInsets.fromLTRB(8, 0, 8, 12 + bottomPad),
+                      child: _CallControlBar(session: session, onHangUp: onHangUp),
                     ),
                   ],
-                ),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 32,
-                child: _CallControlBar(session: session, onHangUp: onHangUp),
-              ),
-            ],
+                );
+              },
+            ),
           ),
         );
       },
@@ -311,94 +358,121 @@ class _VideoCallBody extends StatelessWidget {
       builder: (context, _) {
         final cam = session.cameraController;
         final showLivePreview = session.hasLocalVideoPreview;
-        final selfLabel =
-            session.args.localDisplayName?.trim().isNotEmpty == true
-            ? session.args.localDisplayName!.trim()
-            : session.title;
-        final placeholderSubtitle = showLivePreview
-            ? ''
-            : (session.cameraMuted
-                  ? 'CAMERA OFF'
-                  : (session.args.voiceOnly
-                        ? 'AUDIO ONLY'
-                        : 'NO CAMERA · AUDIO ONLY'));
         final ringing =
             session.args.shouldPlayRingbackAndAloneTimeout &&
             session.remoteParticipantCount == 0;
 
+        final remote = session.remoteVideoImage;
+        final remoteLabel = session.title.trim().isNotEmpty ? session.title.trim() : 'Peer';
+
         return ColoredBox(
           color: Colors.black,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (showLivePreview && cam != null)
-                Positioned.fill(
-                  child: FittedBox(
-                    fit: BoxFit.cover,
-                    child: SizedBox(
-                      width: cam.value.previewSize?.height ?? 480,
-                      height: cam.value.previewSize?.width ?? 640,
-                      child: CameraPreview(cam),
-                    ),
-                  ),
-                )
-              else
-                Positioned.fill(
-                  child: _LocalSelfVideoPlaceholder(
-                    displayName: selfLabel,
-                    avatarMxc: session.args.localAvatarMxc,
-                    client: session.args.matrixClient,
-                    scheme: scheme,
-                    subtitle: placeholderSubtitle,
-                  ),
-                ),
-              Positioned(
-                left: 16,
-                top: 16,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    child: Text(
-                      ringing
-                          ? 'Calling…'
-                          : (session.remoteParticipantCount > 0
-                                ? (session.callDurationEpochStarted
-                                      ? session.connectedCallDurationLabel
-                                      : 'Connected')
-                                : 'Waiting…'),
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
+          child: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final bottomPad = MediaQuery.paddingOf(context).bottom;
+                final short = constraints.maxHeight < 420;
+                final waveBottom = short ? 108.0 : 120.0;
+                final pipBottom = short ? 108.0 : 124.0;
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (remote != null)
+                      Positioned.fill(
+                        child: FittedBox(
+                          fit: BoxFit.cover,
+                          child: SizedBox(
+                            width: remote.width.toDouble(),
+                            height: remote.height.toDouble(),
+                            child: RawImage(image: remote, fit: BoxFit.fill),
+                          ),
+                        ),
+                      )
+                    else
+                      Positioned.fill(
+                        child: _LocalSelfVideoPlaceholder(
+                          displayName: remoteLabel,
+                          avatarMxc: null,
+                          client: session.args.matrixClient,
+                          scheme: scheme,
+                          subtitle: ringing
+                              ? 'CALLING…'
+                              : (session.remoteParticipantCount > 0
+                                    ? 'WAITING FOR VIDEO…'
+                                    : 'WAITING…'),
+                        ),
+                      ),
+                    if (showLivePreview && cam != null)
+                      Positioned(
+                        right: 16,
+                        bottom: pipBottom + bottomPad,
+                        width: 112,
+                        height: 148,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: ColoredBox(
+                            color: Colors.black87,
+                            child: FittedBox(
+                              fit: BoxFit.cover,
+                              child: SizedBox(
+                                width: cam.value.previewSize?.height ?? 480,
+                                height: cam.value.previewSize?.width ?? 640,
+                                child: CameraPreview(cam),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    Positioned(
+                      left: 16,
+                      top: 16,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          child: Text(
+                            ringing
+                                ? 'Calling…'
+                                : (session.remoteParticipantCount > 0
+                                      ? (session.callDurationEpochStarted
+                                            ? session.connectedCallDurationLabel
+                                            : 'Connected')
+                                      : 'Waiting…'),
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: 96,
-                child: CallMicActivityWaveform(
-                  level: session.micCaptureLevel,
-                  muted: session.micMuted,
-                  height: 32,
-                  activeColor: MatrixTheme.matrixLightGreen.withValues(alpha: 0.85),
-                ),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 32,
-                child: _CallControlBar(session: session, onHangUp: onHangUp),
-              ),
-            ],
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: waveBottom + bottomPad,
+                      child: CallMicActivityWaveform(
+                        level: session.micCaptureLevel,
+                        muted: session.micMuted,
+                        height: short ? 28 : 32,
+                        activeColor: MatrixTheme.matrixLightGreen.withValues(alpha: 0.85),
+                      ),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 12 + bottomPad,
+                      child: _CallControlBar(session: session, onHangUp: onHangUp),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         );
       },
@@ -433,10 +507,11 @@ class _CallControlBar extends StatelessWidget {
             ),
             const SizedBox(width: 16),
             _RoundCallButton(
-              icon: session.speakerOn ? Icons.volume_up : Icons.phone_in_talk,
-              label: session.speakerOn ? 'Speaker' : 'Earpiece',
+              icon: session.audioRouteIcon,
+              label: session.audioRouteShortLabel,
               onPressed: () =>
                   unawaited(session.setSpeakerOn(!session.speakerOn)),
+              onLongPress: () => showCallAudioOutputSheet(context, session),
               backgroundColor: session.speakerOn
                   ? Colors.teal.shade700
                   : Colors.white24,
@@ -611,11 +686,13 @@ class _RoundCallButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     required this.backgroundColor,
+    this.onLongPress,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onPressed;
+  final VoidCallback? onLongPress;
   final Color backgroundColor;
 
   @override
@@ -629,6 +706,7 @@ class _RoundCallButton extends StatelessWidget {
           child: InkWell(
             customBorder: const CircleBorder(),
             onTap: onPressed,
+            onLongPress: onLongPress,
             child: Padding(
               padding: const EdgeInsets.all(18),
               child: Icon(icon, color: Colors.white, size: 28),

@@ -1,10 +1,26 @@
 //! Push-rule-driven sync notifications forwarded to Dart via FRB streams.
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
 /// Ignore MatrixRTC `ring` rows older than this when turning timeline history into CallKit/UI rings.
 ///
 /// Without this, opening a room (initial pagination / cache fill) replays every past
 /// `m.rtc.notification` ring in the loaded window as a new incoming call.
 pub const RTC_INCOMING_RING_NOTIFY_MAX_AGE_MS: u64 = 120_000;
+
+fn now_ms_since_epoch() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+/// True when a server `origin_server_ts` is too old to still be an active ring.
+pub(crate) fn rtc_ring_event_is_stale(origin_server_ts_ms: u64) -> bool {
+    origin_server_ts_ms == 0
+        || now_ms_since_epoch().saturating_sub(origin_server_ts_ms)
+            > RTC_INCOMING_RING_NOTIFY_MAX_AGE_MS
+}
 
 use matrix_sdk::{
     deserialized_responses::RawAnySyncOrStrippedTimelineEvent,
@@ -43,6 +59,8 @@ pub struct SyncNotificationSummary {
     pub event_id: String,
     /// `true` when the RTC notification requests ringing (vs silent banner).
     pub incoming_call_ring: bool,
+    /// Matrix `origin_server_ts` in milliseconds since epoch; `0` when unknown (e.g. stripped invite).
+    pub origin_server_ts_ms: u64,
 }
 
 /// Incoming ring from a synced timeline event (not push-rule filtered).
@@ -63,9 +81,16 @@ pub(crate) async fn summary_from_sync_rtc_notification(
         .and_then(|m| m.display_name().map(|s| s.to_owned()));
 
     let c = &ev.content;
-    let ring = matches!(c.notification_type, NotificationType::Ring);
-    let body_preview = if ring {
-        "Incoming call".to_owned()
+    let requested_ring = matches!(c.notification_type, NotificationType::Ring);
+    let ts_ms: u64 = ev.origin_server_ts.get().into();
+    let stale = requested_ring && rtc_ring_event_is_stale(ts_ms);
+    let incoming_call_ring = requested_ring && !stale;
+    let body_preview = if requested_ring {
+        if stale {
+            "Missed call".to_owned()
+        } else {
+            "Incoming call".to_owned()
+        }
     } else {
         "Call".to_owned()
     };
@@ -79,9 +104,10 @@ pub(crate) async fn summary_from_sync_rtc_notification(
         sender_display_name: sender_display_name.map(|s| format_user_id_for_display(&s)),
         body_preview,
         is_highlight: true,
-        is_noisy: ring,
+        is_noisy: incoming_call_ring,
         event_id,
-        incoming_call_ring: ring,
+        incoming_call_ring,
+        origin_server_ts_ms: ts_ms,
     })
 }
 
@@ -105,15 +131,23 @@ pub(crate) async fn summary_from_notification(
                 .flatten()
                 .and_then(|m| m.display_name().map(|s| s.to_owned()));
 
-            let (kind, body_preview, event_id, incoming_call_ring) = match &ev {
+            let (kind, body_preview, event_id, incoming_call_ring, origin_server_ts_ms) =
+                match &ev {
                 AnySyncTimelineEvent::MessageLike(ml) => {
                     let eid = ml.event_id().to_string();
+                    let ts_ms: u64 = ml.origin_server_ts().get().into();
                     if let Some(AnyMessageLikeEventContent::RtcNotification(c)) =
                         ml.original_content()
                     {
-                        let ring = matches!(c.notification_type, NotificationType::Ring);
-                        let body = if ring {
-                            "Incoming call".to_owned()
+                        let requested_ring = matches!(c.notification_type, NotificationType::Ring);
+                        let stale = requested_ring && rtc_ring_event_is_stale(ts_ms);
+                        let incoming_call_ring = requested_ring && !stale;
+                        let body = if requested_ring {
+                            if stale {
+                                "Missed call".to_owned()
+                            } else {
+                                "Incoming call".to_owned()
+                            }
                         } else {
                             "Call".to_owned()
                         };
@@ -121,7 +155,8 @@ pub(crate) async fn summary_from_notification(
                             SyncNotificationKind::IncomingCall,
                             body,
                             eid,
-                            ring,
+                            incoming_call_ring,
+                            ts_ms,
                         )
                     } else {
                         let body = ml
@@ -133,7 +168,7 @@ pub(crate) async fn summary_from_notification(
                                 _ => None,
                             })
                             .unwrap_or_else(|| "New message".to_owned());
-                        (SyncNotificationKind::Message, body, eid, false)
+                        (SyncNotificationKind::Message, body, eid, false, ts_ms)
                     }
                 }
                 _ => (
@@ -141,7 +176,14 @@ pub(crate) async fn summary_from_notification(
                     "New activity".to_owned(),
                     ev.event_id().to_string(),
                     false,
+                    ev.origin_server_ts().get().into(),
                 ),
+            };
+
+            let is_noisy_out = if matches!(kind, SyncNotificationKind::IncomingCall) {
+                incoming_call_ring
+            } else {
+                is_noisy
             };
 
             Some(SyncNotificationSummary {
@@ -153,9 +195,10 @@ pub(crate) async fn summary_from_notification(
                     .map(|s| format_user_id_for_display(&s)),
                 body_preview,
                 is_highlight,
-                is_noisy,
+                is_noisy: is_noisy_out,
                 event_id,
                 incoming_call_ring,
+                origin_server_ts_ms,
             })
         }
         RawAnySyncOrStrippedTimelineEvent::Stripped(raw) => {
@@ -179,6 +222,7 @@ pub(crate) async fn summary_from_notification(
                 is_noisy,
                 event_id: String::new(),
                 incoming_call_ring: false,
+                origin_server_ts_ms: 0,
             })
         }
     }

@@ -4,6 +4,7 @@
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
 import 'api/document_preview.dart';
+import 'api/livekit_session.dart';
 import 'api/livekit_session/imp.dart';
 import 'api/matrix_client.dart';
 import 'dart:async';
@@ -257,6 +258,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<User> dco_decode_list_user(dynamic raw);
+
+  @protected
+  LivekitRemoteVideoI420 dco_decode_livekit_remote_video_i_420(dynamic raw);
 
   @protected
   LogLevel dco_decode_log_level(dynamic raw);
@@ -636,6 +640,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<User> sse_decode_list_user(SseDeserializer deserializer);
+
+  @protected
+  LivekitRemoteVideoI420 sse_decode_livekit_remote_video_i_420(
+    SseDeserializer deserializer,
+  );
 
   @protected
   LogLevel sse_decode_log_level(SseDeserializer deserializer);
@@ -1438,6 +1447,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  void cst_api_fill_to_wire_livekit_remote_video_i_420(
+    LivekitRemoteVideoI420 apiObj,
+    wire_cst_livekit_remote_video_i_420 wireObj,
+  ) {
+    wireObj.width = cst_encode_u_32(apiObj.width);
+    wireObj.height = cst_encode_u_32(apiObj.height);
+    wireObj.data = cst_encode_list_prim_u_8_strict(apiObj.data);
+  }
+
+  @protected
   void cst_api_fill_to_wire_message(Message apiObj, wire_cst_message wireObj) {
     wireObj.event_id = cst_encode_String(apiObj.eventId);
     wireObj.transaction_id = cst_encode_String(apiObj.transactionId);
@@ -1710,6 +1729,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     wireObj.is_noisy = cst_encode_bool(apiObj.isNoisy);
     wireObj.event_id = cst_encode_String(apiObj.eventId);
     wireObj.incoming_call_ring = cst_encode_bool(apiObj.incomingCallRing);
+    wireObj.origin_server_ts_ms = cst_encode_u_64(apiObj.originServerTsMs);
   }
 
   @protected
@@ -2160,6 +2180,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_user(List<User> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_livekit_remote_video_i_420(
+    LivekitRemoteVideoI420 self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_log_level(LogLevel self, SseSerializer serializer);
@@ -5128,6 +5154,22 @@ class RustLibWire implements BaseWire {
             )
           >();
 
+  void wire__crate__api__livekit_session__livekit_remote_video_i_420_default(
+    int port_,
+  ) {
+    return _wire__crate__api__livekit_session__livekit_remote_video_i_420_default(
+      port_,
+    );
+  }
+
+  late final _wire__crate__api__livekit_session__livekit_remote_video_i_420_defaultPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
+        'frbgen_matrix_sdk_wire__crate__api__livekit_session__livekit_remote_video_i_420_default',
+      );
+  late final _wire__crate__api__livekit_session__livekit_remote_video_i_420_default =
+      _wire__crate__api__livekit_session__livekit_remote_video_i_420_defaultPtr
+          .asFunction<void Function(int)>();
+
   void wire__crate__api__livekit_session__imp__livekit_session_close(
     int port_,
   ) {
@@ -5371,6 +5413,23 @@ class RustLibWire implements BaseWire {
   late final _wire__crate__api__livekit_session__imp__livekit_session_set_microphone_muted =
       _wire__crate__api__livekit_session__imp__livekit_session_set_microphone_mutedPtr
           .asFunction<void Function(int, bool)>();
+
+  void
+  wire__crate__api__livekit_session__imp__livekit_session_try_pull_remote_video_i420(
+    int port_,
+  ) {
+    return _wire__crate__api__livekit_session__imp__livekit_session_try_pull_remote_video_i420(
+      port_,
+    );
+  }
+
+  late final _wire__crate__api__livekit_session__imp__livekit_session_try_pull_remote_video_i420Ptr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
+        'frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_try_pull_remote_video_i420',
+      );
+  late final _wire__crate__api__livekit_session__imp__livekit_session_try_pull_remote_video_i420 =
+      _wire__crate__api__livekit_session__imp__livekit_session_try_pull_remote_video_i420Ptr
+          .asFunction<void Function(int)>();
 
   void wire__crate__logger__tracing__log_event(
     int port_,
@@ -6543,6 +6602,16 @@ final class wire_cst_file_send_progress extends ffi.Struct {
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> message;
 }
 
+final class wire_cst_livekit_remote_video_i_420 extends ffi.Struct {
+  @ffi.Uint32()
+  external int width;
+
+  @ffi.Uint32()
+  external int height;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> data;
+}
+
 final class wire_cst_message_update extends ffi.Struct {
   @ffi.Int32()
   external int message_update_type;
@@ -6640,6 +6709,9 @@ final class wire_cst_sync_notification_summary extends ffi.Struct {
 
   @ffi.Bool()
   external bool incoming_call_ring;
+
+  @ffi.Uint64()
+  external int origin_server_ts_ms;
 }
 
 final class wire_cst_user_search_result extends ffi.Struct {
@@ -6648,3 +6720,5 @@ final class wire_cst_user_search_result extends ffi.Struct {
   @ffi.Bool()
   external bool limited;
 }
+
+const int RTC_INCOMING_RING_NOTIFY_MAX_AGE_MS = 120000;

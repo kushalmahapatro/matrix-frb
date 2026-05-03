@@ -41,7 +41,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueNom,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1254404172;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1533915141;
 
 // Section: executor
 
@@ -4070,6 +4070,27 @@ fn wire__crate__logger__platform__init_platform_impl(
         },
     )
 }
+fn wire__crate__api__livekit_session__livekit_remote_video_i_420_default_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::DcoCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "livekit_remote_video_i_420_default",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            move |context| {
+                transform_result_dco::<_, _, ()>((move || {
+                    let output_ok = Result::<_, ()>::Ok(
+                        crate::api::livekit_session::LivekitRemoteVideoI420::default(),
+                    )?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__livekit_session__imp__livekit_session_close_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
 ) {
@@ -4308,6 +4329,15 @@ fn wire__crate__api__livekit_session__imp__livekit_session_set_microphone_muted_
             }
         },
     )
+}
+fn wire__crate__api__livekit_session__imp__livekit_session_try_pull_remote_video_i420_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "livekit_session_try_pull_remote_video_i420", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || {  move |context| async move {
+                    transform_result_dco::<_, _, ()>((move || async move {
+                         let output_ok = Result::<_,()>::Ok(crate::api::livekit_session::imp::livekit_session_try_pull_remote_video_i420().await)?;   Ok(output_ok)
+                    })().await)
+                } })
 }
 fn wire__crate__logger__tracing__log_event_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
@@ -5184,6 +5214,20 @@ impl SseDecode for Vec<crate::matrix::user_serach::User> {
     }
 }
 
+impl SseDecode for crate::api::livekit_session::LivekitRemoteVideoI420 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_width = <u32>::sse_decode(deserializer);
+        let mut var_height = <u32>::sse_decode(deserializer);
+        let mut var_data = <Vec<u8>>::sse_decode(deserializer);
+        return crate::api::livekit_session::LivekitRemoteVideoI420 {
+            width: var_width,
+            height: var_height,
+            data: var_data,
+        };
+    }
+}
+
 impl SseDecode for crate::logger::tracing::LogLevel {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -5789,6 +5833,7 @@ impl SseDecode for crate::matrix::sync_notifications::SyncNotificationSummary {
         let mut var_isNoisy = <bool>::sse_decode(deserializer);
         let mut var_eventId = <String>::sse_decode(deserializer);
         let mut var_incomingCallRing = <bool>::sse_decode(deserializer);
+        let mut var_originServerTsMs = <u64>::sse_decode(deserializer);
         return crate::matrix::sync_notifications::SyncNotificationSummary {
             room_id: var_roomId,
             room_display_name: var_roomDisplayName,
@@ -5800,6 +5845,7 @@ impl SseDecode for crate::matrix::sync_notifications::SyncNotificationSummary {
             is_noisy: var_isNoisy,
             event_id: var_eventId,
             incoming_call_ring: var_incomingCallRing,
+            origin_server_ts_ms: var_originServerTsMs,
         };
     }
 }
@@ -6180,6 +6226,28 @@ impl flutter_rust_bridge::IntoIntoDart<crate::matrix::file_send_progress::FileSe
     for crate::matrix::file_send_progress::FileSendProgress
 {
     fn into_into_dart(self) -> crate::matrix::file_send_progress::FileSendProgress {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::livekit_session::LivekitRemoteVideoI420 {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.width.into_into_dart().into_dart(),
+            self.height.into_into_dart().into_dart(),
+            self.data.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::livekit_session::LivekitRemoteVideoI420
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::livekit_session::LivekitRemoteVideoI420>
+    for crate::api::livekit_session::LivekitRemoteVideoI420
+{
+    fn into_into_dart(self) -> crate::api::livekit_session::LivekitRemoteVideoI420 {
         self
     }
 }
@@ -6738,6 +6806,7 @@ impl flutter_rust_bridge::IntoDart for crate::matrix::sync_notifications::SyncNo
             self.is_noisy.into_into_dart().into_dart(),
             self.event_id.into_into_dart().into_dart(),
             self.incoming_call_ring.into_into_dart().into_dart(),
+            self.origin_server_ts_ms.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -7380,6 +7449,15 @@ impl SseEncode for Vec<crate::matrix::user_serach::User> {
     }
 }
 
+impl SseEncode for crate::api::livekit_session::LivekitRemoteVideoI420 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <u32>::sse_encode(self.width, serializer);
+        <u32>::sse_encode(self.height, serializer);
+        <Vec<u8>>::sse_encode(self.data, serializer);
+    }
+}
+
 impl SseEncode for crate::logger::tracing::LogLevel {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -7856,6 +7934,7 @@ impl SseEncode for crate::matrix::sync_notifications::SyncNotificationSummary {
         <bool>::sse_encode(self.is_noisy, serializer);
         <String>::sse_encode(self.event_id, serializer);
         <bool>::sse_encode(self.incoming_call_ring, serializer);
+        <u64>::sse_encode(self.origin_server_ts_ms, serializer);
     }
 }
 
@@ -8569,6 +8648,18 @@ mod io {
             vec.into_iter().map(CstDecode::cst_decode).collect()
         }
     }
+    impl CstDecode<crate::api::livekit_session::LivekitRemoteVideoI420>
+        for wire_cst_livekit_remote_video_i_420
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::livekit_session::LivekitRemoteVideoI420 {
+            crate::api::livekit_session::LivekitRemoteVideoI420 {
+                width: self.width.cst_decode(),
+                height: self.height.cst_decode(),
+                data: self.data.cst_decode(),
+            }
+        }
+    }
     impl CstDecode<crate::matrix::timelines::Message> for wire_cst_message {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> crate::matrix::timelines::Message {
@@ -8802,6 +8893,7 @@ mod io {
                 is_noisy: self.is_noisy.cst_decode(),
                 event_id: self.event_id.cst_decode(),
                 incoming_call_ring: self.incoming_call_ring.cst_decode(),
+                origin_server_ts_ms: self.origin_server_ts_ms.cst_decode(),
             }
         }
     }
@@ -8893,6 +8985,20 @@ mod io {
         }
     }
     impl Default for wire_cst_file_send_progress {
+        fn default() -> Self {
+            Self::new_with_null_ptr()
+        }
+    }
+    impl NewWithNullPtr for wire_cst_livekit_remote_video_i_420 {
+        fn new_with_null_ptr() -> Self {
+            Self {
+                width: Default::default(),
+                height: Default::default(),
+                data: core::ptr::null_mut(),
+            }
+        }
+    }
+    impl Default for wire_cst_livekit_remote_video_i_420 {
         fn default() -> Self {
             Self::new_with_null_ptr()
         }
@@ -9165,6 +9271,7 @@ mod io {
                 is_noisy: Default::default(),
                 event_id: core::ptr::null_mut(),
                 incoming_call_ring: Default::default(),
+                origin_server_ts_ms: Default::default(),
             }
         }
     }
@@ -10243,6 +10350,13 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__livekit_session__livekit_remote_video_i_420_default(
+        port_: i64,
+    ) {
+        wire__crate__api__livekit_session__livekit_remote_video_i_420_default_impl(port_)
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_close(
         port_: i64,
     ) {
@@ -10344,6 +10458,15 @@ mod io {
     ) {
         wire__crate__api__livekit_session__imp__livekit_session_set_microphone_muted_impl(
             port_, muted,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_matrix_sdk_wire__crate__api__livekit_session__imp__livekit_session_try_pull_remote_video_i420(
+        port_: i64,
+    ) {
+        wire__crate__api__livekit_session__imp__livekit_session_try_pull_remote_video_i420_impl(
+            port_,
         )
     }
 
@@ -10874,6 +10997,13 @@ media_cache_path: *mut wire_cst_list_prim_u_8_strict }
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
+    pub struct wire_cst_livekit_remote_video_i_420 {
+        width: u32,
+        height: u32,
+        data: *mut wire_cst_list_prim_u_8_strict,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
     pub struct wire_cst_message {
         event_id: *mut wire_cst_list_prim_u_8_strict,
         transaction_id: *mut wire_cst_list_prim_u_8_strict,
@@ -11056,6 +11186,7 @@ media_cache_path: *mut wire_cst_list_prim_u_8_strict }
         is_noisy: bool,
         event_id: *mut wire_cst_list_prim_u_8_strict,
         incoming_call_ring: bool,
+        origin_server_ts_ms: u64,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -11503,6 +11634,27 @@ mod web {
                 .collect()
         }
     }
+    impl CstDecode<crate::api::livekit_session::LivekitRemoteVideoI420>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::livekit_session::LivekitRemoteVideoI420 {
+            let self_ = self
+                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap();
+            assert_eq!(
+                self_.length(),
+                3,
+                "Expected 3 elements, got {}",
+                self_.length()
+            );
+            crate::api::livekit_session::LivekitRemoteVideoI420 {
+                width: self_.get(0).cst_decode(),
+                height: self_.get(1).cst_decode(),
+                data: self_.get(2).cst_decode(),
+            }
+        }
+    }
     impl CstDecode<crate::matrix::timelines::Message>
         for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
     {
@@ -11864,8 +12016,8 @@ mod web {
                 .unwrap();
             assert_eq!(
                 self_.length(),
-                10,
-                "Expected 10 elements, got {}",
+                11,
+                "Expected 11 elements, got {}",
                 self_.length()
             );
             crate::matrix::sync_notifications::SyncNotificationSummary {
@@ -11879,6 +12031,7 @@ mod web {
                 is_noisy: self_.get(7).cst_decode(),
                 event_id: self_.get(8).cst_decode(),
                 incoming_call_ring: self_.get(9).cst_decode(),
+                origin_server_ts_ms: self_.get(10).cst_decode(),
             }
         }
     }
@@ -13418,6 +13571,13 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__livekit_session__livekit_remote_video_i_420_default(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+    ) {
+        wire__crate__api__livekit_session__livekit_remote_video_i_420_default_impl(port_)
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__livekit_session__imp__livekit_session_close(
         port_: flutter_rust_bridge::for_generated::MessagePort,
     ) {
@@ -13519,6 +13679,15 @@ mod web {
     ) {
         wire__crate__api__livekit_session__imp__livekit_session_set_microphone_muted_impl(
             port_, muted,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__livekit_session__imp__livekit_session_try_pull_remote_video_i420(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+    ) {
+        wire__crate__api__livekit_session__imp__livekit_session_try_pull_remote_video_i420_impl(
+            port_,
         )
     }
 

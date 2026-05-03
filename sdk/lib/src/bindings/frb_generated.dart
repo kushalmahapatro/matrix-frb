@@ -4,6 +4,7 @@
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
 import 'api/document_preview.dart';
+import 'api/livekit_session.dart';
 import 'api/livekit_session/imp.dart';
 import 'api/matrix_client.dart';
 import 'dart:async';
@@ -77,7 +78,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => 1254404172;
+  int get rustContentHash => 1533915141;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -562,6 +563,9 @@ abstract class RustLibApi extends BaseApi {
     required bool useLightweightTokioRuntime,
   });
 
+  Future<LivekitRemoteVideoI420>
+  crateApiLivekitSessionLivekitRemoteVideoI420Default();
+
   Future<void> crateApiLivekitSessionImpLivekitSessionClose();
 
   Future<void> crateApiLivekitSessionImpLivekitSessionConnect({
@@ -602,6 +606,9 @@ abstract class RustLibApi extends BaseApi {
   Future<void> crateApiLivekitSessionImpLivekitSessionSetMicrophoneMuted({
     required bool muted,
   });
+
+  Future<LivekitRemoteVideoI420>
+  crateApiLivekitSessionImpLivekitSessionTryPullRemoteVideoI420();
 
   Future<void> crateLoggerTracingLogEvent({
     required String file,
@@ -4134,6 +4141,36 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<LivekitRemoteVideoI420>
+  crateApiLivekitSessionLivekitRemoteVideoI420Default() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          return wire
+              .wire__crate__api__livekit_session__livekit_remote_video_i_420_default(
+                port_,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_livekit_remote_video_i_420,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiLivekitSessionLivekitRemoteVideoI420DefaultConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiLivekitSessionLivekitRemoteVideoI420DefaultConstMeta =>
+      const TaskConstMeta(
+        debugName: "livekit_remote_video_i_420_default",
+        argNames: [],
+      );
+
+  @override
   Future<void> crateApiLivekitSessionImpLivekitSessionClose() {
     return handler.executeNormal(
       NormalTask(
@@ -4464,6 +4501,36 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "livekit_session_set_microphone_muted",
         argNames: ["muted"],
+      );
+
+  @override
+  Future<LivekitRemoteVideoI420>
+  crateApiLivekitSessionImpLivekitSessionTryPullRemoteVideoI420() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          return wire
+              .wire__crate__api__livekit_session__imp__livekit_session_try_pull_remote_video_i420(
+                port_,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_livekit_remote_video_i_420,
+          decodeErrorData: null,
+        ),
+        constMeta:
+            kCrateApiLivekitSessionImpLivekitSessionTryPullRemoteVideoI420ConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiLivekitSessionImpLivekitSessionTryPullRemoteVideoI420ConstMeta =>
+      const TaskConstMeta(
+        debugName: "livekit_session_try_pull_remote_video_i420",
+        argNames: [],
       );
 
   @override
@@ -5059,6 +5126,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  LivekitRemoteVideoI420 dco_decode_livekit_remote_video_i_420(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return LivekitRemoteVideoI420(
+      width: dco_decode_u_32(arr[0]),
+      height: dco_decode_u_32(arr[1]),
+      data: dco_decode_list_prim_u_8_strict(arr[2]),
+    );
+  }
+
+  @protected
   LogLevel dco_decode_log_level(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return LogLevel.values[raw as int];
@@ -5425,8 +5505,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   SyncNotificationSummary dco_decode_sync_notification_summary(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 10)
-      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
+    if (arr.length != 11)
+      throw Exception('unexpected arr length: expect 11 but see ${arr.length}');
     return SyncNotificationSummary(
       roomId: dco_decode_String(arr[0]),
       roomDisplayName: dco_decode_opt_String(arr[1]),
@@ -5438,6 +5518,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       isNoisy: dco_decode_bool(arr[7]),
       eventId: dco_decode_String(arr[8]),
       incomingCallRing: dco_decode_bool(arr[9]),
+      originServerTsMs: dco_decode_u_64(arr[10]),
     );
   }
 
@@ -6115,6 +6196,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  LivekitRemoteVideoI420 sse_decode_livekit_remote_video_i_420(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_width = sse_decode_u_32(deserializer);
+    var var_height = sse_decode_u_32(deserializer);
+    var var_data = sse_decode_list_prim_u_8_strict(deserializer);
+    return LivekitRemoteVideoI420(
+      width: var_width,
+      height: var_height,
+      data: var_data,
+    );
+  }
+
+  @protected
   LogLevel sse_decode_log_level(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_i_32(deserializer);
@@ -6657,6 +6753,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_isNoisy = sse_decode_bool(deserializer);
     var var_eventId = sse_decode_String(deserializer);
     var var_incomingCallRing = sse_decode_bool(deserializer);
+    var var_originServerTsMs = sse_decode_u_64(deserializer);
     return SyncNotificationSummary(
       roomId: var_roomId,
       roomDisplayName: var_roomDisplayName,
@@ -6668,6 +6765,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       isNoisy: var_isNoisy,
       eventId: var_eventId,
       incomingCallRing: var_incomingCallRing,
+      originServerTsMs: var_originServerTsMs,
     );
   }
 
@@ -7622,6 +7720,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_livekit_remote_video_i_420(
+    LivekitRemoteVideoI420 self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self.width, serializer);
+    sse_encode_u_32(self.height, serializer);
+    sse_encode_list_prim_u_8_strict(self.data, serializer);
+  }
+
+  @protected
   void sse_encode_log_level(LogLevel self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.index, serializer);
@@ -8027,6 +8136,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self.isNoisy, serializer);
     sse_encode_String(self.eventId, serializer);
     sse_encode_bool(self.incomingCallRing, serializer);
+    sse_encode_u_64(self.originServerTsMs, serializer);
   }
 
   @protected

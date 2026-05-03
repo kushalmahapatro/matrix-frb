@@ -224,8 +224,7 @@ class ConversationService {
       if (appThumbnailJpegPath == null || appThumbnailJpegPath.isEmpty) {
         return Failure(
           Exception(
-            'Video send requires a JPEG thumbnail for the timeline. '
-            'Thumbnail generation failed — try another clip or format.',
+            'Video preparation failed — compression or thumbnail generation did not complete. Try another clip or format.',
           ),
         );
       }
@@ -301,8 +300,7 @@ class ConversationService {
         prep?.dispose();
         return Failure(
           Exception(
-            'Video send requires a JPEG thumbnail for the timeline. '
-            'Thumbnail generation failed — try another clip or format.',
+            'Video preparation failed — compression or thumbnail generation did not complete. Try another clip or format.',
           ),
         );
       }
@@ -395,8 +393,7 @@ class ConversationService {
         prep?.dispose();
         return Failure(
           Exception(
-            'Video send requires a JPEG thumbnail for the timeline. '
-            'Thumbnail generation failed — try another clip or format.',
+            'Video preparation failed — compression or thumbnail generation did not complete. Try another clip or format.',
           ),
         );
       }

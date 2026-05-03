@@ -11,7 +11,11 @@ abstract final class CallAudioRoute {
       !kIsWeb &&
       (Platform.isIOS || Platform.isAndroid || Platform.isMacOS);
 
-  /// [speakerOn]: `false` → earpiece/receiver (typical phone ear); `true` → loudspeaker.
+  /// [speakerOn]: `false` → earpiece / wired / Bluetooth (system routing); `true` → loudspeaker.
+  ///
+  /// Always re-runs [AudioSession.configure] + [setActive] before changing the output route.
+  /// Skipping configure on toggles was observed to leave speaker / earpiece switches ineffective
+  /// after WebRTC + `record` have taken audio focus.
   static Future<void> applyForCall({required bool speakerOn}) async {
     if (!_shouldConfigureSession) return;
 
@@ -44,6 +48,11 @@ abstract final class CallAudioRoute {
             : AVAudioSessionPortOverride.none,
       );
     } else if (Platform.isAndroid) {
+      if (speakerOn) {
+        try {
+          await AndroidAudioManager().clearCommunicationDevice();
+        } catch (_) {}
+      }
       await AndroidAudioManager().setSpeakerphoneOn(speakerOn);
     }
     // macOS: category/mode is set via `configure` + `setActive`; default output device is used.
@@ -53,10 +62,38 @@ abstract final class CallAudioRoute {
     if (!_shouldConfigureSession) return;
     try {
       if (Platform.isAndroid) {
+        try {
+          await AndroidAudioManager().clearCommunicationDevice();
+        } catch (_) {}
         await AndroidAudioManager().setSpeakerphoneOn(false);
       }
       final session = await AudioSession.instance;
       await session.setActive(false);
     } catch (_) {}
+  }
+
+  /// Clears an explicit communication output (Android 12+). No-op on other platforms.
+  static Future<void> androidClearCommunicationDevice() async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    try {
+      await AndroidAudioManager().clearCommunicationDevice();
+    } catch (_) {}
+  }
+
+  /// Routes call audio to a specific communication device when supported (Android 12+).
+  /// Returns `false` if the device was not found or the API is unavailable.
+  static Future<bool> androidTrySetCommunicationDevice(String deviceIdStr) async {
+    if (kIsWeb || !Platform.isAndroid) return false;
+    final id = int.tryParse(deviceIdStr);
+    if (id == null) return false;
+    try {
+      final mgr = AndroidAudioManager();
+      final list = await mgr.getAvailableCommunicationDevices();
+      final match = list.where((d) => d.id == id).toList();
+      if (match.isEmpty) return false;
+      return await mgr.setCommunicationDevice(match.first);
+    } catch (_) {
+      return false;
+    }
   }
 }
