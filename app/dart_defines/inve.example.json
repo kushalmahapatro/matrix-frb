@@ -1,0 +1,16 @@
+{
+  "HOMESERVER": "https://matrix.example.com",
+  "PROXY_URL": "",
+  "REGISTRATION_TOKEN": "",
+  "MATRIX_PUSH_GATEWAY_URL": "https://sygnal.example.com/_matrix/push/v1/notify",
+  "MATRIX_PUSH_APP_ID_IOS": "com.example.app.ios",
+  "MATRIX_PUSH_APP_ID_ANDROID": "com.example.app.android",
+  "MATRIX_VOIP_PUSH_GATEWAY_URL": "https://sygnal.example.com/_matrix/push/v1/notify",
+  "MATRIX_VOIP_PUSH_APP_ID_IOS": "com.example.app.ios.voip",
+  "MATRIX_PAUSE_SYNC_ON_BACKGROUND": false,
+  "LIVEKIT_URL": "wss://your-project.livekit.cloud",
+  "LIVEKIT_TOKEN_API_URL": "https://token-api.example.com",
+  "LIVEKIT_TOKEN_FETCH_URL": "",
+  "LIVEKIT_DEV_ACCESS_TOKEN": "",
+  "DISABLE_NATIVE_LIVEKIT": false
+}

@@ -1,0 +1,1 @@
+enum CreateChatType { direct, group }

@@ -1,0 +1,129 @@
+name: matrix
+description: "Matrix chat Application"
+publish_to: 'none'
+version: 0.0.1+10
+
+environment:
+  sdk: ^3.10.0
+
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  graphx: ^1.0.14
+  shared_preferences: ^2.2.2
+  provider: ^6.1.1
+  logger: ^2.6.1
+  path: ^1.9.1
+  elementary: ^3.2.1
+  elementary_helper: ^1.0.3
+  result_dart: ^2.1.1
+  device_info_plus: ^9.1.2
+  
+  # local package
+  matrix_sdk:
+
+  # media-rs (`package:media` → media_flutter): thumbnails, probe, transcode for timeline video send.
+  # Must be a direct app dependency so hooks/native assets and mobile plugin registration apply to this target.
+  media:
+    git:
+      url: https://github.com/kushalmahapatro/media-rs.git
+      ref: 4a390db93e8fda2dc30c4c51296fca6dc5313540
+
+  path_provider: ^2.1.5
+  crypto: ^3.0.7
+  file_picker: ^10.3.10
+  freezed_annotation: ^3.1.0
+  media_kit: ^1.2.6
+  media_kit_video: ^2.0.1
+  media_kit_libs_video: ^1.0.7
+  pdfx: ^2.9.2
+  open_filex: ^4.7.0
+  photo_view: ^0.15.0
+  flutter_markdown: ^0.7.7+1
+  image_picker: ^1.2.1
+  camera: ^0.11.0+2
+  # 6.x pulls record_linux ≥1.3 (compatible with record_platform_interface); 5.2 + linux 0.7.2 breaks compile.
+  record: ^6.2.0
+  flutter_blurhash: ^0.9.1
+  flutter_linkify: ^6.0.0
+  linkify: ^5.0.0
+  url_launcher: ^6.3.1
+  firebase_core: ^3.10.0
+  firebase_messaging: ^15.2.0
+  flutter_local_notifications: ^18.0.1
+  just_audio: ^0.10.5
+  flutter_sound: ^9.30.0
+  desktop_multi_window: ^0.3.0
+  uuid: ^4.5.1
+  flutter_inappwebview: ^6.1.5
+  flutter_callkit_incoming: ^3.0.0
+  image: ^4.8.0
+  crop_your_image: ^2.0.0
+  connectivity_plus: ^6.1.4
+  http: ^1.2.2
+  audio_session: ^0.2.3
+  permission_handler: ^12.0.1
+  proximity_sensor: ^1.3.10
+  wakelock_plus: ^1.5.1
+  window_manager: ^0.5.1
+  package_info_plus: ^9.0.1
+  share_plus: ^12.0.2
+  archive: ^4.0.9
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  freezed: ^3.1.0
+  build_runner: ^2.5.4
+  flutter_launcher_icons: ^0.14.4
+  mocktail: ^1.0.5
+  integration_test:
+    sdk: flutter
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/branding/app_icon.png
+  image_path_android: assets/branding/app_icon.png
+  min_sdk_android: 21
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: assets/branding/app_icon.png
+  adaptive_icon_foreground_inset: 12
+  background_color_ios: "#000000"
+  web:
+    generate: true
+    image_path: assets/branding/app_icon.png
+    background_color: "#000000"
+    theme_color: "#00E676"
+  windows:
+    generate: true
+    image_path: assets/branding/app_icon.png
+    icon_size: 256
+  macos:
+    generate: true
+    image_path: assets/branding/app_icon.png
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/branding/
+  fonts:
+    - family: JetBrainsMono
+      fonts:
+        - asset: fonts/JetBrainsMono-Regular.ttf
+        - asset: fonts/JetBrainsMono-Bold.ttf
+          weight: 700
+        - asset: fonts/JetBrainsMono-Italic.ttf
+          style: italic
+        - asset: fonts/JetBrainsMono-BoldItalic.ttf
+          weight: 700
+          style: italic
+
+hooks:
+  user_defines:
+    media_dart:
+      localBuild: false

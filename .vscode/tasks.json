@@ -1,0 +1,50 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Android",
+            "type": "shell",
+            "command": "flutter",
+            "args": [
+                "build",
+                "apk",
+                "--release",
+                "--dart-define-from-file",
+                "dart_defines/inve.json",
+                "--split-per-abi",
+                "--target-platform",
+                "android-arm64",
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/app"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            }
+        },
+        {
+            "label": "iOS",
+            "type": "shell",
+            "command": "flutter",
+            "args": [
+                "build",
+                "ipa",
+                "--release",
+                "--dart-define-from-file",
+                "dart_defines/inve.json",
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/app"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            }
+        }
+    ]
+}

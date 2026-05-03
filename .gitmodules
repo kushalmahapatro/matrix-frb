@@ -1,0 +1,4 @@
+[submodule "sdk/rust/matrix-rust-sdk"]
+	path = sdk/rust/matrix-rust-sdk
+	url = https://github.com/kushalmahapatro/matrix-rust-sdk.git
+	branch = feat/dart-support-1

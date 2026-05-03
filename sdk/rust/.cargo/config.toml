@@ -1,0 +1,50 @@
+# Match Xcode / Flutter iOS (Runner uses 13.0). Without this, Cargo’s default
+# iOS min (10.0) links against SDK-built C deps (OpenSSL, SQLCipher) incorrectly
+# and fails with undefined `___chkstk_darwin`.
+[env]
+IPHONEOS_DEPLOYMENT_TARGET = "13.0"
+# cc-rs / openssl-sys expect `aarch64-linux-android-clang` on PATH; the NDK only ships
+# `aarch64-linux-android<api>-clang`. These wrappers resolve via ANDROID_NDK_HOME.
+CC_aarch64_linux_android = { value = "tool/ndk-bin/aarch64-linux-android-clang", relative = true }
+CXX_aarch64_linux_android = { value = "tool/ndk-bin/aarch64-linux-android-clang++", relative = true }
+AR_aarch64_linux_android = { value = "tool/ndk-bin/aarch64-linux-android-ar", relative = true }
+RANLIB_aarch64_linux_android = { value = "tool/ndk-bin/aarch64-linux-android-ranlib", relative = true }
+
+# Optional: faster linker on macOS (install: cargo install zld). Uncomment if you have zld.
+# [target.x86_64-apple-darwin]
+# linker = "zld"
+# [target.aarch64-apple-darwin]
+# linker = "zld"
+
+# WebRTC (LiveKit): force-load ObjC categories from static archives. Matches matrix `build.rs`
+# and fixes Simulator / macOS 26+ crashes during dylib load (livekit/rust-sdks#795).
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-ObjC"]
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "link-arg=-ObjC"]
+[target.aarch64-apple-ios]
+rustflags = ["-C", "link-arg=-ObjC"]
+[target.aarch64-apple-ios-sim]
+rustflags = ["-C", "link-arg=-ObjC"]
+[target.x86_64-apple-ios]
+rustflags = ["-C", "link-arg=-ObjC"]
+
+# Android 16 KB page size compatibility (required for Android 15+ on 16 KB devices).
+# See https://source.android.com/docs/core/architecture/16kb-page-size/16kb
+#
+# Use the NDK clang driver as the linker. Host `cc` on macOS uses Apple `ld`, which does not
+# understand GNU/lld flags (`--version-script`, etc.) and fails linking `cdylib` deps (pdfium-render).
+# Set ANDROID_NDK_HOME (e.g. ~/Library/Android/sdk/ndk/27.x). Optional: ANDROID_NDK_HOST,
+# ANDROID_NDK_API_LEVEL (default 35 for clang triple in tool/ndk-bin wrappers).
+[target.aarch64-linux-android]
+linker = "tool/android-ndk-aarch64-clang.sh"
+ar = "tool/ndk-bin/aarch64-linux-android-ar"
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
+[target.armv7-linux-androideabi]
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
+[target.x86_64-linux-android]
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
+[target.i686-linux-android]
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
+
+# Optional: use sccache for repeated builds (install sccache, set RUSTC_WRAPPER=sccache)

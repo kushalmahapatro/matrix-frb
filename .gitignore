@@ -1,47 +1,29 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
-.DS_Store
-.atom/
-.build/
-.buildlog/
-.history
-.svn/
-.swiftpm/
-migrate_working_dir/
 
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
-.idea/
-
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
+# FVM Version Cache
+.fvm/
+.cursor/
+app/.dart_tool/
+app/build/
+sdk/.dart_tool/
+sdk/build/
+app/android/keystore.properties
+app/android/app/google-services.json
+app/ios/Runner/GoogleService-Info.plist
+# Local dart-define-from-file (may contain registration token); use inve.example.json as template.
+app/dart_defines/inve.json
+app/lib/firebase_options.dart
+app/macos/Runner/GoogleService-Info.plist
+app/matrix-keystore.jks
 .dart_tool/
-.flutter-plugins
+.idea/
+build/
+.DS_Store
 .flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
-
-# Symbolication related
-app.*.symbols
-
-# Obfuscation related
-app.*.map.json
-
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
-
-**/android/app/src/main/jniLibs/
+app/.DS_Store
+app/.flutter-plugins-dependencies
+app/.metadata
+app/ios/.DS_Store
+app/lib/src/.DS_Store
+app/lib/.DS_Store
+app/macos/.DS_Store
+app/ios/.DS_Store
